@@ -12,6 +12,8 @@ interface SettingsState {
   setApiKey: (provider: 'anthropic' | 'openai', key: string) => Promise<void>
   setSelectedModel: (model: string) => void
   toggleDarkMode: () => void
+  openSettings: () => void
+  closeSettings: () => void
   toggleSettings: () => void
   toggleSidebar: () => void
 }
@@ -64,6 +66,8 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     })
   },
 
+  openSettings: () => set({ settingsOpen: true }),
+  closeSettings: () => set({ settingsOpen: false }),
   toggleSettings: () => {
     set((state) => ({ settingsOpen: !state.settingsOpen }))
   },

@@ -39,6 +39,8 @@ const api = {
       ipcRenderer.invoke('session:update-model', id, model),
     updateTitle: (id: string, title: string) =>
       ipcRenderer.invoke('session:update-title', id, title),
+    toggleFavorite: (id: string) =>
+      ipcRenderer.invoke('session:toggle-favorite', id),
     onTitleUpdated: (callback: (sessionId: string, title: string) => void) => {
       const listener = (
         _event: Electron.IpcRendererEvent,
@@ -57,6 +59,14 @@ const api = {
   },
   llm: {
     listModels: () => ipcRenderer.invoke('llm:list-models')
+  },
+  project: {
+    create: (name: string, description: string) =>
+      ipcRenderer.invoke('project:create', name, description),
+    list: () => ipcRenderer.invoke('project:list'),
+    delete: (id: string) => ipcRenderer.invoke('project:delete', id),
+    update: (id: string, name: string, description: string) =>
+      ipcRenderer.invoke('project:update', id, name, description)
   }
 }
 

@@ -15,6 +15,7 @@ export const IPC_CHANNELS = {
     DELETE: 'session:delete',
     UPDATE_MODEL: 'session:update-model',
     UPDATE_TITLE: 'session:update-title',
+    TOGGLE_FAVORITE: 'session:toggle-favorite',
     TITLE_UPDATED: 'session:title-updated'
   },
   SETTINGS: {
@@ -24,5 +25,11 @@ export const IPC_CHANNELS = {
   },
   LLM: {
     LIST_MODELS: 'llm:list-models'
+  },
+  PROJECT: {
+    CREATE: 'project:create',
+    LIST: 'project:list',
+    DELETE: 'project:delete',
+    UPDATE: 'project:update'
   }
 } as const

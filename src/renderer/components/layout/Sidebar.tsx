@@ -13,10 +13,11 @@ export function Sidebar(): React.JSX.Element {
   const updateSessionTitle = useChatStore((s) => s.updateSessionTitle)
   const openSearch = useChatStore((s) => s.openSearch)
   const openAllChats = useChatStore((s) => s.openAllChats)
+  const openProjects = useChatStore((s) => s.openProjects)
+  const toggleSessionFavorite = useChatStore((s) => s.toggleSessionFavorite)
   const streamingSessionIds = useChatStore((s) => s.streamingSessionIds)
-  const darkMode = useSettingsStore((s) => s.darkMode)
-  const toggleDarkMode = useSettingsStore((s) => s.toggleDarkMode)
-  const toggleSettings = useSettingsStore((s) => s.toggleSettings)
+  const openSettings = useSettingsStore((s) => s.openSettings)
+  const closeSettings = useSettingsStore((s) => s.closeSettings)
 
   const [menuSessionId, setMenuSessionId] = useState<string | null>(null)
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null)
@@ -25,6 +26,7 @@ export function Sidebar(): React.JSX.Element {
   const [settingsMenuAnchor, setSettingsMenuAnchor] = useState<HTMLElement | null>(null)
 
   const handleNewSession = () => {
+    closeSettings()
     deselectSession()
   }
 
@@ -48,7 +50,7 @@ export function Sidebar(): React.JSX.Element {
           <span>새 채팅</span>
         </button>
         <button
-          onClick={openSearch}
+          onClick={() => { closeSettings(); openSearch() }}
           className="flex w-full items-center gap-3 rounded-lg px-4 py-2 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800 cursor-pointer transition-colors"
         >
           <span>🔍</span>
@@ -56,10 +58,66 @@ export function Sidebar(): React.JSX.Element {
         </button>
       </div>
 
-      {/* Middle scroll area: Recent sessions */}
+      {/* Middle scroll area: Favorites + Recent sessions */}
       <div className="flex-1 overflow-y-auto px-3 py-1 space-y-0.5">
+        <button
+          onClick={() => { closeSettings(); openProjects() }}
+          className="flex w-full items-center gap-3 rounded-lg px-4 py-2 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800 cursor-pointer transition-colors"
+        >
+          <span>📁</span>
+          <span>프로젝트</span>
+        </button>
+        {sessions.some((s) => s.isFavorite) && (
+          <>
+            <div className="px-4 py-2 text-xs text-neutral-500 font-medium">즐겨찾기</div>
+            {sessions.filter((s) => s.isFavorite).map((session) => (
+              <div
+                key={session.id}
+                className={`group flex items-center justify-between rounded-lg px-3 py-2 text-sm cursor-pointer transition-colors ${
+                  session.id === currentSessionId
+                    ? 'bg-neutral-200 dark:bg-neutral-700'
+                    : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                }`}
+                onClick={() => { closeSettings(); selectSession(session.id) }}
+              >
+                {streamingSessionIds.has(session.id) && session.id !== currentSessionId && (
+                  <span className="mr-1.5 h-2 w-2 shrink-0 rounded-full bg-green-500 animate-pulse" />
+                )}
+                {editingSessionId === session.id ? (
+                  <input
+                    className="flex-1 text-sm truncate bg-transparent border border-neutral-300 dark:border-neutral-600 rounded px-1 outline-none"
+                    value={editingTitle}
+                    onChange={(e) => setEditingTitle(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                        saveTitle(session.id, session.title)
+                      } else if (e.key === 'Escape') {
+                        setEditingSessionId(null)
+                      }
+                    }}
+                    onBlur={() => saveTitle(session.id, session.title)}
+                    onClick={(e) => e.stopPropagation()}
+                    autoFocus
+                  />
+                ) : (
+                  <span className="truncate flex-1">{session.title}</span>
+                )}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setMenuSessionId(session.id)
+                    setMenuAnchor(e.currentTarget)
+                  }}
+                  className="hidden group-hover:block text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 ml-2 text-xs"
+                >
+                  ⋯
+                </button>
+              </div>
+            ))}
+          </>
+        )}
         <div className="px-4 py-2 text-xs text-neutral-500 font-medium">최근 항목</div>
-        {sessions.slice(0, 30).map((session) => (
+        {sessions.filter((s) => !s.isFavorite).slice(0, 30).map((session) => (
           <div
             key={session.id}
             className={`group flex items-center justify-between rounded-lg px-3 py-2 text-sm cursor-pointer transition-colors ${
@@ -67,7 +125,7 @@ export function Sidebar(): React.JSX.Element {
                 ? 'bg-neutral-200 dark:bg-neutral-700'
                 : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'
             }`}
-            onClick={() => selectSession(session.id)}
+            onClick={() => { closeSettings(); selectSession(session.id) }}
           >
             {streamingSessionIds.has(session.id) && session.id !== currentSessionId && (
               <span className="mr-1.5 h-2 w-2 shrink-0 rounded-full bg-green-500 animate-pulse" />
@@ -103,9 +161,9 @@ export function Sidebar(): React.JSX.Element {
             </button>
           </div>
         ))}
-        {sessions.length > 30 && (
+        {sessions.filter((s) => !s.isFavorite).length > 30 && (
           <button
-            onClick={openAllChats}
+            onClick={() => { closeSettings(); openAllChats() }}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 cursor-pointer transition-colors"
           >
             <span>💬</span>
@@ -118,6 +176,12 @@ export function Sidebar(): React.JSX.Element {
       {menuSessionId && menuAnchor && (
         <SessionContextMenu
           anchorEl={menuAnchor}
+          isFavorite={sessions.find((s) => s.id === menuSessionId)?.isFavorite ?? false}
+          onToggleFavorite={() => {
+            toggleSessionFavorite(menuSessionId)
+            setMenuSessionId(null)
+            setMenuAnchor(null)
+          }}
           onRename={() => {
             const session = sessions.find((s) => s.id === menuSessionId)
             if (session) {
@@ -143,32 +207,26 @@ export function Sidebar(): React.JSX.Element {
       {settingsMenuAnchor && (
         <SettingsMenu
           anchorEl={settingsMenuAnchor}
-          onSettings={toggleSettings}
+          onSettings={openSettings}
           onClose={() => setSettingsMenuAnchor(null)}
         />
       )}
 
-      {/* Bottom fixed area: D Chat branding */}
-      <div className="shrink-0 border-t border-neutral-200 dark:border-neutral-700 flex items-center justify-between px-4 py-3">
-        <span className="text-sm font-semibold">D Chat</span>
-        <div className="flex gap-1">
-          <button
-            onClick={toggleDarkMode}
-            className="rounded p-1.5 text-neutral-500 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
-            title={darkMode ? 'Light mode' : 'Dark mode'}
-          >
-            <span className="text-xs">{darkMode ? '☀' : '☾'}</span>
-          </button>
-          <button
-            onClick={(e) =>
-              setSettingsMenuAnchor(settingsMenuAnchor ? null : e.currentTarget)
-            }
-            className="rounded p-1.5 text-neutral-500 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
-            title="Settings"
-          >
-            <span className="text-xs">⚙</span>
-          </button>
+      {/* Bottom fixed area: Profile */}
+      <div
+        className="shrink-0 border-t border-neutral-200 dark:border-neutral-700 flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+        onClick={(e) =>
+          setSettingsMenuAnchor(settingsMenuAnchor ? null : e.currentTarget)
+        }
+      >
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#8B9A6B] text-white text-xs font-semibold">
+          DC
         </div>
+        <div className="flex flex-col min-w-0 flex-1">
+          <span className="text-sm font-semibold truncate">D Chat User</span>
+          <span className="text-xs text-neutral-500 dark:text-neutral-400">Free 요금제</span>
+        </div>
+        <span className="text-neutral-400 text-xs shrink-0">⇅</span>
       </div>
     </div>
   )

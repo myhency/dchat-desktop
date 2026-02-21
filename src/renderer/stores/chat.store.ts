@@ -12,6 +12,7 @@ export interface Session {
   id: string
   title: string
   model: string
+  isFavorite: boolean
   createdAt: string
   updatedAt: string
 }
@@ -25,6 +26,7 @@ interface ChatState {
   error: string | null
   searchOpen: boolean
   allChatsOpen: boolean
+  projectsOpen: boolean
 
   loadSessions: () => Promise<void>
   createSession: (title: string, model: string) => Promise<Session>
@@ -44,6 +46,9 @@ interface ChatState {
   closeSearch: () => void
   openAllChats: () => void
   closeAllChats: () => void
+  openProjects: () => void
+  closeProjects: () => void
+  toggleSessionFavorite: (sessionId: string) => Promise<void>
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -55,6 +60,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   error: null,
   searchOpen: false,
   allChatsOpen: false,
+  projectsOpen: false,
 
   loadSessions: async () => {
     const sessions = await window.hchat.session.list()
@@ -69,12 +75,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   deselectSession: () => {
-    set({ currentSessionId: null, messages: [], error: null, allChatsOpen: false })
+    set({ currentSessionId: null, messages: [], error: null, allChatsOpen: false, projectsOpen: false })
   },
 
   selectSession: async (id) => {
     const messages = await window.hchat.chat.getMessages(id)
-    set({ currentSessionId: id, messages, error: null, allChatsOpen: false })
+    set({ currentSessionId: id, messages, error: null, allChatsOpen: false, projectsOpen: false })
   },
 
   deleteSession: async (id) => {
@@ -199,6 +205,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
         streamingContents: rest
       }
     })
+
+    // 프론트엔드 낙관적 ID → 백엔드 DB ID 동기화
+    if (isCurrentSession) {
+      window.hchat.chat.getMessages(sessionId).then((msgs) => {
+        if (get().currentSessionId === sessionId) {
+          set({ messages: msgs })
+        }
+      })
+    }
   },
 
   setStreamError: (sessionId, error) => {
@@ -244,11 +259,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   openAllChats: () => {
-    set({ allChatsOpen: true, currentSessionId: null, messages: [], error: null })
+    set({ allChatsOpen: true, projectsOpen: false, currentSessionId: null, messages: [], error: null })
   },
 
   closeAllChats: () => {
     set({ allChatsOpen: false })
+  },
+
+  openProjects: () => {
+    set({ projectsOpen: true, allChatsOpen: false, currentSessionId: null, messages: [], error: null })
+  },
+
+  closeProjects: () => {
+    set({ projectsOpen: false })
   },
 
   updateSessionModel: async (sessionId, model) => {
@@ -256,6 +279,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set((state) => ({
       sessions: state.sessions.map((s) =>
         s.id === sessionId ? { ...s, model } : s
+      )
+    }))
+  },
+
+  toggleSessionFavorite: async (sessionId) => {
+    await window.hchat.session.toggleFavorite(sessionId)
+    set((state) => ({
+      sessions: state.sessions.map((s) =>
+        s.id === sessionId ? { ...s, isFavorite: !s.isFavorite } : s
       )
     }))
   }

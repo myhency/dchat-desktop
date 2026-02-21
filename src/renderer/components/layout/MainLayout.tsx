@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { Sidebar } from './Sidebar'
-import { SettingsPanel } from './SettingsPanel'
 import { ChatArea } from '../chat/ChatArea'
+import { SettingsScreen } from '../settings/SettingsScreen'
 import { SearchModal } from '../search/SearchModal'
 import { useChatStore } from '../../stores/chat.store'
 import { useSettingsStore } from '../../stores/settings.store'
@@ -11,7 +11,9 @@ export function MainLayout(): React.JSX.Element {
   const searchOpen = useChatStore((s) => s.searchOpen)
   const closeSearch = useChatStore((s) => s.closeSearch)
   const sidebarOpen = useSettingsStore((s) => s.sidebarOpen)
+  const settingsOpen = useSettingsStore((s) => s.settingsOpen)
   const toggleSidebar = useSettingsStore((s) => s.toggleSidebar)
+  const toggleSettings = useSettingsStore((s) => s.toggleSettings)
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -27,10 +29,14 @@ export function MainLayout(): React.JSX.Element {
         e.preventDefault()
         toggleSidebar()
       }
+      if ((e.metaKey || e.ctrlKey) && e.key === ',') {
+        e.preventDefault()
+        toggleSettings()
+      }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [openSearch, searchOpen, closeSearch, toggleSidebar])
+  }, [openSearch, searchOpen, closeSearch, toggleSidebar, toggleSettings])
 
   return (
     <div className="flex h-screen flex-col">
@@ -54,8 +60,7 @@ export function MainLayout(): React.JSX.Element {
         <div className={`${sidebarOpen ? 'w-64' : 'w-0'} overflow-hidden transition-[width] duration-200 ease-in-out`}>
           <Sidebar />
         </div>
-        <ChatArea />
-        <SettingsPanel />
+        {settingsOpen ? <SettingsScreen /> : <ChatArea />}
         <SearchModal />
       </div>
     </div>

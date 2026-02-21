@@ -2,6 +2,8 @@ import { useEffect, useRef } from 'react'
 
 interface SessionContextMenuProps {
   anchorEl: HTMLElement
+  isFavorite: boolean
+  onToggleFavorite: () => void
   onRename: () => void
   onDelete: () => void
   onClose: () => void
@@ -9,6 +11,8 @@ interface SessionContextMenuProps {
 
 export function SessionContextMenu({
   anchorEl,
+  isFavorite,
+  onToggleFavorite,
   onRename,
   onDelete,
   onClose
@@ -35,12 +39,12 @@ export function SessionContextMenu({
     >
       <button
         className="flex w-full items-center gap-2 px-3 py-1.5 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
-        onClick={onClose}
+        onClick={onToggleFavorite}
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill={isFavorite ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
         </svg>
-        즐겨찾기
+        {isFavorite ? '즐겨찾기 해제' : '즐겨찾기'}
       </button>
       <button
         className="flex w-full items-center gap-2 px-3 py-1.5 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"

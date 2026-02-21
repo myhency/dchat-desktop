@@ -16,6 +16,7 @@ export class SessionService implements ManageSessionUseCase {
       id: generateId(),
       title,
       model,
+      isFavorite: false,
       createdAt: now,
       updatedAt: now
     }
@@ -54,6 +55,16 @@ export class SessionService implements ManageSessionUseCase {
     }
     session.title = title
     session.updatedAt = new Date()
+    await this.sessionRepo.save(session)
+    return session
+  }
+
+  async toggleFavorite(id: string): Promise<Session> {
+    const session = await this.sessionRepo.findById(id)
+    if (!session) {
+      throw new Error(`Session not found: ${id}`)
+    }
+    session.isFavorite = !session.isFavorite
     await this.sessionRepo.save(session)
     return session
   }

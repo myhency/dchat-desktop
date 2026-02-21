@@ -44,5 +44,12 @@ export class SessionIpcHandler {
         return this.sessionService.updateTitle(id, title)
       }
     )
+
+    ipcMain.handle(
+      IPC_CHANNELS.SESSION.TOGGLE_FAVORITE,
+      async (_event, id: string) => {
+        return this.sessionService.toggleFavorite(id)
+      }
+    )
   }
 }

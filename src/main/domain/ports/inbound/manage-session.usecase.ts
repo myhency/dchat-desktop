@@ -7,4 +7,5 @@ export interface ManageSessionUseCase {
   delete(id: string): Promise<void>
   updateModel(id: string, model: string): Promise<Session>
   updateTitle(id: string, title: string): Promise<Session>
+  toggleFavorite(id: string): Promise<Session>
 }

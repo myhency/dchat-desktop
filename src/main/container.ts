@@ -9,17 +9,20 @@ import { getDatabase } from './adapters/outbound/persistence/sqlite/connection'
 import { SqliteMessageRepository } from './adapters/outbound/persistence/sqlite/message.repository.impl'
 import { SqliteSessionRepository } from './adapters/outbound/persistence/sqlite/session.repository.impl'
 import { SqliteSettingsRepository } from './adapters/outbound/persistence/sqlite/settings.repository.impl'
+import { SqliteProjectRepository } from './adapters/outbound/persistence/sqlite/project.repository.impl'
 import { LLMAdapterFactory } from './adapters/outbound/llm/llm-adapter.factory'
 
 // Domain Services
 import { ChatService } from './domain/services/chat.service'
 import { SessionService } from './domain/services/session.service'
 import { SettingsService } from './domain/services/settings.service'
+import { ProjectService } from './domain/services/project.service'
 
 // Inbound Adapters
 import { ChatIpcHandler } from './adapters/inbound/ipc/chat.ipc-handler'
 import { SessionIpcHandler } from './adapters/inbound/ipc/session.ipc-handler'
 import { SettingsIpcHandler } from './adapters/inbound/ipc/settings.ipc-handler'
+import { ProjectIpcHandler } from './adapters/inbound/ipc/project.ipc-handler'
 
 export interface AppContainer {
   registerIpc(getWindow: () => BrowserWindow | null): void
@@ -33,23 +36,27 @@ export function createContainer(): AppContainer {
   const messageRepo = new SqliteMessageRepository(db)
   const sessionRepo = new SqliteSessionRepository(db)
   const settingsRepo = new SqliteSettingsRepository(db)
+  const projectRepo = new SqliteProjectRepository(db)
   const llmFactory = new LLMAdapterFactory()
 
   // Domain Services
   const chatService = new ChatService(messageRepo, sessionRepo, llmFactory)
   const sessionService = new SessionService(sessionRepo, messageRepo)
   const settingsService = new SettingsService(settingsRepo)
+  const projectService = new ProjectService(projectRepo)
 
   // Inbound Adapters
   const chatIpcHandler = new ChatIpcHandler(chatService, messageRepo, chatService, chatService)
   const sessionIpcHandler = new SessionIpcHandler(sessionService)
   const settingsIpcHandler = new SettingsIpcHandler(settingsService, llmFactory)
+  const projectIpcHandler = new ProjectIpcHandler(projectService)
 
   return {
     registerIpc(getWindow: () => BrowserWindow | null): void {
       chatIpcHandler.register(getWindow)
       sessionIpcHandler.register()
       settingsIpcHandler.register()
+      projectIpcHandler.register()
     },
 
     async restoreApiKeys(): Promise<void> {
