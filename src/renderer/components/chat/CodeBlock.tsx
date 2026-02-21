@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { Check, Copy } from 'lucide-react'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneLight, oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { useSettingsStore } from '../../stores/settings.store'
@@ -27,16 +28,7 @@ export function CodeBlock({ language, code }: CodeBlockProps): React.JSX.Element
           onClick={handleCopy}
           className={`flex items-center hover:text-neutral-900 dark:hover:text-neutral-200 transition-opacity ${copied ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
         >
-          {copied ? (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M20 6L9 17L4 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          ) : (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" strokeWidth="2"/>
-              <path d="M5 15H4C2.89543 15 2 14.1046 2 13V4C2 2.89543 2.89543 2 4 2H13C14.1046 2 15 2.89543 15 4V5" stroke="currentColor" strokeWidth="2"/>
-            </svg>
-          )}
+          {copied ? <Check size={14} /> : <Copy size={14} />}
         </button>
       </div>
       {/* Code body */}

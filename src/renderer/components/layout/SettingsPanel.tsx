@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { X } from 'lucide-react'
 import { useSettingsStore } from '../../stores/settings.store'
 
 const MODELS = [
@@ -42,7 +43,7 @@ export function SettingsPanel(): React.JSX.Element | null {
             onClick={toggleSettings}
             className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200"
           >
-            ✕
+            <X size={16} />
           </button>
         </div>
 

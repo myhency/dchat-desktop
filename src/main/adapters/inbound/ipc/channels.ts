@@ -31,5 +31,8 @@ export const IPC_CHANNELS = {
     LIST: 'project:list',
     DELETE: 'project:delete',
     UPDATE: 'project:update'
+  },
+  ARTIFACT: {
+    OPEN_IN_BROWSER: 'artifact:open-in-browser'
   }
 } as const

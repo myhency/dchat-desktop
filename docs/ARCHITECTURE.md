@@ -26,25 +26,29 @@ src/
 │   ├── domain/                               # 순수 도메인 — 외부 의존성 ZERO
 │   │   ├── entities/
 │   │   │   ├── message.ts                    # { id, sessionId, role, content, createdAt }
-│   │   │   ├── session.ts                    # { id, title, model, createdAt, updatedAt }
+│   │   │   ├── session.ts                    # { id, title, model, isFavorite, createdAt, updatedAt }
+│   │   │   ├── project.ts                    # { id, name, description, createdAt, updatedAt }
 │   │   │   └── model-info.ts                 # { id, name, provider }
 │   │   ├── ports/
 │   │   │   ├── inbound/                      # 유스케이스 인터페이스
 │   │   │   │   ├── send-message.usecase.ts   # execute(sessionId, content, onChunk, signal?)
 │   │   │   │   ├── generate-title.usecase.ts # execute(sessionId)
 │   │   │   │   ├── regenerate-message.usecase.ts # regenerate(sessionId, messageId, onChunk, signal?)
-│   │   │   │   ├── manage-session.usecase.ts # create, list, getById, delete
+│   │   │   │   ├── manage-session.usecase.ts # create, list, getById, delete, toggleFavorite
+│   │   │   │   ├── manage-project.usecase.ts # create, list, delete, update
 │   │   │   │   └── manage-settings.usecase.ts# get, set, getAll
 │   │   │   └── outbound/                     # 리포지토리/게이트웨이 인터페이스
 │   │   │       ├── llm.gateway.ts            # streamChat, listModels
 │   │   │       ├── llm-gateway.resolver.ts   # getGateway(model), listAllModels()
 │   │   │       ├── message.repository.ts
 │   │   │       ├── session.repository.ts
+│   │   │       ├── project.repository.ts
 │   │   │       ├── settings.repository.ts
 │   │   │       └── file-system.gateway.ts
 │   │   └── services/                         # 도메인 서비스 (포트 구현)
 │   │       ├── chat.service.ts               # → SendMessageUseCase, RegenerateMessageUseCase, GenerateTitleUseCase
 │   │       ├── session.service.ts            # → ManageSessionUseCase
+│   │       ├── project.service.ts            # → ManageProjectUseCase
 │   │       ├── settings.service.ts           # → ManageSettingsUseCase
 │   │       └── id.ts                         # generateId()
 │   └── adapters/
@@ -52,6 +56,7 @@ src/
 │       │   ├── channels.ts                   # IPC_CHANNELS 상수 정의
 │       │   ├── chat.ipc-handler.ts
 │       │   ├── session.ipc-handler.ts
+│       │   ├── project.ipc-handler.ts
 │       │   └── settings.ipc-handler.ts
 │       └── outbound/
 │           ├── persistence/sqlite/           # SQLite 리포지토리
@@ -59,6 +64,7 @@ src/
 │           │   ├── schema.ts                 # DDL (sessions, messages, settings)
 │           │   ├── message.repository.impl.ts
 │           │   ├── session.repository.impl.ts
+│           │   ├── project.repository.impl.ts
 │           │   └── settings.repository.impl.ts
 │           ├── llm/                          # LLM 어댑터
 │           │   ├── llm-adapter.factory.ts    # → LLMGatewayResolver
@@ -75,6 +81,7 @@ src/
     ├── styles/globals.css
     ├── stores/
     │   ├── chat.store.ts                     # 세션/메시지 상태 (Zustand)
+    │   ├── project.store.ts                  # 프로젝트 CRUD 상태 (Zustand)
     │   └── settings.store.ts                 # 설정/모델 상태 (Zustand)
     ├── hooks/
     │   └── useIpc.ts                         # 스트리밍 이벤트 리스너 관리
@@ -91,13 +98,15 @@ src/
         │   └── StreamingIndicator.tsx
         ├── home/
         │   ├── HomeScreen.tsx               # 세션 미선택 시 홈 화면 (퀵 액션, 시간대 인사)
-        │   └── AllChatsScreen.tsx           # 전체 채팅 목록 페이지 (검색, 세션 리스트)
+        │   ├── AllChatsScreen.tsx           # 전체 채팅 목록 페이지 (검색, 세션 리스트)
+        │   └── ProjectsScreen.tsx           # 프로젝트 관리 페이지 (CRUD)
         ├── search/
         │   └── SearchModal.tsx              # Cmd+K 검색 모달 (세션 검색, 키보드 네비게이션)
+        ├── settings/
+        │   └── SettingsScreen.tsx           # 설정 화면 (API 키, 모델 선택, 다크모드)
         └── layout/
-            ├── MainLayout.tsx               # 글로벌 키보드 단축키 (Cmd+K)
-            ├── Sidebar.tsx
-            └── SettingsPanel.tsx
+            ├── MainLayout.tsx               # 글로벌 키보드 단축키 (Cmd+K, Cmd+,)
+            └── Sidebar.tsx
 ```
 
 ## 데이터 흐름
@@ -187,6 +196,12 @@ Preload 노출: `window.hchat` (`src/preload/index.ts`)
 | `settings:set` | `key, value` | `void` | 설정값 저장 (API 키 시 어댑터 갱신) |
 | `settings:get-all` | (없음) | `Record<string, string>` | 전체 설정 조회 |
 | `session:update-model` | `id, model` | `Session` | 세션 모델 변경 |
+| `session:update-title` | `id, title` | `Session` | 세션 제목 변경 |
+| `session:toggle-favorite` | `id` | `Session` | 세션 즐겨찾기 토글 |
+| `project:create` | `name, description` | `Project` | 프로젝트 생성 |
+| `project:list` | (없음) | `Project[]` | 프로젝트 목록 |
+| `project:delete` | `id` | `void` | 프로젝트 삭제 |
+| `project:update` | `id, name, description` | `Project` | 프로젝트 수정 |
 | `llm:list-models` | (없음) | `ModelInfo[]` | 사용 가능 모델 목록 |
 
 ### send (Main → Renderer, 단방향 이벤트)
@@ -207,6 +222,7 @@ CREATE TABLE sessions (
   id TEXT PRIMARY KEY,
   title TEXT NOT NULL,
   model TEXT NOT NULL,
+  is_favorite INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -225,7 +241,19 @@ CREATE TABLE settings (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
+
+CREATE TABLE projects (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
 ```
+
+### 마이그레이션
+
+`schema.ts`에서 `ALTER TABLE ... ADD COLUMN`을 try-catch로 감싸서 기존 DB 호환성 유지. 컬럼이 이미 있으면 무시.
 
 ### 알려진 settings 키
 
@@ -296,12 +324,16 @@ CREATE TABLE settings (
 | `streamingContent` | `string` | 스트리밍 중 누적 텍스트 |
 | `searchOpen` | `boolean` | 검색 모달 열림 상태 |
 | `allChatsOpen` | `boolean` | 전체 채팅 목록 페이지 열림 상태 |
+| `projectsOpen` | `boolean` | 프로젝트 페이지 열림 상태 |
 | `openSearch()` | action | 검색 모달 열기 |
 | `closeSearch()` | action | 검색 모달 닫기 |
-| `openAllChats()` | action | 전체 채팅 목록 열기 (`currentSessionId = null`) |
+| `openAllChats()` | action | 전체 채팅 목록 열기 (`projectsOpen = false`, `currentSessionId = null`) |
 | `closeAllChats()` | action | 전체 채팅 목록 닫기 |
-| `selectSession(id)` | action | 세션 선택 + 메시지 로드 + `allChatsOpen = false` |
-| `deselectSession()` | action | 세션 선택 해제 + `allChatsOpen = false` → HomeScreen |
+| `openProjects()` | action | 프로젝트 페이지 열기 (`allChatsOpen = false`, `currentSessionId = null`) |
+| `closeProjects()` | action | 프로젝트 페이지 닫기 |
+| `toggleSessionFavorite(id)` | action | 세션 즐겨찾기 토글 (IPC 호출 + 낙관적 업데이트) |
+| `selectSession(id)` | action | 세션 선택 + 메시지 로드 + `allChatsOpen = false`, `projectsOpen = false` |
+| `deselectSession()` | action | 세션 선택 해제 + `allChatsOpen = false`, `projectsOpen = false` → HomeScreen |
 | `createSession(title, model)` | action | 새 세션 생성 |
 | `deleteSession(id)` | action | 세션 삭제 |
 | `sendMessage(content)` | action | 메시지 전송 + 스트리밍 시작 |
@@ -314,7 +346,19 @@ CREATE TABLE settings (
 |-----------|------|------|
 | `settings` | `Record<string, string>` | 전체 설정값 |
 | `models` | `ModelInfo[]` | 사용 가능 모델 목록 |
-| `settingsOpen` | `boolean` | 설정 패널 열림 상태 |
-| `toggleSettings()` | action | 설정 패널 토글 |
+| `settingsOpen` | `boolean` | 설정 화면 열림 상태 |
+| `openSettings()` | action | 설정 화면 열기 |
+| `closeSettings()` | action | 설정 화면 닫기 |
+| `toggleSettings()` | action | 설정 화면 토글 |
 | `loadSettings()` | action | 설정 + 모델 목록 로드 |
 | `setSetting(key, value)` | action | 설정값 저장 |
+
+### project.store.ts
+
+| 필드/액션 | 타입 | 설명 |
+|-----------|------|------|
+| `projects` | `Project[]` | 전체 프로젝트 목록 |
+| `loadProjects()` | action | 프로젝트 목록 로드 |
+| `createProject(name, desc)` | action | 프로젝트 생성 |
+| `deleteProject(id)` | action | 프로젝트 삭제 |
+| `updateProject(id, name, desc)` | action | 프로젝트 수정 |

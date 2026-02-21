@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { ChevronDown, ChevronRight, ArrowLeft, Check } from 'lucide-react'
 import { useChatStore } from '../../stores/chat.store'
 import { getShortName, getDescription } from '../../lib/model-meta'
 
@@ -72,18 +73,10 @@ export function ModelSelector(): React.JSX.Element | null {
       <button
         onClick={open ? () => setOpen(false) : handleOpen}
         disabled={isStreaming}
-        className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
       >
         {getShortName(currentModel)}
-        <svg
-          className={`h-3 w-3 transition-transform ${open ? 'rotate-180' : ''}`}
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2}
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-        </svg>
+        <ChevronDown size={12} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
       {open && (
@@ -96,7 +89,7 @@ export function ModelSelector(): React.JSX.Element | null {
                   <span className="text-sm font-medium">
                     {getShortName(currentModel)}
                   </span>
-                  <span className="text-blue-500 text-sm">✓</span>
+                  <Check size={14} className="text-blue-500" />
                 </div>
                 {getDescription(currentModel) && (
                   <p className="text-xs text-neutral-400 mt-0.5">
@@ -110,19 +103,7 @@ export function ModelSelector(): React.JSX.Element | null {
                 className="w-full px-3 py-2 text-left text-sm text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 flex items-center justify-between"
               >
                 More models
-                <svg
-                  className="h-3 w-3"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M9 5l7 7-7 7"
-                  />
-                </svg>
+                <ChevronRight size={12} />
               </button>
             </>
           ) : (
@@ -131,19 +112,7 @@ export function ModelSelector(): React.JSX.Element | null {
                 onClick={() => setShowAll(false)}
                 className="w-full px-3 py-1.5 text-left text-xs text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-700 flex items-center gap-1"
               >
-                <svg
-                  className="h-3 w-3"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M15 19l-7-7 7-7"
-                  />
-                </svg>
+                <ArrowLeft size={12} />
                 Back
               </button>
               <div className="border-t border-neutral-200 dark:border-neutral-700 my-1" />
@@ -160,7 +129,7 @@ export function ModelSelector(): React.JSX.Element | null {
                     >
                       <span>{m.name}</span>
                       {m.id === currentModel && (
-                        <span className="text-blue-500 text-sm">✓</span>
+                        <Check size={14} className="text-blue-500" />
                       )}
                     </button>
                   ))}

@@ -27,6 +27,7 @@ interface ChatState {
   searchOpen: boolean
   allChatsOpen: boolean
   projectsOpen: boolean
+  artifactPanel: { code: string; title: string } | null
 
   loadSessions: () => Promise<void>
   createSession: (title: string, model: string) => Promise<Session>
@@ -48,6 +49,8 @@ interface ChatState {
   closeAllChats: () => void
   openProjects: () => void
   closeProjects: () => void
+  openArtifact: (code: string, title: string) => void
+  closeArtifact: () => void
   toggleSessionFavorite: (sessionId: string) => Promise<void>
 }
 
@@ -61,6 +64,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   searchOpen: false,
   allChatsOpen: false,
   projectsOpen: false,
+  artifactPanel: null,
 
   loadSessions: async () => {
     const sessions = await window.hchat.session.list()
@@ -75,12 +79,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   deselectSession: () => {
-    set({ currentSessionId: null, messages: [], error: null, allChatsOpen: false, projectsOpen: false })
+    set({ currentSessionId: null, messages: [], error: null, allChatsOpen: false, projectsOpen: false, artifactPanel: null })
   },
 
   selectSession: async (id) => {
     const messages = await window.hchat.chat.getMessages(id)
-    set({ currentSessionId: id, messages, error: null, allChatsOpen: false, projectsOpen: false })
+    set({ currentSessionId: id, messages, error: null, allChatsOpen: false, projectsOpen: false, artifactPanel: null })
   },
 
   deleteSession: async (id) => {
@@ -206,6 +210,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
     })
 
+    // Auto-open artifact panel for HTML code blocks
+    if (isCurrentSession && message.content) {
+      const htmlMatch = /```html\n([\s\S]*?)```/.exec(message.content)
+      if (htmlMatch) {
+        const code = htmlMatch[1].replace(/\n$/, '')
+        const title = /<title>(.*?)<\/title>/i.exec(code)?.[1] || 'HTML'
+        set({ artifactPanel: { code, title } })
+      }
+    }
+
     // 프론트엔드 낙관적 ID → 백엔드 DB ID 동기화
     if (isCurrentSession) {
       window.hchat.chat.getMessages(sessionId).then((msgs) => {
@@ -259,7 +273,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   openAllChats: () => {
-    set({ allChatsOpen: true, projectsOpen: false, currentSessionId: null, messages: [], error: null })
+    set({ allChatsOpen: true, projectsOpen: false, currentSessionId: null, messages: [], error: null, artifactPanel: null })
   },
 
   closeAllChats: () => {
@@ -267,11 +281,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   openProjects: () => {
-    set({ projectsOpen: true, allChatsOpen: false, currentSessionId: null, messages: [], error: null })
+    set({ projectsOpen: true, allChatsOpen: false, currentSessionId: null, messages: [], error: null, artifactPanel: null })
   },
 
   closeProjects: () => {
     set({ projectsOpen: false })
+  },
+
+  openArtifact: (code, title) => {
+    set({ artifactPanel: { code, title } })
+  },
+
+  closeArtifact: () => {
+    set({ artifactPanel: null })
   },
 
   updateSessionModel: async (sessionId, model) => {

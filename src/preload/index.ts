@@ -67,6 +67,10 @@ const api = {
     delete: (id: string) => ipcRenderer.invoke('project:delete', id),
     update: (id: string, name: string, description: string) =>
       ipcRenderer.invoke('project:update', id, name, description)
+  },
+  artifact: {
+    openInBrowser: (htmlContent: string) =>
+      ipcRenderer.invoke('artifact:open-in-browser', htmlContent)
   }
 }
 

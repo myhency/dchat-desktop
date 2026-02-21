@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { ArrowDown } from 'lucide-react'
 import { useChatStore } from '../../stores/chat.store'
 import { MessageBubble } from './MessageBubble'
 import { StreamingIndicator } from './StreamingIndicator'
@@ -111,7 +112,7 @@ export function MessageList(): React.JSX.Element {
         ))}
 
         {isStreaming && streamingContent && (
-          <MessageBubble role="assistant" content={streamingContent} />
+          <MessageBubble role="assistant" content={streamingContent} isStreaming />
         )}
 
         {isStreaming && !streamingContent && <StreamingIndicator />}
@@ -128,23 +129,12 @@ export function MessageList(): React.JSX.Element {
       <button
         type="button"
         onClick={scrollToBottom}
-        className={`sticky bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center justify-center w-9 h-9 rounded-full bg-white dark:bg-neutral-700 shadow-lg border border-neutral-200 dark:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-600 transition-all ${
+        className={`sticky bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center justify-center w-9 h-9 rounded-lg bg-white dark:bg-neutral-700 shadow-lg border border-neutral-200 dark:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-600 transition-all ${
           showScrollButton ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
         aria-label="Scroll to bottom"
       >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 20 20"
-          fill="currentColor"
-          className="w-4 h-4 text-neutral-600 dark:text-neutral-300"
-        >
-          <path
-            fillRule="evenodd"
-            d="M10 3a.75.75 0 0 1 .75.75v10.19l3.22-3.22a.75.75 0 1 1 1.06 1.06l-4.5 4.5a.75.75 0 0 1-1.06 0l-4.5-4.5a.75.75 0 1 1 1.06-1.06l3.22 3.22V3.75A.75.75 0 0 1 10 3Z"
-            clipRule="evenodd"
-          />
-        </svg>
+        <ArrowDown size={16} className="text-neutral-600 dark:text-neutral-300" />
       </button>
     </div>
   )

@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect, type KeyboardEvent } from 'react'
 import TextareaAutosize from 'react-textarea-autosize'
+import { Sparkles, ChevronDown, Check, ArrowUp } from 'lucide-react'
 import { useChatStore } from '../../stores/chat.store'
 import { useSettingsStore } from '../../stores/settings.store'
 import { MODEL_META, getShortName } from '../../lib/model-meta'
@@ -74,24 +75,7 @@ export function HomeScreen(): React.JSX.Element {
         {/* Greeting */}
         <div className="mb-8 text-center">
           <div className="mb-3 flex justify-center">
-            <svg
-              width="32"
-              height="32"
-              viewBox="0 0 32 32"
-              fill="none"
-              className="text-amber-400"
-            >
-              <path
-                d="M16 2l2.4 6.8L26 8l-5.6 4.8L22 20l-6-4.2L10 20l1.6-7.2L6 8l7.6.8z"
-                fill="currentColor"
-              />
-              <path
-                d="M16 0v4M16 28v4M0 16h4M28 16h4M3.5 3.5l2.8 2.8M25.7 25.7l2.8 2.8M3.5 28.5l2.8-2.8M25.7 6.3l2.8-2.8"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-              />
-            </svg>
+            <Sparkles size={32} className="text-amber-400" />
           </div>
           <h1 className="text-2xl font-semibold text-neutral-800 dark:text-neutral-100">
             {getGreeting()}
@@ -118,18 +102,10 @@ export function HomeScreen(): React.JSX.Element {
             <div ref={modelRef} className="relative">
               <button
                 onClick={() => setModelOpen((o) => !o)}
-                className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
+                className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
               >
                 {getShortName(selectedModel)}
-                <svg
-                  className={`h-3 w-3 transition-transform ${modelOpen ? 'rotate-180' : ''}`}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
+                <ChevronDown size={12} className={`transition-transform ${modelOpen ? 'rotate-180' : ''}`} />
               </button>
               {modelOpen && (
                 <div className="absolute bottom-full mb-1 right-0 z-50 min-w-[200px] rounded-lg border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 shadow-lg py-1">
@@ -144,7 +120,7 @@ export function HomeScreen(): React.JSX.Element {
                     >
                       <span>{getShortName(modelId)}</span>
                       {modelId === selectedModel && (
-                        <span className="text-blue-500 text-sm">✓</span>
+                        <Check size={14} className="text-blue-500" />
                       )}
                     </button>
                   ))}
@@ -158,15 +134,7 @@ export function HomeScreen(): React.JSX.Element {
               onClick={handleSubmit}
               disabled={!value.trim()}
             >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path
-                  d="M8 12V4M8 4L4 8M8 4L12 8"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
+              <ArrowUp size={16} />
             </button>
             </div>
           </div>
@@ -178,7 +146,7 @@ export function HomeScreen(): React.JSX.Element {
             <button
               key={action.label}
               onClick={() => handleQuickAction(action.prompt)}
-              className="rounded-full border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-4 py-2 text-sm text-neutral-600 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors"
+              className="rounded-lg border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-4 py-2 text-sm text-neutral-600 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors"
             >
               {action.label}
             </button>

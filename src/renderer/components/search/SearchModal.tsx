@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { Search, X, MessageSquare, CornerDownLeft } from 'lucide-react'
 import { useChatStore } from '../../stores/chat.store'
 import { formatRelativeTime } from '../../lib/time'
 
@@ -90,7 +91,7 @@ export function SearchModal(): React.JSX.Element | null {
       >
         {/* Search Header */}
         <div className="flex items-center gap-2 border-b border-neutral-200 dark:border-neutral-700 px-4 py-3">
-          <span className="text-neutral-400 text-sm">🔍</span>
+          <Search size={16} className="text-neutral-400" />
           <input
             ref={inputRef}
             type="text"
@@ -103,9 +104,9 @@ export function SearchModal(): React.JSX.Element | null {
           {query && (
             <button
               onClick={() => handleQueryChange('')}
-              className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 text-xs"
+              className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200"
             >
-              ✕
+              <X size={14} />
             </button>
           )}
           <button
@@ -139,12 +140,12 @@ export function SearchModal(): React.JSX.Element | null {
                   }`}
                   onMouseEnter={() => setSelectedIndex(i)}
                 >
-                  <span className="text-neutral-400">💬</span>
+                  <MessageSquare size={16} className="text-neutral-400" />
                   <span className="flex-1 truncate">
                     {query ? highlightMatch(session.title, query) : session.title}
                   </span>
                   <span className="text-xs text-neutral-400 shrink-0">
-                    {selectedIndex === i ? '↵' : formatRelativeTime(session.updatedAt)}
+                    {selectedIndex === i ? <CornerDownLeft size={14} /> : formatRelativeTime(session.updatedAt)}
                   </span>
                 </button>
               ))}

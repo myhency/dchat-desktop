@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { Search, X } from 'lucide-react'
 import { useChatStore } from '../../stores/chat.store'
 import { formatRelativeTime } from '../../lib/time'
 
@@ -29,7 +30,7 @@ export function AllChatsScreen(): React.JSX.Element {
 
         {/* Search input */}
         <div className="mb-4 flex items-center gap-2 rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-3 py-2">
-          <span className="text-neutral-400 text-sm">🔍</span>
+          <Search size={16} className="text-neutral-400" />
           <input
             ref={inputRef}
             type="text"
@@ -41,9 +42,9 @@ export function AllChatsScreen(): React.JSX.Element {
           {query && (
             <button
               onClick={() => setQuery('')}
-              className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 text-xs"
+              className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200"
             >
-              ✕
+              <X size={14} />
             </button>
           )}
         </div>

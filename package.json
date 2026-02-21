@@ -12,6 +12,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
     "better-sqlite3": "^11.7.0",
+    "lucide-react": "^0.575.0",
     "openai": "^4.78.0",
     "react-markdown": "^10.1.0",
     "react-syntax-highlighter": "^16.1.0",

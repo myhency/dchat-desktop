@@ -23,6 +23,7 @@ import { ChatIpcHandler } from './adapters/inbound/ipc/chat.ipc-handler'
 import { SessionIpcHandler } from './adapters/inbound/ipc/session.ipc-handler'
 import { SettingsIpcHandler } from './adapters/inbound/ipc/settings.ipc-handler'
 import { ProjectIpcHandler } from './adapters/inbound/ipc/project.ipc-handler'
+import { ArtifactIpcHandler } from './adapters/inbound/ipc/artifact.ipc-handler'
 
 export interface AppContainer {
   registerIpc(getWindow: () => BrowserWindow | null): void
@@ -40,7 +41,7 @@ export function createContainer(): AppContainer {
   const llmFactory = new LLMAdapterFactory()
 
   // Domain Services
-  const chatService = new ChatService(messageRepo, sessionRepo, llmFactory)
+  const chatService = new ChatService(messageRepo, sessionRepo, llmFactory, settingsRepo)
   const sessionService = new SessionService(sessionRepo, messageRepo)
   const settingsService = new SettingsService(settingsRepo)
   const projectService = new ProjectService(projectRepo)
@@ -50,6 +51,7 @@ export function createContainer(): AppContainer {
   const sessionIpcHandler = new SessionIpcHandler(sessionService)
   const settingsIpcHandler = new SettingsIpcHandler(settingsService, llmFactory)
   const projectIpcHandler = new ProjectIpcHandler(projectService)
+  const artifactIpcHandler = new ArtifactIpcHandler()
 
   return {
     registerIpc(getWindow: () => BrowserWindow | null): void {
@@ -57,6 +59,7 @@ export function createContainer(): AppContainer {
       sessionIpcHandler.register()
       settingsIpcHandler.register()
       projectIpcHandler.register()
+      artifactIpcHandler.register()
     },
 
     async restoreApiKeys(): Promise<void> {

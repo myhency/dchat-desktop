@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect, type KeyboardEvent } from 'react'
 import TextareaAutosize from 'react-textarea-autosize'
+import { Square, ArrowUp } from 'lucide-react'
 import { useChatStore } from '../../stores/chat.store'
 import { ModelSelector } from './ModelSelector'
 
@@ -60,9 +61,7 @@ export function PromptInput(): React.JSX.Element {
                 className="flex items-center justify-center rounded-lg bg-neutral-500 w-8 h-8 text-white hover:bg-neutral-600 transition-colors"
                 onClick={stopStream}
               >
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect x="4" y="4" width="8" height="8" rx="1" fill="currentColor"/>
-                </svg>
+                <Square size={16} fill="currentColor" stroke="none" />
               </button>
             ) : (
               <button
@@ -70,9 +69,7 @@ export function PromptInput(): React.JSX.Element {
                 onClick={handleSubmit}
                 disabled={!value.trim() || !currentSessionId}
               >
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M8 12V4M8 4L4 8M8 4L12 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
+                <ArrowUp size={16} />
               </button>
             )}
           </div>

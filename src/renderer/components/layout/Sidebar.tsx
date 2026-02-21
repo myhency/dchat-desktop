@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Plus, Search, FolderOpen, MoreHorizontal, MessageSquare, ChevronsUpDown } from 'lucide-react'
 import { useChatStore } from '../../stores/chat.store'
 import { useSettingsStore } from '../../stores/settings.store'
 import { SessionContextMenu } from './SessionContextMenu'
@@ -46,14 +47,14 @@ export function Sidebar(): React.JSX.Element {
           onClick={handleNewSession}
           className="flex w-full items-center gap-3 rounded-lg px-4 py-2 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800 cursor-pointer transition-colors"
         >
-          <span>+</span>
+          <Plus size={16} />
           <span>새 채팅</span>
         </button>
         <button
           onClick={() => { closeSettings(); openSearch() }}
           className="flex w-full items-center gap-3 rounded-lg px-4 py-2 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800 cursor-pointer transition-colors"
         >
-          <span>🔍</span>
+          <Search size={16} />
           <span>검색</span>
         </button>
       </div>
@@ -64,7 +65,7 @@ export function Sidebar(): React.JSX.Element {
           onClick={() => { closeSettings(); openProjects() }}
           className="flex w-full items-center gap-3 rounded-lg px-4 py-2 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800 cursor-pointer transition-colors"
         >
-          <span>📁</span>
+          <FolderOpen size={16} />
           <span>프로젝트</span>
         </button>
         {sessions.some((s) => s.isFavorite) && (
@@ -108,9 +109,9 @@ export function Sidebar(): React.JSX.Element {
                     setMenuSessionId(session.id)
                     setMenuAnchor(e.currentTarget)
                   }}
-                  className="hidden group-hover:block text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 ml-2 text-xs"
+                  className="hidden group-hover:block text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 ml-2"
                 >
-                  ⋯
+                  <MoreHorizontal size={16} />
                 </button>
               </div>
             ))}
@@ -155,9 +156,9 @@ export function Sidebar(): React.JSX.Element {
                 setMenuSessionId(session.id)
                 setMenuAnchor(e.currentTarget)
               }}
-              className="hidden group-hover:block text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 ml-2 text-xs"
+              className="hidden group-hover:block text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 ml-2"
             >
-              ⋯
+              <MoreHorizontal size={16} />
             </button>
           </div>
         ))}
@@ -166,7 +167,7 @@ export function Sidebar(): React.JSX.Element {
             onClick={() => { closeSettings(); openAllChats() }}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 cursor-pointer transition-colors"
           >
-            <span>💬</span>
+            <MessageSquare size={16} />
             <span>모든 채팅</span>
           </button>
         )}
@@ -226,7 +227,7 @@ export function Sidebar(): React.JSX.Element {
           <span className="text-sm font-semibold truncate">D Chat User</span>
           <span className="text-xs text-neutral-500 dark:text-neutral-400">Free 요금제</span>
         </div>
-        <span className="text-neutral-400 text-xs shrink-0">⇅</span>
+        <ChevronsUpDown size={16} className="text-neutral-400 shrink-0" />
       </div>
     </div>
   )

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Settings, Info, ChevronRight, ExternalLink, LogOut } from 'lucide-react'
 
 interface SettingsMenuProps {
   anchorEl: HTMLElement
@@ -51,20 +52,7 @@ export function SettingsMenu({
           onClose()
         }}
       >
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="text-neutral-500 dark:text-neutral-400"
-        >
-          <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-          <circle cx="12" cy="12" r="3" />
-        </svg>
+        <Settings size={16} className="text-neutral-500 dark:text-neutral-400" />
         <span className="flex-1 text-left">설정</span>
         <span className="text-xs text-neutral-400 dark:text-neutral-500">⌘,</span>
       </button>
@@ -81,35 +69,9 @@ export function SettingsMenu({
             : 'hover:bg-neutral-100 dark:hover:bg-neutral-700'
         }`}
       >
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="text-neutral-500 dark:text-neutral-400"
-        >
-          <circle cx="12" cy="12" r="10" />
-          <path d="M12 16v-4" />
-          <path d="M12 8h.01" />
-        </svg>
+        <Info size={16} className="text-neutral-500 dark:text-neutral-400" />
         <span className="flex-1 text-left">자세히 알아보기</span>
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="text-neutral-400 dark:text-neutral-500"
-        >
-          <path d="m9 18 6-6-6-6" />
-        </svg>
+        <ChevronRight size={14} className="text-neutral-400 dark:text-neutral-500" />
       </button>
 
       {/* 자세히 알아보기 서브메뉴 */}
@@ -135,20 +97,7 @@ export function SettingsMenu({
               }}
             >
               <span className="flex-1 text-left">{item.label}</span>
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="text-neutral-400 dark:text-neutral-500"
-              >
-                <path d="M7 17L17 7" />
-                <path d="M7 7h10v10" />
-              </svg>
+              <ExternalLink size={14} className="text-neutral-400 dark:text-neutral-500" />
             </button>
           ))}
 
@@ -167,20 +116,7 @@ export function SettingsMenu({
               }}
             >
               <span className="flex-1 text-left">{item.label}</span>
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="text-neutral-400 dark:text-neutral-500"
-              >
-                <path d="M7 17L17 7" />
-                <path d="M7 7h10v10" />
-              </svg>
+              <ExternalLink size={14} className="text-neutral-400 dark:text-neutral-500" />
             </button>
           ))}
         </div>
@@ -194,21 +130,7 @@ export function SettingsMenu({
         className="flex w-full items-center gap-3 px-4 py-2 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
         onClick={onClose}
       >
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="text-neutral-500 dark:text-neutral-400"
-        >
-          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-          <polyline points="16 17 21 12 16 7" />
-          <line x1="21" y1="12" x2="9" y2="12" />
-        </svg>
+        <LogOut size={16} className="text-neutral-500 dark:text-neutral-400" />
         <span className="flex-1 text-left">로그아웃</span>
       </button>
     </div>

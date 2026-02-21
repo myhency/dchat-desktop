@@ -23,22 +23,28 @@ onKeyDown={(e) => {
 
 ## 화면 전환 흐름
 
-`ChatArea.tsx`의 3-way 라우팅 (우선순위 순서):
+`MainLayout.tsx`와 `ChatArea.tsx`의 라우팅 (우선순위 순서):
 
-1. `allChatsOpen === true` → AllChatsScreen 표시
-2. `currentSessionId === null` → HomeScreen 표시
-3. `currentSessionId !== null` → MessageList + PromptInput 표시
+1. `settingsOpen === true` → SettingsScreen 표시 (MainLayout 레벨, ChatArea 대체)
+2. `projectsOpen === true` → ProjectsScreen 표시
+3. `allChatsOpen === true` → AllChatsScreen 표시
+4. `currentSessionId === null` → HomeScreen 표시
+5. `currentSessionId !== null` → MessageList + PromptInput 표시
 
-- "새 채팅" 버튼: `deselectSession()` → `currentSessionId = null`, `allChatsOpen = false`
-- 세션 선택: `selectSession(id)` → `allChatsOpen = false` (자동 복귀)
-- "모든 채팅" 버튼: `openAllChats()` → `allChatsOpen = true`, `currentSessionId = null`
+- "새 채팅" 버튼: `closeSettings()` + `deselectSession()` → `currentSessionId = null`, `allChatsOpen = false`, `projectsOpen = false`
+- 세션 선택: `closeSettings()` + `selectSession(id)` → `allChatsOpen = false`, `projectsOpen = false` (자동 복귀)
+- "모든 채팅" 버튼: `openAllChats()` → `allChatsOpen = true`, `projectsOpen = false`, `currentSessionId = null`
+- "프로젝트" 버튼: `openProjects()` → `projectsOpen = true`, `allChatsOpen = false`, `currentSessionId = null`
 - HomeScreen에서 메시지 전송 시: `createSession` → `sendMessage` 순서로 호출
+
+사이드바 네비게이션 시 `closeSettings()` 호출 필수. 누락 시 설정 화면이 닫히지 않음.
 
 ## 키보드 단축키
 
 | 단축키 | 동작 | 등록 위치 |
 |--------|------|-----------|
 | `Cmd+K` / `Ctrl+K` | 검색 모달 토글 | `MainLayout.tsx` (글로벌 keydown 리스너) |
+| `Cmd+,` / `Ctrl+,` | 설정 화면 토글 | `MainLayout.tsx` (글로벌 keydown 리스너) |
 
 ## 검색 모달 (SearchModal)
 
@@ -220,21 +226,29 @@ const keepCount = target.role === 'user' ? targetIndex + 1 : targetIndex
 │ + 새 채팅        │ ← shrink-0 (고정 상단)
 │ 🔍 검색          │
 │─────────────────│
-│ 최근 항목         │ ← flex-1 overflow-y-auto (스크롤)
+│ 📁 프로젝트      │ ← flex-1 overflow-y-auto (스크롤)
+│ 즐겨찾기          │
+│  ⭐ 세션 A       │
+│ 최근 항목         │
 │  세션 1          │
 │  세션 2          │
 │─────────────────│
-│ D Chat  [☀][⚙] │ ← shrink-0 border-t (고정 하단)
+│ [DC] D Chat User│ ← shrink-0 border-t (고정 하단, 클릭→설정 메뉴)
+│      Free 요금제 │
 └─────────────────┘
 ```
 
 - **상단 고정**: 새 채팅 + 검색 — 테두리 없는 텍스트 행 (`flex items-center gap-3`)
-- **중간 스크롤**: "최근 항목" 라벨(콘텐츠와 함께 스크롤, sticky 아님) + 세션 목록 (최대 30개)
-- **하단 고정**: "D Chat" 브랜딩 + 다크모드/설정 버튼
+- **중간 스크롤**: 프로젝트 버튼 + 즐겨찾기 섹션(있을 때만) + "최근 항목" 라벨 + 세션 목록 (최대 30개)
+- **하단 고정**: 프로필 영역 (아바타 + 이름 + 요금제) — 클릭 시 설정 메뉴
+
+### 즐겨찾기 섹션
+
+`sessions.some((s) => s.isFavorite)`가 true일 때만 "즐겨찾기" 라벨 + 즐겨찾기 세션 목록 표시. 즐겨찾기가 없으면 섹션 자체가 렌더링되지 않음. "최근 항목"은 `sessions.filter((s) => !s.isFavorite)`만 표시.
 
 ### 세션 목록 30개 제한
 
-사이드바는 `sessions.slice(0, 30)`으로 최근 30개만 렌더링. 세션이 30개 초과 시 목록 하단에 "💬 모든 채팅" 버튼 표시 → `openAllChats()` 호출 → AllChatsScreen으로 전환.
+사이드바는 `sessions.filter((s) => !s.isFavorite).slice(0, 30)`으로 비즐겨찾기 최근 30개만 렌더링. 즐겨찾기 세션은 제한 없이 모두 표시. 비즐겨찾기가 30개 초과 시 목록 하단에 "💬 모든 채팅" 버튼 표시.
 
 ### 백그라운드 스트리밍 인디케이터
 

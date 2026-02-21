@@ -6,13 +6,15 @@ import type { MessageRepository } from '../ports/outbound/message.repository'
 import type { SessionRepository } from '../ports/outbound/session.repository'
 import type { StreamChunk, ChatOptions } from '../ports/outbound/llm.gateway'
 import type { LLMGatewayResolver } from '../ports/outbound/llm-gateway.resolver'
+import type { SettingsRepository } from '../ports/outbound/settings.repository'
 import { generateId } from './id'
 
 export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase, GenerateTitleUseCase {
   constructor(
     private readonly messageRepo: MessageRepository,
     private readonly sessionRepo: SessionRepository,
-    private readonly llmResolver: LLMGatewayResolver
+    private readonly llmResolver: LLMGatewayResolver,
+    private readonly settingsRepo: SettingsRepository
   ) {}
 
   async execute(
@@ -41,7 +43,8 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
 
     // LLM 스트리밍 호출
     const gateway = this.llmResolver.getGateway(session.model)
-    const options: ChatOptions = { model: session.model }
+    const ci = await this.settingsRepo.get('custom_instructions')
+    const options: ChatOptions = { model: session.model, systemPrompt: ci || undefined }
     let assistantContent = ''
 
     try {
@@ -103,7 +106,8 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
 
     // LLM 스트리밍 호출
     const gateway = this.llmResolver.getGateway(session.model)
-    const options: ChatOptions = { model: session.model }
+    const ci = await this.settingsRepo.get('custom_instructions')
+    const options: ChatOptions = { model: session.model, systemPrompt: ci || undefined }
     let assistantContent = ''
 
     try {

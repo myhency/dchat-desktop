@@ -1,6 +1,8 @@
 import { useEffect } from 'react'
+import { PanelLeft } from 'lucide-react'
 import { Sidebar } from './Sidebar'
 import { ChatArea } from '../chat/ChatArea'
+import { ArtifactPanel } from '../chat/ArtifactPanel'
 import { SettingsScreen } from '../settings/SettingsScreen'
 import { SearchModal } from '../search/SearchModal'
 import { useChatStore } from '../../stores/chat.store'
@@ -10,6 +12,7 @@ export function MainLayout(): React.JSX.Element {
   const openSearch = useChatStore((s) => s.openSearch)
   const searchOpen = useChatStore((s) => s.searchOpen)
   const closeSearch = useChatStore((s) => s.closeSearch)
+  const artifactPanel = useChatStore((s) => s.artifactPanel)
   const sidebarOpen = useSettingsStore((s) => s.sidebarOpen)
   const settingsOpen = useSettingsStore((s) => s.settingsOpen)
   const toggleSidebar = useSettingsStore((s) => s.toggleSidebar)
@@ -46,21 +49,23 @@ export function MainLayout(): React.JSX.Element {
       >
         <button
           onClick={toggleSidebar}
-          className="ml-[78px] p-1 rounded hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-500 dark:text-neutral-400"
+          className="ml-[78px] p-1 rounded-lg hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-500 dark:text-neutral-400"
           style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
           title="Toggle sidebar"
         >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2">
-            <rect x="1.5" y="2.5" width="13" height="11" rx="1.5" />
-            <line x1="5.5" y1="2.5" x2="5.5" y2="13.5" />
-          </svg>
+          <PanelLeft size={16} />
         </button>
       </div>
       <div className="flex flex-1 min-h-0">
         <div className={`${sidebarOpen ? 'w-64' : 'w-0'} overflow-hidden transition-[width] duration-200 ease-in-out`}>
           <Sidebar />
         </div>
-        {settingsOpen ? <SettingsScreen /> : <ChatArea />}
+        {settingsOpen ? <SettingsScreen /> : (
+          <>
+            <ChatArea />
+            {artifactPanel && <ArtifactPanel />}
+          </>
+        )}
         <SearchModal />
       </div>
     </div>
