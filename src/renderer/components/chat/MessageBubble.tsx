@@ -5,6 +5,7 @@ import { RefreshCw, Pencil, Copy, Check } from 'lucide-react'
 import { CodeBlock } from './CodeBlock'
 import { HtmlArtifactCard } from './HtmlArtifactCard'
 import { formatTime } from '../../lib/time'
+import type { ImageAttachment } from '../../stores/chat.store'
 
 interface MessageBubbleProps {
   role: 'user' | 'assistant'
@@ -13,6 +14,7 @@ interface MessageBubbleProps {
   id?: string
   onRegenerate?: (id: string) => void
   isStreaming?: boolean
+  attachments?: ImageAttachment[]
 }
 
 export function MessageBubble({
@@ -21,7 +23,8 @@ export function MessageBubble({
   createdAt,
   id,
   onRegenerate,
-  isStreaming
+  isStreaming,
+  attachments
 }: MessageBubbleProps): React.JSX.Element {
   const [copied, setCopied] = useState(false)
 
@@ -35,9 +38,24 @@ export function MessageBubble({
     return (
       <div className="flex justify-end">
         <div className="group max-w-[80%] flex flex-col items-end">
-          <div className="rounded-2xl px-4 py-3 bg-blue-600 text-white text-sm leading-relaxed">
-            <p className="whitespace-pre-wrap">{content}</p>
-          </div>
+          {attachments && attachments.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-2">
+              {attachments.map((a) => (
+                <div key={a.id} className="rounded-2xl overflow-hidden border border-neutral-200 dark:border-neutral-700">
+                  <img
+                    src={`data:${a.mimeType};base64,${a.base64Data}`}
+                    alt={a.fileName}
+                    className="w-40 h-28 object-cover"
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+          {content && (
+            <div className="rounded-2xl px-4 py-3 bg-blue-600 text-white text-sm leading-relaxed">
+              <p className="whitespace-pre-wrap">{content}</p>
+            </div>
+          )}
           <div
             className={`flex items-center gap-3 mt-1 transition-opacity text-xs text-neutral-400 dark:text-neutral-500 ${
               copied ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
