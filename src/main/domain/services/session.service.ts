@@ -10,12 +10,13 @@ export class SessionService implements ManageSessionUseCase {
     private readonly messageRepo: MessageRepository
   ) {}
 
-  async create(title: string, model: string): Promise<Session> {
+  async create(title: string, model: string, projectId?: string | null): Promise<Session> {
     const now = new Date()
     const session: Session = {
       id: generateId(),
       title,
       model,
+      projectId: projectId ?? null,
       isFavorite: false,
       createdAt: now,
       updatedAt: now
@@ -26,6 +27,10 @@ export class SessionService implements ManageSessionUseCase {
 
   async list(): Promise<Session[]> {
     return this.sessionRepo.findAll()
+  }
+
+  async listByProjectId(projectId: string): Promise<Session[]> {
+    return this.sessionRepo.findByProjectId(projectId)
   }
 
   async getById(id: string): Promise<Session | null> {
@@ -54,6 +59,17 @@ export class SessionService implements ManageSessionUseCase {
       throw new Error(`Session not found: ${id}`)
     }
     session.title = title
+    session.updatedAt = new Date()
+    await this.sessionRepo.save(session)
+    return session
+  }
+
+  async updateProjectId(id: string, projectId: string | null): Promise<Session> {
+    const session = await this.sessionRepo.findById(id)
+    if (!session) {
+      throw new Error(`Session not found: ${id}`)
+    }
+    session.projectId = projectId
     session.updatedAt = new Date()
     await this.sessionRepo.save(session)
     return session

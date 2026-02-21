@@ -57,7 +57,7 @@ onKeyDown={(e) => {
 `MainLayout.tsx`와 `ChatArea.tsx`의 라우팅 (우선순위 순서):
 
 1. `settingsOpen === true` → SettingsScreen 표시 (MainLayout 레벨, ChatArea 대체)
-2. `projectsOpen === true` → ProjectsScreen 표시
+2. `projectsOpen === true` → `selectedProjectId` 존재 시 ProjectDetailScreen, 없으면 ProjectsScreen
 3. `allChatsOpen === true` → AllChatsScreen 표시
 4. `currentSessionId === null` → HomeScreen 표시
 5. `currentSessionId !== null` → MessageList + PromptInput 표시
@@ -65,7 +65,7 @@ onKeyDown={(e) => {
 - "새 채팅" 버튼: `closeSettings()` + `deselectSession()` → `currentSessionId = null`, `allChatsOpen = false`, `projectsOpen = false`
 - 세션 선택: `closeSettings()` + `selectSession(id)` → `allChatsOpen = false`, `projectsOpen = false` (자동 복귀)
 - "모든 채팅" 버튼: `openAllChats()` → `allChatsOpen = true`, `projectsOpen = false`, `currentSessionId = null`
-- "프로젝트" 버튼: `openProjects()` → `projectsOpen = true`, `allChatsOpen = false`, `currentSessionId = null`
+- "프로젝트" 버튼: `openProjects()` → `projectsOpen = true`, `allChatsOpen = false`, `currentSessionId = null`, `selectedProjectId = null`
 - HomeScreen에서 메시지 전송 시: `createSession` → `sendMessage` 순서로 호출
 
 사이드바 네비게이션 시 `closeSettings()` 호출 필수. 누락 시 설정 화면이 닫히지 않음.
@@ -288,6 +288,27 @@ const keepCount = target.role === 'user' ? targetIndex + 1 : targetIndex
 - **위치**: 세션 제목 **왼쪽** (`mr-1.5`)
 - **조건**: `streamingSessionIds.has(session.id) && session.id !== currentSessionId` — 현재 보고 있는 세션에는 미표시
 - **스타일**: `h-2 w-2 shrink-0 rounded-full bg-green-500 animate-pulse`
+
+## Artifact 자동 열기
+
+스트리밍 완료 시 HTML 코드 블록이 있으면 아티팩트 패널을 자동으로 여는 로직. `MessageList.tsx`의 `useEffect`에서 처리.
+
+- **위치**: `MessageList.tsx` — `prevStreamingRef`로 `isStreaming` true→false 전환 감지
+- **스토어에 넣지 않는 이유**: `finishStream` set 콜백 내에서 `artifactPanel`을 동시 업데이트하면 React 배치 렌더링에서 상태 불일치 발생. 컴포넌트 `useEffect`로 분리하여 메시지 반영 후 패널 열기 순서 보장.
+- **수정 시 주의**: HTML 감지 정규식(`/```html\n([\s\S]*?)```/`)은 MessageBubble의 CodeBlock 파싱과 동일 패턴이어야 함
+
+## Cross-Store 접근 패턴
+
+Zustand 스토어 간 직접 호출이 필요한 경우 `useOtherStore.getState()` 또는 `useOtherStore.setState()`를 사용:
+
+```ts
+// chat.store.ts 내부
+useProjectStore.getState().deselectProject()  // 액션 호출
+useSettingsStore.setState({ sidebarOpen: false })  // 직접 상태 변경
+```
+
+- React 컴포넌트 밖(스토어 액션)에서만 사용. 컴포넌트 내에서는 각 스토어의 hook을 개별 구독.
+- 현재 사용처: `openProjects()` → 프로젝트 선택 해제, `openArtifact()` → 사이드바 닫기
 
 ## 코드 블록 (CodeBlock)
 

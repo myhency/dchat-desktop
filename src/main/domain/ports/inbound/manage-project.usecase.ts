@@ -5,4 +5,5 @@ export interface ManageProjectUseCase {
   list(): Promise<Project[]>
   delete(id: string): Promise<void>
   update(id: string, name: string, description: string): Promise<Project>
+  updateInstructions(id: string, instructions: string): Promise<Project>
 }

@@ -41,7 +41,7 @@ export function createContainer(): AppContainer {
   const llmFactory = new LLMAdapterFactory()
 
   // Domain Services
-  const chatService = new ChatService(messageRepo, sessionRepo, llmFactory, settingsRepo)
+  const chatService = new ChatService(messageRepo, sessionRepo, llmFactory, settingsRepo, projectRepo)
   const sessionService = new SessionService(sessionRepo, messageRepo)
   const settingsService = new SettingsService(settingsRepo)
   const projectService = new ProjectService(projectRepo)

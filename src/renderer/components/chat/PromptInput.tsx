@@ -1,11 +1,13 @@
 import { useState, useRef, useCallback, useEffect, type KeyboardEvent } from 'react'
 import TextareaAutosize from 'react-textarea-autosize'
-import { Square, ArrowUp } from 'lucide-react'
+import { Square, ArrowUp, Plus, X } from 'lucide-react'
 import { useChatStore } from '../../stores/chat.store'
 import { ModelSelector } from './ModelSelector'
+import { PromptMenu } from './PromptMenu'
 
 export function PromptInput(): React.JSX.Element {
   const [value, setValue] = useState('')
+  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const sendMessage = useChatStore((s) => s.sendMessage)
   const stopStream = useChatStore((s) => s.stopStream)
@@ -53,7 +55,17 @@ export function PromptInput(): React.JSX.Element {
           disabled={!currentSessionId}
         />
         <div className="flex items-center justify-between px-2 py-1.5">
-          <div>{/* future tool buttons */}</div>
+          <div>
+            <button
+              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors text-neutral-500"
+              onClick={(e) => setMenuAnchor(menuAnchor ? null : e.currentTarget)}
+            >
+              {menuAnchor ? <X size={16} /> : <Plus size={16} />}
+            </button>
+            {menuAnchor && (
+              <PromptMenu anchorEl={menuAnchor} onClose={() => setMenuAnchor(null)} />
+            )}
+          </div>
           <div className="flex items-center gap-2">
             <ModelSelector />
             {isStreaming ? (

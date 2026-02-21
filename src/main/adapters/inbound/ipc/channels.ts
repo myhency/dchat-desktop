@@ -16,7 +16,9 @@ export const IPC_CHANNELS = {
     UPDATE_MODEL: 'session:update-model',
     UPDATE_TITLE: 'session:update-title',
     TOGGLE_FAVORITE: 'session:toggle-favorite',
-    TITLE_UPDATED: 'session:title-updated'
+    TITLE_UPDATED: 'session:title-updated',
+    LIST_BY_PROJECT: 'session:list-by-project',
+    UPDATE_PROJECT: 'session:update-project'
   },
   SETTINGS: {
     GET: 'settings:get',
@@ -30,7 +32,8 @@ export const IPC_CHANNELS = {
     CREATE: 'project:create',
     LIST: 'project:list',
     DELETE: 'project:delete',
-    UPDATE: 'project:update'
+    UPDATE: 'project:update',
+    UPDATE_INSTRUCTIONS: 'project:update-instructions'
   },
   ARTIFACT: {
     OPEN_IN_BROWSER: 'artifact:open-in-browser'

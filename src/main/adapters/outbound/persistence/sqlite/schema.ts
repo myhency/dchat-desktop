@@ -29,6 +29,12 @@ export function initSchema(db: Database.Database): void {
     // column already exists
   }
 
+  try {
+    db.exec(`ALTER TABLE sessions ADD COLUMN project_id TEXT DEFAULT NULL`)
+  } catch {
+    // column already exists
+  }
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY,
@@ -43,4 +49,10 @@ export function initSchema(db: Database.Database): void {
       updated_at TEXT NOT NULL
     );
   `)
+
+  try {
+    db.exec(`ALTER TABLE projects ADD COLUMN instructions TEXT NOT NULL DEFAULT ''`)
+  } catch {
+    // column already exists
+  }
 }

@@ -14,6 +14,7 @@ type SortKey = (typeof SORT_OPTIONS)[number]['key']
 export function ProjectsScreen(): React.JSX.Element {
   const projects = useProjectStore((s) => s.projects)
   const createProject = useProjectStore((s) => s.createProject)
+  const selectProject = useProjectStore((s) => s.selectProject)
 
   const [query, setQuery] = useState('')
   const [creating, setCreating] = useState(false)
@@ -186,6 +187,7 @@ export function ProjectsScreen(): React.JSX.Element {
                 {sorted.map((project) => (
                   <button
                     key={project.id}
+                    onClick={() => selectProject(project.id)}
                     className="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-4 text-left hover:bg-neutral-50 dark:hover:bg-neutral-750 transition-colors"
                   >
                     <div className="font-medium text-sm text-neutral-800 dark:text-neutral-100 truncate">

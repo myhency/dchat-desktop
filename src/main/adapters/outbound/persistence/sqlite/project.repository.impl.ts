@@ -6,6 +6,7 @@ interface ProjectRow {
   id: string
   name: string
   description: string
+  instructions: string
   created_at: string
   updated_at: string
 }
@@ -32,9 +33,9 @@ export class SqliteProjectRepository implements ProjectRepository {
   async save(project: Project): Promise<void> {
     this.db
       .prepare(
-        'INSERT OR REPLACE INTO projects (id, name, description, created_at, updated_at) VALUES (?, ?, ?, ?, ?)'
+        'INSERT OR REPLACE INTO projects (id, name, description, instructions, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
       )
-      .run(project.id, project.name, project.description, project.createdAt.toISOString(), project.updatedAt.toISOString())
+      .run(project.id, project.name, project.description, project.instructions, project.createdAt.toISOString(), project.updatedAt.toISOString())
   }
 
   async delete(id: string): Promise<void> {
@@ -46,6 +47,7 @@ export class SqliteProjectRepository implements ProjectRepository {
       id: row.id,
       name: row.name,
       description: row.description,
+      instructions: row.instructions,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at)
     }

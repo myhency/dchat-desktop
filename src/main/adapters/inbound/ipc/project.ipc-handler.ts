@@ -30,5 +30,12 @@ export class ProjectIpcHandler {
         return this.projectService.update(id, name, description)
       }
     )
+
+    ipcMain.handle(
+      IPC_CHANNELS.PROJECT.UPDATE_INSTRUCTIONS,
+      async (_event, id: string, instructions: string) => {
+        return this.projectService.updateInstructions(id, instructions)
+      }
+    )
   }
 }

@@ -7,6 +7,7 @@ import type { SessionRepository } from '../ports/outbound/session.repository'
 import type { StreamChunk, ChatOptions } from '../ports/outbound/llm.gateway'
 import type { LLMGatewayResolver } from '../ports/outbound/llm-gateway.resolver'
 import type { SettingsRepository } from '../ports/outbound/settings.repository'
+import type { ProjectRepository } from '../ports/outbound/project.repository'
 import { generateId } from './id'
 
 export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase, GenerateTitleUseCase {
@@ -14,7 +15,8 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
     private readonly messageRepo: MessageRepository,
     private readonly sessionRepo: SessionRepository,
     private readonly llmResolver: LLMGatewayResolver,
-    private readonly settingsRepo: SettingsRepository
+    private readonly settingsRepo: SettingsRepository,
+    private readonly projectRepo: ProjectRepository
   ) {}
 
   async execute(
@@ -43,8 +45,8 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
 
     // LLM 스트리밍 호출
     const gateway = this.llmResolver.getGateway(session.model)
-    const ci = await this.settingsRepo.get('custom_instructions')
-    const options: ChatOptions = { model: session.model, systemPrompt: ci || undefined }
+    const systemPrompt = await this.buildSystemPrompt(session.projectId ?? null)
+    const options: ChatOptions = { model: session.model, systemPrompt: systemPrompt || undefined }
     let assistantContent = ''
 
     try {
@@ -106,8 +108,8 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
 
     // LLM 스트리밍 호출
     const gateway = this.llmResolver.getGateway(session.model)
-    const ci = await this.settingsRepo.get('custom_instructions')
-    const options: ChatOptions = { model: session.model, systemPrompt: ci || undefined }
+    const systemPrompt = await this.buildSystemPrompt(session.projectId ?? null)
+    const options: ChatOptions = { model: session.model, systemPrompt: systemPrompt || undefined }
     let assistantContent = ''
 
     try {
@@ -180,5 +182,23 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
     await this.sessionRepo.save(session)
 
     return title
+  }
+
+  private async buildSystemPrompt(projectId: string | null): Promise<string> {
+    const parts: string[] = []
+
+    if (projectId) {
+      const project = await this.projectRepo.findById(projectId)
+      if (project?.instructions) {
+        parts.push(project.instructions)
+      }
+    }
+
+    const ci = await this.settingsRepo.get('custom_instructions')
+    if (ci) {
+      parts.push(ci)
+    }
+
+    return parts.join('\n\n')
   }
 }

@@ -103,7 +103,8 @@ src/
         ├── home/
         │   ├── HomeScreen.tsx               # 세션 미선택 시 홈 화면 (퀵 액션, 시간대 인사)
         │   ├── AllChatsScreen.tsx           # 전체 채팅 목록 페이지 (검색, 세션 리스트)
-        │   └── ProjectsScreen.tsx           # 프로젝트 관리 페이지 (CRUD)
+        │   ├── ProjectsScreen.tsx           # 프로젝트 관리 페이지 (CRUD)
+        │   └── ProjectDetailScreen.tsx      # 프로젝트 상세 페이지 (selectedProjectId 기반)
         ├── search/
         │   └── SearchModal.tsx              # Cmd+K 검색 모달 (세션 검색, 키보드 네비게이션)
         ├── settings/
@@ -365,7 +366,10 @@ CREATE TABLE projects (
 | 필드/액션 | 타입 | 설명 |
 |-----------|------|------|
 | `projects` | `Project[]` | 전체 프로젝트 목록 |
+| `selectedProjectId` | `string \| null` | 현재 선택된 프로젝트 ID (ProjectDetailScreen 진입용) |
 | `loadProjects()` | action | 프로젝트 목록 로드 |
 | `createProject(name, desc)` | action | 프로젝트 생성 |
-| `deleteProject(id)` | action | 프로젝트 삭제 |
+| `deleteProject(id)` | action | 프로젝트 삭제 (선택 중이면 해제) |
 | `updateProject(id, name, desc)` | action | 프로젝트 수정 |
+| `selectProject(id)` | action | 프로젝트 선택 → ProjectDetailScreen 진입 |
+| `deselectProject()` | action | 프로젝트 선택 해제 → ProjectsScreen 복귀 |

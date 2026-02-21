@@ -8,8 +8,8 @@ export class SessionIpcHandler {
   register(): void {
     ipcMain.handle(
       IPC_CHANNELS.SESSION.CREATE,
-      async (_event, title: string, model: string) => {
-        return this.sessionService.create(title, model)
+      async (_event, title: string, model: string, projectId?: string | null) => {
+        return this.sessionService.create(title, model, projectId)
       }
     )
 
@@ -49,6 +49,20 @@ export class SessionIpcHandler {
       IPC_CHANNELS.SESSION.TOGGLE_FAVORITE,
       async (_event, id: string) => {
         return this.sessionService.toggleFavorite(id)
+      }
+    )
+
+    ipcMain.handle(
+      IPC_CHANNELS.SESSION.LIST_BY_PROJECT,
+      async (_event, projectId: string) => {
+        return this.sessionService.listByProjectId(projectId)
+      }
+    )
+
+    ipcMain.handle(
+      IPC_CHANNELS.SESSION.UPDATE_PROJECT,
+      async (_event, id: string, projectId: string | null) => {
+        return this.sessionService.updateProjectId(id, projectId)
       }
     )
   }

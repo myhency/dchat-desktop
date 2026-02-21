@@ -1,9 +1,10 @@
 import { useState, useRef, useCallback, useEffect, type KeyboardEvent } from 'react'
 import TextareaAutosize from 'react-textarea-autosize'
-import { Sparkles, ChevronDown, Check, ArrowUp } from 'lucide-react'
+import { Sparkles, ChevronDown, Check, ArrowUp, Plus, X } from 'lucide-react'
 import { useChatStore } from '../../stores/chat.store'
 import { useSettingsStore } from '../../stores/settings.store'
 import { MODEL_META, getShortName } from '../../lib/model-meta'
+import { PromptMenu } from '../chat/PromptMenu'
 
 const QUICK_ACTIONS = [
   { label: '작성하기', prompt: '다음 내용을 작성해 주세요: ' },
@@ -23,6 +24,7 @@ function getGreeting(): string {
 export function HomeScreen(): React.JSX.Element {
   const [value, setValue] = useState('')
   const [modelOpen, setModelOpen] = useState(false)
+  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const modelRef = useRef<HTMLDivElement>(null)
 
@@ -96,7 +98,17 @@ export function HomeScreen(): React.JSX.Element {
             minRows={2}
           />
           <div className="flex items-center justify-between px-3 py-2">
-            <div>{/* future tool buttons */}</div>
+            <div>
+              <button
+                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors text-neutral-500"
+                onClick={(e) => setMenuAnchor(menuAnchor ? null : e.currentTarget)}
+              >
+                {menuAnchor ? <X size={16} /> : <Plus size={16} />}
+              </button>
+              {menuAnchor && (
+                <PromptMenu anchorEl={menuAnchor} onClose={() => setMenuAnchor(null)} />
+              )}
+            </div>
             <div className="flex items-center gap-2">
             {/* Model selector */}
             <div ref={modelRef} className="relative">

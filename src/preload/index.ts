@@ -30,15 +30,19 @@ const api = {
       ipcRenderer.invoke('chat:regenerate', sessionId, messageId)
   },
   session: {
-    create: (title: string, model: string) =>
-      ipcRenderer.invoke('session:create', title, model),
+    create: (title: string, model: string, projectId?: string | null) =>
+      ipcRenderer.invoke('session:create', title, model, projectId),
     list: () => ipcRenderer.invoke('session:list'),
+    listByProject: (projectId: string) =>
+      ipcRenderer.invoke('session:list-by-project', projectId),
     get: (id: string) => ipcRenderer.invoke('session:get', id),
     delete: (id: string) => ipcRenderer.invoke('session:delete', id),
     updateModel: (id: string, model: string) =>
       ipcRenderer.invoke('session:update-model', id, model),
     updateTitle: (id: string, title: string) =>
       ipcRenderer.invoke('session:update-title', id, title),
+    updateProjectId: (id: string, projectId: string | null) =>
+      ipcRenderer.invoke('session:update-project', id, projectId),
     toggleFavorite: (id: string) =>
       ipcRenderer.invoke('session:toggle-favorite', id),
     onTitleUpdated: (callback: (sessionId: string, title: string) => void) => {
@@ -66,7 +70,9 @@ const api = {
     list: () => ipcRenderer.invoke('project:list'),
     delete: (id: string) => ipcRenderer.invoke('project:delete', id),
     update: (id: string, name: string, description: string) =>
-      ipcRenderer.invoke('project:update', id, name, description)
+      ipcRenderer.invoke('project:update', id, name, description),
+    updateInstructions: (id: string, instructions: string) =>
+      ipcRenderer.invoke('project:update-instructions', id, instructions)
   },
   artifact: {
     openInBrowser: (htmlContent: string) =>

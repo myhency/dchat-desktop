@@ -12,6 +12,7 @@ export class ProjectService implements ManageProjectUseCase {
       id: generateId(),
       name,
       description,
+      instructions: '',
       createdAt: now,
       updatedAt: now
     }
@@ -34,6 +35,17 @@ export class ProjectService implements ManageProjectUseCase {
     }
     project.name = name
     project.description = description
+    project.updatedAt = new Date()
+    await this.projectRepo.save(project)
+    return project
+  }
+
+  async updateInstructions(id: string, instructions: string): Promise<Project> {
+    const project = await this.projectRepo.findById(id)
+    if (!project) {
+      throw new Error(`Project not found: ${id}`)
+    }
+    project.instructions = instructions
     project.updatedAt = new Date()
     await this.projectRepo.save(project)
     return project

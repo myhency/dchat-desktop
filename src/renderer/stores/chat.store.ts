@@ -1,4 +1,6 @@
 import { create } from 'zustand'
+import { useProjectStore } from './project.store'
+import { useSettingsStore } from './settings.store'
 
 export interface Message {
   id: string
@@ -12,6 +14,7 @@ export interface Session {
   id: string
   title: string
   model: string
+  projectId: string | null
   isFavorite: boolean
   createdAt: string
   updatedAt: string
@@ -30,7 +33,7 @@ interface ChatState {
   artifactPanel: { code: string; title: string } | null
 
   loadSessions: () => Promise<void>
-  createSession: (title: string, model: string) => Promise<Session>
+  createSession: (title: string, model: string, projectId?: string | null) => Promise<Session>
   deselectSession: () => void
   selectSession: (id: string) => Promise<void>
   deleteSession: (id: string) => Promise<void>
@@ -52,6 +55,7 @@ interface ChatState {
   openArtifact: (code: string, title: string) => void
   closeArtifact: () => void
   toggleSessionFavorite: (sessionId: string) => Promise<void>
+  updateSessionProjectId: (sessionId: string, projectId: string | null) => Promise<void>
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -71,8 +75,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ sessions })
   },
 
-  createSession: async (title, model) => {
-    const session = await window.hchat.session.create(title, model)
+  createSession: async (title, model, projectId) => {
+    const session = await window.hchat.session.create(title, model, projectId)
     set((state) => ({ sessions: [session, ...state.sessions] }))
     await get().selectSession(session.id)
     return session
@@ -271,6 +275,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   openProjects: () => {
+    useProjectStore.getState().deselectProject()
     set({ projectsOpen: true, allChatsOpen: false, currentSessionId: null, messages: [], error: null, artifactPanel: null })
   },
 
@@ -279,6 +284,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   openArtifact: (code, title) => {
+    useSettingsStore.setState({ sidebarOpen: false })
     set({ artifactPanel: { code, title } })
   },
 
@@ -300,6 +306,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set((state) => ({
       sessions: state.sessions.map((s) =>
         s.id === sessionId ? { ...s, isFavorite: !s.isFavorite } : s
+      )
+    }))
+  },
+
+  updateSessionProjectId: async (sessionId, projectId) => {
+    await window.hchat.session.updateProjectId(sessionId, projectId)
+    set((state) => ({
+      sessions: state.sessions.map((s) =>
+        s.id === sessionId ? { ...s, projectId } : s
       )
     }))
   }
