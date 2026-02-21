@@ -15,6 +15,7 @@ import {
 import { useProjectStore } from '../../stores/project.store'
 import { useChatStore } from '../../stores/chat.store'
 import { useSettingsStore } from '../../stores/settings.store'
+import { ProjectContextMenu } from './ProjectContextMenu'
 import { formatRelativeTime } from '../../lib/time'
 import { MODEL_META, getShortName } from '../../lib/model-meta'
 
@@ -22,6 +23,9 @@ export function ProjectDetailScreen(): React.JSX.Element {
   const selectedProjectId = useProjectStore((s) => s.selectedProjectId)
   const projects = useProjectStore((s) => s.projects)
   const deselectProject = useProjectStore((s) => s.deselectProject)
+  const deleteProject = useProjectStore((s) => s.deleteProject)
+  const toggleFavorite = useProjectStore((s) => s.toggleFavorite)
+  const updateProject = useProjectStore((s) => s.updateProject)
 
   const createSession = useChatStore((s) => s.createSession)
   const selectSession = useChatStore((s) => s.selectSession)
@@ -39,6 +43,10 @@ export function ProjectDetailScreen(): React.JSX.Element {
   const [instructionsDraft, setInstructionsDraft] = useState('')
   const [modelOpen, setModelOpen] = useState(false)
   const [projectSessions, setProjectSessions] = useState<Session[]>([])
+  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null)
+  const [isEditingDetails, setIsEditingDetails] = useState(false)
+  const [nameDraft, setNameDraft] = useState('')
+  const [descriptionDraft, setDescriptionDraft] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const modelRef = useRef<HTMLDivElement>(null)
 
@@ -102,14 +110,92 @@ export function ProjectDetailScreen(): React.JSX.Element {
               {project.name}
             </h1>
             <div className="flex items-center gap-1">
-              <button className="rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-700 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors">
+              <button
+                onClick={(e) => setMenuAnchor(e.currentTarget)}
+                className="rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-700 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors"
+              >
                 <MoreHorizontal size={16} />
               </button>
-              <button className="rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-700 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors">
-                <Star size={16} />
+              <button
+                onClick={() => toggleFavorite(project.id)}
+                className={`rounded-lg p-1.5 transition-colors ${
+                  project.isFavorite
+                    ? 'text-yellow-500 hover:bg-neutral-100 dark:hover:bg-neutral-700'
+                    : 'text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-700 hover:text-neutral-600 dark:hover:text-neutral-200'
+                }`}
+              >
+                <Star size={16} fill={project.isFavorite ? 'currentColor' : 'none'} />
               </button>
             </div>
           </div>
+
+          {menuAnchor && (
+            <ProjectContextMenu
+              anchorEl={menuAnchor}
+              isFavorite={project.isFavorite}
+              showFavorite={false}
+              onToggleFavorite={() => setMenuAnchor(null)}
+              onEditDetails={() => {
+                setNameDraft(project.name)
+                setDescriptionDraft(project.description)
+                setIsEditingDetails(true)
+                setMenuAnchor(null)
+              }}
+              onDelete={() => {
+                deleteProject(project.id)
+                deselectProject()
+                setMenuAnchor(null)
+              }}
+              onClose={() => setMenuAnchor(null)}
+            />
+          )}
+
+          {isEditingDetails && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+              <div className="w-full max-w-md rounded-xl bg-white dark:bg-neutral-800 p-6 shadow-xl border border-neutral-200 dark:border-neutral-700">
+                <h2 className="mb-4 text-lg font-semibold text-neutral-800 dark:text-neutral-100">
+                  세부사항 수정
+                </h2>
+                <label className="mb-1 block text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                  프로젝트 이름
+                </label>
+                <input
+                  autoFocus
+                  type="text"
+                  value={nameDraft}
+                  onChange={(e) => setNameDraft(e.target.value)}
+                  className="mb-4 w-full rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-3 py-2 text-sm outline-none placeholder:text-neutral-400 focus:border-neutral-500 dark:focus:border-neutral-400"
+                />
+                <label className="mb-1 block text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                  설명
+                </label>
+                <textarea
+                  value={descriptionDraft}
+                  onChange={(e) => setDescriptionDraft(e.target.value)}
+                  rows={4}
+                  className="mb-6 w-full rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-3 py-2 text-sm outline-none placeholder:text-neutral-400 focus:border-neutral-500 dark:focus:border-neutral-400 resize-none"
+                />
+                <div className="flex justify-end gap-2">
+                  <button
+                    onClick={() => setIsEditingDetails(false)}
+                    className="rounded-lg border border-neutral-300 dark:border-neutral-600 px-4 py-1.5 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
+                  >
+                    취소
+                  </button>
+                  <button
+                    disabled={!nameDraft.trim()}
+                    onClick={() => {
+                      updateProject(project.id, nameDraft.trim(), descriptionDraft.trim())
+                      setIsEditingDetails(false)
+                    }}
+                    className="rounded-lg bg-neutral-800 dark:bg-neutral-100 px-4 py-1.5 text-sm text-white dark:text-neutral-900 hover:opacity-80 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    저장
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Input area */}
           <div className="mb-8 rounded-xl border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 shadow-sm focus-within:ring-2 focus-within:ring-blue-500 dark:focus-within:ring-blue-400">

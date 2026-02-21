@@ -3,6 +3,7 @@ export interface Project {
   name: string
   description: string
   instructions: string
+  isFavorite: boolean
   createdAt: Date
   updatedAt: Date
 }

@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { Paperclip, FolderOpen, Globe, Blocks, ChevronRight, Check } from 'lucide-react'
+import type { ImageAttachment } from '../../stores/chat.store'
 
 interface PromptMenuProps {
   anchorEl: HTMLElement
   onClose: () => void
+  onAttach?: (attachments: ImageAttachment[]) => void
 }
 
-export function PromptMenu({ anchorEl, onClose }: PromptMenuProps): React.JSX.Element {
+export function PromptMenu({ anchorEl, onClose, onAttach }: PromptMenuProps): React.JSX.Element {
   const menuRef = useRef<HTMLDivElement>(null)
   const [webSearchEnabled, setWebSearchEnabled] = useState(false)
 
@@ -35,7 +37,11 @@ export function PromptMenu({ anchorEl, onClose }: PromptMenuProps): React.JSX.El
       {/* 파일 또는 사진 추가 */}
       <button
         className="flex w-full items-center gap-3 px-4 py-2 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
-        onClick={onClose}
+        onClick={async () => {
+          onClose()
+          const picked = await window.hchat.chat.pickImage()
+          if (picked?.length) onAttach?.(picked)
+        }}
       >
         <Paperclip size={16} className="text-neutral-500 dark:text-neutral-400" />
         <span className="flex-1 text-left">파일 또는 사진 추가</span>

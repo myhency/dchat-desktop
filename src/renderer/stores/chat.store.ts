@@ -2,11 +2,19 @@ import { create } from 'zustand'
 import { useProjectStore } from './project.store'
 import { useSettingsStore } from './settings.store'
 
+export interface ImageAttachment {
+  id: string
+  fileName: string
+  mimeType: string
+  base64Data: string
+}
+
 export interface Message {
   id: string
   sessionId: string
   role: 'user' | 'assistant'
   content: string
+  attachments: ImageAttachment[]
   createdAt: string
 }
 
@@ -37,7 +45,7 @@ interface ChatState {
   deselectSession: () => void
   selectSession: (id: string) => Promise<void>
   deleteSession: (id: string) => Promise<void>
-  sendMessage: (content: string) => Promise<void>
+  sendMessage: (content: string, attachments?: ImageAttachment[]) => Promise<void>
   regenerateMessage: (messageId: string) => Promise<void>
   stopStream: () => void
   appendStreamChunk: (sessionId: string, text: string) => void
@@ -108,15 +116,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  sendMessage: async (content) => {
+  sendMessage: async (content, attachments) => {
     const { currentSessionId } = get()
     if (!currentSessionId) return
 
+    const imgs = attachments ?? []
     const userMessage: Message = {
       id: crypto.randomUUID(),
       sessionId: currentSessionId,
       role: 'user',
       content,
+      attachments: imgs,
       createdAt: new Date().toISOString()
     }
 
@@ -128,7 +138,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }))
 
     try {
-      await window.hchat.chat.sendMessage(currentSessionId, content)
+      await window.hchat.chat.sendMessage(currentSessionId, content, imgs)
     } catch {
       // 에러는 onStreamError 콜백에서 처리됨
     }

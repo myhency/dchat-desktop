@@ -1,4 +1,8 @@
-import { ipcMain, type BrowserWindow } from 'electron'
+import { ipcMain, dialog, type BrowserWindow } from 'electron'
+import { readFile } from 'fs/promises'
+import { basename } from 'path'
+import { randomUUID } from 'crypto'
+import type { ImageAttachment } from '../../../domain/entities/message'
 import type { SendMessageUseCase } from '../../../domain/ports/inbound/send-message.usecase'
 import type { GenerateTitleUseCase } from '../../../domain/ports/inbound/generate-title.usecase'
 import type { RegenerateMessageUseCase } from '../../../domain/ports/inbound/regenerate-message.usecase'
@@ -20,7 +24,7 @@ export class ChatIpcHandler {
   register(getWindow: () => BrowserWindow | null): void {
     ipcMain.handle(
       IPC_CHANNELS.CHAT.SEND_MESSAGE,
-      async (_event, sessionId: string, content: string) => {
+      async (_event, sessionId: string, content: string, attachments?: ImageAttachment[]) => {
         const win = getWindow()
         if (!win) return
 
@@ -34,6 +38,7 @@ export class ChatIpcHandler {
           const message = await this.sendMessage.execute(
             sessionId,
             content,
+            attachments ?? [],
             (chunk) => {
               win.webContents.send(IPC_CHANNELS.CHAT.STREAM_CHUNK, sessionId, chunk)
               if (!titleTriggered) {
@@ -147,5 +152,38 @@ export class ChatIpcHandler {
         }
       }
     )
+
+    ipcMain.handle(IPC_CHANNELS.CHAT.PICK_IMAGE, async () => {
+      const win = getWindow()
+      if (!win) return []
+
+      const result = await dialog.showOpenDialog(win, {
+        properties: ['openFile', 'multiSelections'],
+        filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp'] }]
+      })
+
+      if (result.canceled || result.filePaths.length === 0) return []
+
+      const attachments: ImageAttachment[] = []
+      for (const filePath of result.filePaths) {
+        const buffer = await readFile(filePath)
+        const ext = filePath.split('.').pop()?.toLowerCase() ?? ''
+        const mimeMap: Record<string, string> = {
+          png: 'image/png',
+          jpg: 'image/jpeg',
+          jpeg: 'image/jpeg',
+          gif: 'image/gif',
+          webp: 'image/webp'
+        }
+        attachments.push({
+          id: randomUUID(),
+          fileName: basename(filePath),
+          mimeType: mimeMap[ext] ?? 'image/png',
+          base64Data: buffer.toString('base64')
+        })
+      }
+
+      return attachments
+    })
   }
 }

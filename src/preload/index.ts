@@ -2,8 +2,8 @@ import { contextBridge, ipcRenderer } from 'electron'
 
 const api = {
   chat: {
-    sendMessage: (sessionId: string, content: string) =>
-      ipcRenderer.invoke('chat:send-message', sessionId, content),
+    sendMessage: (sessionId: string, content: string, attachments?: unknown[]) =>
+      ipcRenderer.invoke('chat:send-message', sessionId, content, attachments),
     getMessages: (sessionId: string) =>
       ipcRenderer.invoke('chat:get-messages', sessionId),
     onStreamChunk: (callback: (sessionId: string, chunk: unknown) => void) => {
@@ -27,7 +27,8 @@ const api = {
     stopStream: (sessionId: string, content: string) =>
       ipcRenderer.invoke('chat:stop-stream', sessionId, content),
     regenerate: (sessionId: string, messageId: string) =>
-      ipcRenderer.invoke('chat:regenerate', sessionId, messageId)
+      ipcRenderer.invoke('chat:regenerate', sessionId, messageId),
+    pickImage: () => ipcRenderer.invoke('chat:pick-image')
   },
   session: {
     create: (title: string, model: string, projectId?: string | null) =>
@@ -72,7 +73,9 @@ const api = {
     update: (id: string, name: string, description: string) =>
       ipcRenderer.invoke('project:update', id, name, description),
     updateInstructions: (id: string, instructions: string) =>
-      ipcRenderer.invoke('project:update-instructions', id, instructions)
+      ipcRenderer.invoke('project:update-instructions', id, instructions),
+    toggleFavorite: (id: string) =>
+      ipcRenderer.invoke('project:toggle-favorite', id)
   },
   artifact: {
     openInBrowser: (htmlContent: string) =>

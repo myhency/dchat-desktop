@@ -1,4 +1,4 @@
-import type { Message } from '../entities/message'
+import type { Message, ImageAttachment } from '../entities/message'
 import type { SendMessageUseCase } from '../ports/inbound/send-message.usecase'
 import type { RegenerateMessageUseCase } from '../ports/inbound/regenerate-message.usecase'
 import type { GenerateTitleUseCase } from '../ports/inbound/generate-title.usecase'
@@ -22,6 +22,7 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
   async execute(
     sessionId: string,
     content: string,
+    attachments: ImageAttachment[],
     onChunk: (chunk: StreamChunk) => void,
     signal?: AbortSignal
   ): Promise<Message> {
@@ -36,6 +37,7 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
       sessionId,
       role: 'user',
       content,
+      attachments,
       createdAt: new Date()
     }
     await this.messageRepo.save(userMessage)
@@ -67,6 +69,7 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
       sessionId,
       role: 'assistant',
       content: assistantContent,
+      attachments: [],
       createdAt: new Date()
     }
 
@@ -130,6 +133,7 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
       sessionId,
       role: 'assistant',
       content: assistantContent,
+      attachments: [],
       createdAt: new Date()
     }
 
@@ -156,6 +160,7 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
         content: history
           .map((m) => `${m.role}: ${m.content}`)
           .join('\n'),
+        attachments: [],
         createdAt: new Date()
       }
     ]

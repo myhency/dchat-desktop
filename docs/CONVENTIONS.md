@@ -310,6 +310,30 @@ useSettingsStore.setState({ sidebarOpen: false })  // 직접 상태 변경
 - React 컴포넌트 밖(스토어 액션)에서만 사용. 컴포넌트 내에서는 각 스토어의 hook을 개별 구독.
 - 현재 사용처: `openProjects()` → 프로젝트 선택 해제, `openArtifact()` → 사이드바 닫기
 
+## 시스템 프롬프트 구성 (ChatService.buildSystemPrompt)
+
+`src/main/domain/services/chat.service.ts`의 `buildSystemPrompt(projectId)`가 LLM에 전달할 system prompt를 조합:
+
+1. `projectId`가 있으면 → `projectRepo.findById` → `project.instructions` (비어있지 않으면 추가)
+2. `settingsRepo.get('custom_instructions')` → 글로벌 커스텀 지침 (비어있지 않으면 추가)
+3. 둘 다 있으면 `"\n\n"`으로 결합 (프로젝트 지침 먼저, 글로벌 지침 뒤)
+
+- **적용 범위**: `execute()`, `regenerate()` — 사용자 채팅에만 적용
+- **미적용**: `generateTitle()` — 자체 하드코딩된 프롬프트 사용, `buildSystemPrompt` 호출하지 않음
+- **수정 시 주의**: `buildSystemPrompt`는 도메인 서비스 내부 private 메서드. `ProjectRepository`를 생성자에서 주입받음 (`container.ts`에서 5번째 인자)
+
+## ProjectDetailScreen
+
+`src/renderer/components/home/ProjectDetailScreen.tsx`
+
+- **진입**: `projectsOpen === true && selectedProjectId !== null` (ChatArea.tsx에서 분기)
+- **우측 사이드바**: 지침(instructions) + 파일 섹션. 메모리 섹션은 없음.
+- **지침 편집 패턴**: `isEditingInstructions` / `instructionsDraft` 상태로 보기↔편집 모드 전환
+  - 내용 없을 때: 플레이스홀더 텍스트 + Plus 버튼 → 편집 모드 진입
+  - 내용 있을 때: 텍스트 클릭 → 편집 모드 진입
+  - 편집 모드: textarea + 취소/저장 버튼, Escape로 취소
+  - 저장: `useProjectStore.updateInstructions(id, draft)` 호출
+
 ## 코드 블록 (CodeBlock)
 
 `src/renderer/components/chat/CodeBlock.tsx`

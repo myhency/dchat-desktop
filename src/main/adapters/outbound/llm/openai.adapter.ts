@@ -18,7 +18,20 @@ export class OpenAIAdapter implements LLMGateway {
     }
 
     for (const m of messages) {
-      openaiMessages.push({ role: m.role, content: m.content })
+      if (m.attachments.length > 0) {
+        openaiMessages.push({
+          role: m.role,
+          content: [
+            ...m.attachments.map((a) => ({
+              type: 'image_url' as const,
+              image_url: { url: `data:${a.mimeType};base64,${a.base64Data}` }
+            })),
+            { type: 'text' as const, text: m.content }
+          ]
+        })
+      } else {
+        openaiMessages.push({ role: m.role, content: m.content })
+      }
     }
 
     try {

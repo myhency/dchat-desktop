@@ -126,6 +126,7 @@ export function MessageList(): React.JSX.Element {
             content={msg.content}
             createdAt={msg.createdAt}
             onRegenerate={regenerateMessage}
+            attachments={msg.attachments}
           />
         ))}
 

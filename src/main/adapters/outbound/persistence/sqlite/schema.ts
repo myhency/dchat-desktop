@@ -55,4 +55,16 @@ export function initSchema(db: Database.Database): void {
   } catch {
     // column already exists
   }
+
+  try {
+    db.exec(`ALTER TABLE projects ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0`)
+  } catch {
+    // column already exists
+  }
+
+  try {
+    db.exec(`ALTER TABLE messages ADD COLUMN attachments TEXT NOT NULL DEFAULT '[]'`)
+  } catch {
+    // column already exists
+  }
 }

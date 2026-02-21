@@ -7,6 +7,7 @@ interface ProjectRow {
   name: string
   description: string
   instructions: string
+  is_favorite: number
   created_at: string
   updated_at: string
 }
@@ -33,9 +34,9 @@ export class SqliteProjectRepository implements ProjectRepository {
   async save(project: Project): Promise<void> {
     this.db
       .prepare(
-        'INSERT OR REPLACE INTO projects (id, name, description, instructions, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
+        'INSERT OR REPLACE INTO projects (id, name, description, instructions, is_favorite, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
       )
-      .run(project.id, project.name, project.description, project.instructions, project.createdAt.toISOString(), project.updatedAt.toISOString())
+      .run(project.id, project.name, project.description, project.instructions, project.isFavorite ? 1 : 0, project.createdAt.toISOString(), project.updatedAt.toISOString())
   }
 
   async delete(id: string): Promise<void> {
@@ -48,6 +49,7 @@ export class SqliteProjectRepository implements ProjectRepository {
       name: row.name,
       description: row.description,
       instructions: row.instructions,
+      isFavorite: row.is_favorite === 1,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at)
     }

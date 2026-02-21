@@ -7,6 +7,7 @@ interface MessageRow {
   session_id: string
   role: string
   content: string
+  attachments: string
   created_at: string
 }
 
@@ -24,9 +25,9 @@ export class SqliteMessageRepository implements MessageRepository {
   async save(message: Message): Promise<void> {
     this.db
       .prepare(
-        'INSERT OR REPLACE INTO messages (id, session_id, role, content, created_at) VALUES (?, ?, ?, ?, ?)'
+        'INSERT OR REPLACE INTO messages (id, session_id, role, content, attachments, created_at) VALUES (?, ?, ?, ?, ?, ?)'
       )
-      .run(message.id, message.sessionId, message.role, message.content, message.createdAt.toISOString())
+      .run(message.id, message.sessionId, message.role, message.content, JSON.stringify(message.attachments), message.createdAt.toISOString())
   }
 
   async updateContent(id: string, content: string): Promise<void> {
@@ -42,11 +43,18 @@ export class SqliteMessageRepository implements MessageRepository {
   }
 
   private toDomain(row: MessageRow): Message {
+    let attachments: Message['attachments'] = []
+    try {
+      attachments = JSON.parse(row.attachments)
+    } catch {
+      // fallback for corrupted data
+    }
     return {
       id: row.id,
       sessionId: row.session_id,
       role: row.role as Message['role'],
       content: row.content,
+      attachments,
       createdAt: new Date(row.created_at)
     }
   }

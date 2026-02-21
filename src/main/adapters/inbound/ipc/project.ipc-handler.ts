@@ -37,5 +37,12 @@ export class ProjectIpcHandler {
         return this.projectService.updateInstructions(id, instructions)
       }
     )
+
+    ipcMain.handle(
+      IPC_CHANNELS.PROJECT.TOGGLE_FAVORITE,
+      async (_event, id: string) => {
+        return this.projectService.toggleFavorite(id)
+      }
+    )
   }
 }

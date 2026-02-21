@@ -13,6 +13,7 @@ export class ProjectService implements ManageProjectUseCase {
       name,
       description,
       instructions: '',
+      isFavorite: false,
       createdAt: now,
       updatedAt: now
     }
@@ -36,6 +37,16 @@ export class ProjectService implements ManageProjectUseCase {
     project.name = name
     project.description = description
     project.updatedAt = new Date()
+    await this.projectRepo.save(project)
+    return project
+  }
+
+  async toggleFavorite(id: string): Promise<Project> {
+    const project = await this.projectRepo.findById(id)
+    if (!project) {
+      throw new Error(`Project not found: ${id}`)
+    }
+    project.isFavorite = !project.isFavorite
     await this.projectRepo.save(project)
     return project
   }

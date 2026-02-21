@@ -5,6 +5,7 @@ export interface Project {
   name: string
   description: string
   instructions: string
+  isFavorite: boolean
   createdAt: string
   updatedAt: string
 }
@@ -17,6 +18,7 @@ interface ProjectState {
   deleteProject: (id: string) => Promise<void>
   updateProject: (id: string, name: string, description: string) => Promise<void>
   updateInstructions: (id: string, instructions: string) => Promise<void>
+  toggleFavorite: (id: string) => Promise<void>
   selectProject: (id: string) => void
   deselectProject: () => void
 }
@@ -52,6 +54,18 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   updateInstructions: async (id, instructions) => {
     const updated = await window.hchat.project.updateInstructions(id, instructions)
+    set((state) => ({
+      projects: state.projects.map((p) => (p.id === id ? updated : p))
+    }))
+  },
+
+  toggleFavorite: async (id) => {
+    set((state) => ({
+      projects: state.projects.map((p) =>
+        p.id === id ? { ...p, isFavorite: !p.isFavorite } : p
+      )
+    }))
+    const updated = await window.hchat.project.toggleFavorite(id)
     set((state) => ({
       projects: state.projects.map((p) => (p.id === id ? updated : p))
     }))

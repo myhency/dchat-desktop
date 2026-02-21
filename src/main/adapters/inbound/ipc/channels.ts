@@ -6,7 +6,8 @@ export const IPC_CHANNELS = {
     STREAM_END: 'chat:stream-end',
     STREAM_ERROR: 'chat:stream-error',
     STOP_STREAM: 'chat:stop-stream',
-    REGENERATE: 'chat:regenerate'
+    REGENERATE: 'chat:regenerate',
+    PICK_IMAGE: 'chat:pick-image'
   },
   SESSION: {
     CREATE: 'session:create',
@@ -33,7 +34,8 @@ export const IPC_CHANNELS = {
     LIST: 'project:list',
     DELETE: 'project:delete',
     UPDATE: 'project:update',
-    UPDATE_INSTRUCTIONS: 'project:update-instructions'
+    UPDATE_INSTRUCTIONS: 'project:update-instructions',
+    TOGGLE_FAVORITE: 'project:toggle-favorite'
   },
   ARTIFACT: {
     OPEN_IN_BROWSER: 'artifact:open-in-browser'

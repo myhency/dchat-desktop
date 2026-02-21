@@ -27,16 +27,16 @@ src/
 │   ├── domain/                               # 순수 도메인 — 외부 의존성 ZERO
 │   │   ├── entities/
 │   │   │   ├── message.ts                    # { id, sessionId, role, content, createdAt }
-│   │   │   ├── session.ts                    # { id, title, model, isFavorite, createdAt, updatedAt }
-│   │   │   ├── project.ts                    # { id, name, description, createdAt, updatedAt }
+│   │   │   ├── session.ts                    # { id, title, model, projectId, isFavorite, createdAt, updatedAt }
+│   │   │   ├── project.ts                    # { id, name, description, instructions, createdAt, updatedAt }
 │   │   │   └── model-info.ts                 # { id, name, provider }
 │   │   ├── ports/
 │   │   │   ├── inbound/                      # 유스케이스 인터페이스
 │   │   │   │   ├── send-message.usecase.ts   # execute(sessionId, content, onChunk, signal?)
 │   │   │   │   ├── generate-title.usecase.ts # execute(sessionId)
 │   │   │   │   ├── regenerate-message.usecase.ts # regenerate(sessionId, messageId, onChunk, signal?)
-│   │   │   │   ├── manage-session.usecase.ts # create, list, getById, delete, toggleFavorite
-│   │   │   │   ├── manage-project.usecase.ts # create, list, delete, update
+│   │   │   │   ├── manage-session.usecase.ts # create, list, listByProjectId, getById, delete, updateProjectId, toggleFavorite
+│   │   │   │   ├── manage-project.usecase.ts # create, list, delete, update, updateInstructions
 │   │   │   │   └── manage-settings.usecase.ts# get, set, getAll
 │   │   │   └── outbound/                     # 리포지토리/게이트웨이 인터페이스
 │   │   │       ├── llm.gateway.ts            # streamChat, listModels
@@ -196,7 +196,7 @@ Preload 노출: `window.hchat` (`src/preload/index.ts`)
 | `chat:stop-stream` | (없음) | `void` | 스트리밍 중단 |
 | `chat:get-messages` | `sessionId` | `Message[]` | 세션 메시지 조회 |
 | `chat:regenerate` | `sessionId, messageId` | `Message` | 메시지 재생성 (role 기반 삭제 + 스트리밍) |
-| `session:create` | `title, model` | `Session` | 새 세션 생성 |
+| `session:create` | `title, model, projectId?` | `Session` | 새 세션 생성 |
 | `session:list` | (없음) | `Session[]` | 전체 세션 목록 |
 | `session:get` | `id` | `Session \| null` | 세션 단건 조회 |
 | `session:delete` | `id` | `void` | 세션 삭제 (메시지 연쇄 삭제) |
@@ -206,10 +206,13 @@ Preload 노출: `window.hchat` (`src/preload/index.ts`)
 | `session:update-model` | `id, model` | `Session` | 세션 모델 변경 |
 | `session:update-title` | `id, title` | `Session` | 세션 제목 변경 |
 | `session:toggle-favorite` | `id` | `Session` | 세션 즐겨찾기 토글 |
+| `session:list-by-project` | `projectId` | `Session[]` | 프로젝트별 세션 목록 |
+| `session:update-project` | `id, projectId` | `Session` | 세션-프로젝트 연결 변경 |
 | `project:create` | `name, description` | `Project` | 프로젝트 생성 |
 | `project:list` | (없음) | `Project[]` | 프로젝트 목록 |
 | `project:delete` | `id` | `void` | 프로젝트 삭제 |
 | `project:update` | `id, name, description` | `Project` | 프로젝트 수정 |
+| `project:update-instructions` | `id, instructions` | `Project` | 프로젝트 지침 수정 |
 | `llm:list-models` | (없음) | `ModelInfo[]` | 사용 가능 모델 목록 |
 
 ### send (Main → Renderer, 단방향 이벤트)
@@ -230,6 +233,7 @@ CREATE TABLE sessions (
   id TEXT PRIMARY KEY,
   title TEXT NOT NULL,
   model TEXT NOT NULL,
+  project_id TEXT DEFAULT NULL,
   is_favorite INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
@@ -254,6 +258,7 @@ CREATE TABLE projects (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   description TEXT NOT NULL DEFAULT '',
+  instructions TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -271,6 +276,7 @@ CREATE TABLE projects (
 | `openai_api_key` | string | (없음) | OpenAI API 인증 |
 | `selected_model` | string | `claude-opus-4-6` | 기본 선택 모델 |
 | `dark_mode` | `"true"` / `"false"` | `"true"` | 다크 모드 토글 |
+| `custom_instructions` | string | (없음) | 글로벌 커스텀 지침 (system prompt에 포함) |
 
 ## 지원 모델
 
@@ -342,11 +348,12 @@ CREATE TABLE projects (
 | `toggleSessionFavorite(id)` | action | 세션 즐겨찾기 토글 (IPC 호출 + 낙관적 업데이트) |
 | `selectSession(id)` | action | 세션 선택 + 메시지 로드 + `allChatsOpen = false`, `projectsOpen = false` |
 | `deselectSession()` | action | 세션 선택 해제 + `allChatsOpen = false`, `projectsOpen = false` → HomeScreen |
-| `createSession(title, model)` | action | 새 세션 생성 |
+| `createSession(title, model, projectId?)` | action | 새 세션 생성 |
 | `deleteSession(id)` | action | 세션 삭제 |
 | `sendMessage(content)` | action | 메시지 전송 + 스트리밍 시작 |
 | `regenerateMessage(messageId)` | action | 메시지 재생성 (role 기반 삭제 + 스트리밍) |
 | `stopStream()` | action | 스트리밍 중단 (IPC로 abort 요청) |
+| `updateSessionProjectId(id, projectId)` | action | 세션-프로젝트 연결 변경 |
 
 ### settings.store.ts
 
@@ -371,5 +378,6 @@ CREATE TABLE projects (
 | `createProject(name, desc)` | action | 프로젝트 생성 |
 | `deleteProject(id)` | action | 프로젝트 삭제 (선택 중이면 해제) |
 | `updateProject(id, name, desc)` | action | 프로젝트 수정 |
+| `updateInstructions(id, instructions)` | action | 프로젝트 지침 수정 |
 | `selectProject(id)` | action | 프로젝트 선택 → ProjectDetailScreen 진입 |
 | `deselectProject()` | action | 프로젝트 선택 해제 → ProjectsScreen 복귀 |

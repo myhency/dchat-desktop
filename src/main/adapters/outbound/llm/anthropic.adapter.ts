@@ -13,7 +13,15 @@ export class AnthropicAdapter implements LLMGateway {
   async *streamChat(messages: Message[], options: ChatOptions, signal?: AbortSignal): AsyncIterable<StreamChunk> {
     const anthropicMessages: Anthropic.MessageParam[] = messages.map((m) => ({
       role: m.role,
-      content: m.content
+      content: m.attachments.length > 0
+        ? [
+            ...m.attachments.map((a) => ({
+              type: 'image' as const,
+              source: { type: 'base64' as const, media_type: a.mimeType as 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp', data: a.base64Data }
+            })),
+            { type: 'text' as const, text: m.content }
+          ]
+        : m.content
     }))
 
     try {

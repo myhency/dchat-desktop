@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Plus, Search, FolderOpen, MoreHorizontal, MessageSquare, ChevronsUpDown } from 'lucide-react'
+import { Plus, Search, FolderOpen, MoreHorizontal, MessageSquare, ChevronsUpDown, Box } from 'lucide-react'
 import { useChatStore } from '../../stores/chat.store'
+import { useProjectStore } from '../../stores/project.store'
 import { useSettingsStore } from '../../stores/settings.store'
 import { SessionContextMenu } from './SessionContextMenu'
 import { SettingsMenu } from './SettingsMenu'
@@ -17,6 +18,8 @@ export function Sidebar(): React.JSX.Element {
   const openProjects = useChatStore((s) => s.openProjects)
   const toggleSessionFavorite = useChatStore((s) => s.toggleSessionFavorite)
   const streamingSessionIds = useChatStore((s) => s.streamingSessionIds)
+  const projects = useProjectStore((s) => s.projects)
+  const selectProject = useProjectStore((s) => s.selectProject)
   const openSettings = useSettingsStore((s) => s.openSettings)
   const closeSettings = useSettingsStore((s) => s.closeSettings)
 
@@ -68,9 +71,19 @@ export function Sidebar(): React.JSX.Element {
           <FolderOpen size={16} />
           <span>프로젝트</span>
         </button>
-        {sessions.some((s) => s.isFavorite) && (
+        {(sessions.some((s) => s.isFavorite) || projects.some((p) => p.isFavorite)) && (
           <>
             <div className="px-4 py-2 text-xs text-neutral-500 font-medium">즐겨찾기</div>
+            {projects.filter((p) => p.isFavorite).map((project) => (
+              <div
+                key={project.id}
+                className="flex items-center rounded-lg px-3 py-2 text-sm cursor-pointer transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                onClick={() => { closeSettings(); openProjects(); selectProject(project.id) }}
+              >
+                <Box size={16} className="shrink-0 text-neutral-400 mr-1.5" />
+                <span className="truncate flex-1">{project.name}</span>
+              </div>
+            ))}
             {sessions.filter((s) => s.isFavorite).map((session) => (
               <div
                 key={session.id}

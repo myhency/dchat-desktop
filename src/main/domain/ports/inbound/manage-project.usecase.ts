@@ -6,4 +6,5 @@ export interface ManageProjectUseCase {
   delete(id: string): Promise<void>
   update(id: string, name: string, description: string): Promise<Project>
   updateInstructions(id: string, instructions: string): Promise<Project>
+  toggleFavorite(id: string): Promise<Project>
 }
