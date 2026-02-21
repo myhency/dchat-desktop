@@ -201,24 +201,30 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const newIds = new Set(s.streamingSessionIds)
       newIds.delete(sessionId)
       const { [sessionId]: _, ...rest } = s.streamingContents
+
+      // Auto-open artifact panel for HTML code blocks
+      let artifactPanel: { code: string; title: string } | undefined
+      if (isCurrentSession) {
+        const content = message.content || s.streamingContents[sessionId]
+        if (content) {
+          const htmlMatch = /```html\n([\s\S]*?)```/.exec(content)
+          if (htmlMatch) {
+            const code = htmlMatch[1].replace(/\n$/, '')
+            const title = /<title>(.*?)<\/title>/i.exec(code)?.[1] || 'HTML'
+            artifactPanel = { code, title }
+          }
+        }
+      }
+
       return {
         ...(isCurrentSession && message.content
           ? { messages: [...s.messages, message] }
           : {}),
+        ...(artifactPanel ? { artifactPanel } : {}),
         streamingSessionIds: newIds,
         streamingContents: rest
       }
     })
-
-    // Auto-open artifact panel for HTML code blocks
-    if (isCurrentSession && message.content) {
-      const htmlMatch = /```html\n([\s\S]*?)```/.exec(message.content)
-      if (htmlMatch) {
-        const code = htmlMatch[1].replace(/\n$/, '')
-        const title = /<title>(.*?)<\/title>/i.exec(code)?.[1] || 'HTML'
-        set({ artifactPanel: { code, title } })
-      }
-    }
 
     // 프론트엔드 낙관적 ID → 백엔드 DB ID 동기화
     if (isCurrentSession) {

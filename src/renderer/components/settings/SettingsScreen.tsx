@@ -1,10 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
-import { Sun, Monitor, Moon, X, ChevronDown } from 'lucide-react'
+import { X, ChevronDown, Shield, ChevronRight, ExternalLink } from 'lucide-react'
 import { useSettingsStore } from '../../stores/settings.store'
 
 type Tab =
   | 'general-top'
-  | 'account'
   | 'privacy'
   | 'usage'
   | 'features'
@@ -15,7 +14,6 @@ type Tab =
 
 const TABS: { section?: string; id: Tab; label: string }[] = [
   { id: 'general-top', label: '일반' },
-  { id: 'account', label: '계정' },
   { id: 'privacy', label: '개인정보보호' },
   { id: 'usage', label: '사용량' },
   { id: 'features', label: '기능' },
@@ -265,147 +263,107 @@ function GeneralTopContent(): React.JSX.Element {
 }
 
 function PrivacyContent(): React.JSX.Element {
-  const [role, setRole] = useState('소프트웨어 엔지니어')
-  const [customInstructions, setCustomInstructions] = useState('')
-  const [emailNotif, setEmailNotif] = useState(true)
-  const [desktopNotif, setDesktopNotif] = useState(false)
-  const [colorMode, setColorMode] = useState<'light' | 'auto' | 'dark'>('auto')
-  const [chatFont, setChatFont] = useState<'default' | 'mono'>('default')
+  const [locationMeta, setLocationMeta] = useState(true)
+  const [improveClaudeToggle, setImproveClaudeToggle] = useState(false)
 
   return (
-    <div className="space-y-8">
-      {/* 직무 */}
-      <div>
-        <h3 className="text-sm font-medium mb-1">직무</h3>
-        <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-2">
-          Claude가 더 관련성 높은 응답을 제공하도록 직무를 선택하세요.
-        </p>
-        <select
-          value={role}
-          onChange={(e) => setRole(e.target.value)}
-          className="w-full rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+    <div>
+      {/* 헤더 영역 */}
+      <div className="flex items-center gap-2 mb-1">
+        <Shield size={20} className="text-neutral-700 dark:text-neutral-300" />
+        <h2 className="text-base font-semibold">개인정보보호</h2>
+      </div>
+      <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-3">
+        Anthropic은 투명한 데이터 처리 방침을 지향합니다
+      </p>
+      <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-4">
+        Anthropic 제품 사용 시 귀하의 정보가 어떻게 보호되는지 알아보시고, 자세한 내용은{' '}
+        <span className="font-semibold text-neutral-900 dark:text-neutral-100">개인정보 보호 센터</span> 및{' '}
+        <span className="font-semibold text-neutral-900 dark:text-neutral-100">개인정보처리방침</span>를 참조하세요.
+      </p>
+
+      {/* 네비게이션 링크 */}
+      <div className="flex gap-4 mb-6">
+        <button
+          type="button"
+          className="flex items-center gap-1 text-sm text-neutral-700 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors"
+          onClick={() => {}}
         >
-          {ROLES.map((r) => (
-            <option key={r} value={r}>
-              {r}
-            </option>
-          ))}
-        </select>
+          데이터 보호 방법
+          <ChevronRight size={14} />
+        </button>
+        <button
+          type="button"
+          className="flex items-center gap-1 text-sm text-neutral-700 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors"
+          onClick={() => {}}
+        >
+          데이터 사용 방법
+          <ChevronRight size={14} />
+        </button>
       </div>
 
-      {/* 개인 맞춤 설정 */}
-      <div>
-        <h3 className="text-sm font-medium mb-1">개인 맞춤 설정</h3>
-        <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-2">
-          Claude가 모든 대화에서 참고할 내용을 입력하세요. 예: 선호하는 답변
-          스타일, 자주 사용하는 언어, 전문 분야 등.
-        </p>
-        <textarea
-          value={customInstructions}
-          onChange={(e) => setCustomInstructions(e.target.value)}
-          placeholder="예: 항상 한국어로 답변해줘. 코드는 TypeScript를 기본으로 해줘."
-          rows={4}
-          className="w-full rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-        />
-      </div>
+      <hr className="border-neutral-200 dark:border-neutral-700 mb-6" />
 
-      {/* 알림 */}
-      <div>
-        <h3 className="text-sm font-medium mb-3">알림</h3>
-        <div className="space-y-3">
-          <label className="flex items-center justify-between">
-            <span className="text-sm">이메일 알림</span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={emailNotif}
-              onClick={() => setEmailNotif(!emailNotif)}
-              className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
-                emailNotif ? 'bg-blue-600' : 'bg-neutral-300 dark:bg-neutral-600'
-              }`}
-            >
-              <span
-                className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${
-                  emailNotif ? 'translate-x-[18px]' : 'translate-x-[3px]'
-                }`}
-              />
-            </button>
-          </label>
-          <label className="flex items-center justify-between">
-            <span className="text-sm">데스크톱 알림</span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={desktopNotif}
-              onClick={() => setDesktopNotif(!desktopNotif)}
-              className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
-                desktopNotif ? 'bg-blue-600' : 'bg-neutral-300 dark:bg-neutral-600'
-              }`}
-            >
-              <span
-                className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${
-                  desktopNotif ? 'translate-x-[18px]' : 'translate-x-[3px]'
-                }`}
-              />
-            </button>
-          </label>
-        </div>
-      </div>
-
-      {/* 모양 */}
-      <div>
-        <h3 className="text-sm font-medium mb-3">모양</h3>
-
-        {/* 색상 모드 */}
-        <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-2">
-          색상 모드
-        </p>
-        <div className="grid grid-cols-3 gap-3 mb-4">
-          {([
-            { id: 'light' as const, label: '기본', icon: <Sun size={20} /> },
-            { id: 'auto' as const, label: '자동', icon: <Monitor size={20} /> },
-            { id: 'dark' as const, label: '다크', icon: <Moon size={20} /> }
-          ]).map((mode) => (
-            <button
-              key={mode.id}
-              onClick={() => setColorMode(mode.id)}
-              className={`flex flex-col items-center gap-2 rounded-lg border px-4 py-3 text-sm transition-colors ${
-                colorMode === mode.id
-                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                  : 'border-neutral-300 dark:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-700'
-              }`}
-            >
-              {mode.icon}
-              <span>{mode.label}</span>
-            </button>
-          ))}
+      {/* 프라이버시 설정 */}
+      <h3 className="text-sm font-semibold mb-4">프라이버시 설정</h3>
+      <div className="space-y-4">
+        {/* 데이터 내보내기 */}
+        <div className="flex items-center justify-between">
+          <span className="text-sm">데이터 내보내기</span>
+          <button
+            type="button"
+            onClick={() => {}}
+            className="rounded-lg border border-neutral-300 dark:border-neutral-600 px-3 py-1.5 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+          >
+            데이터 내보내기
+          </button>
         </div>
 
-        {/* 채팅 글꼴 */}
-        <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-2">
-          채팅 글꼴
-        </p>
-        <div className="flex gap-3">
+        {/* 공유된 채팅 */}
+        <div className="flex items-center justify-between">
+          <span className="text-sm">공유된 채팅</span>
           <button
-            onClick={() => setChatFont('default')}
-            className={`rounded-lg border px-4 py-2 text-sm transition-colors ${
-              chatFont === 'default'
-                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                : 'border-neutral-300 dark:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-700'
-            }`}
+            type="button"
+            onClick={() => {}}
+            className="rounded-lg border border-neutral-300 dark:border-neutral-600 px-3 py-1.5 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
           >
-            기본
+            관리
           </button>
+        </div>
+
+        {/* 메모리 설정 */}
+        <div className="flex items-center justify-between">
+          <span className="text-sm">메모리 설정</span>
           <button
-            onClick={() => setChatFont('mono')}
-            className={`rounded-lg border px-4 py-2 text-sm font-mono transition-colors ${
-              chatFont === 'mono'
-                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                : 'border-neutral-300 dark:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-700'
-            }`}
+            type="button"
+            onClick={() => {}}
+            className="flex items-center gap-1.5 rounded-lg border border-neutral-300 dark:border-neutral-600 px-3 py-1.5 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
           >
-            모노스페이스
+            관리
+            <ExternalLink size={12} />
           </button>
+        </div>
+
+        {/* 위치 메타데이터 */}
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm">위치 메타데이터</p>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+              위치 정보를 포함하여 더 관련성 높은 응답을 제공합니다.
+            </p>
+          </div>
+          <Toggle checked={locationMeta} onChange={setLocationMeta} />
+        </div>
+
+        {/* Claude 개선에 도움주기 */}
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm">Claude 개선에 도움주기</p>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+              대화 내용을 Claude 개선에 활용하는 것을 허용합니다.
+            </p>
+          </div>
+          <Toggle checked={improveClaudeToggle} onChange={setImproveClaudeToggle} />
         </div>
       </div>
     </div>
