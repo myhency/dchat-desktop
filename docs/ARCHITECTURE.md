@@ -14,6 +14,7 @@
 | LLM (OpenAI) | openai | ^4.78.0 |
 | 마크다운 | react-markdown + remark-gfm | ^10.1.0 / ^4.0.1 |
 | 텍스트 입력 | react-textarea-autosize | ^8.5.9 |
+| 아이콘 | lucide-react | ^0.575.0 |
 | ID 생성 | crypto.randomUUID() | Node built-in |
 
 ## 프로젝트 구조
@@ -93,6 +94,9 @@ src/
         │   ├── ChatArea.tsx
         │   ├── MessageList.tsx
         │   ├── MessageBubble.tsx
+        │   ├── CodeBlock.tsx                  # 코드 블록 (syntax highlight, sticky 헤더)
+        │   ├── ArtifactPanel.tsx              # 아티팩트 사이드 패널 (코드 뷰어)
+        │   ├── HtmlArtifactCard.tsx           # HTML 아티팩트 인라인 카드
         │   ├── ModelSelector.tsx
         │   ├── PromptInput.tsx
         │   └── StreamingIndicator.tsx
@@ -106,7 +110,10 @@ src/
         │   └── SettingsScreen.tsx           # 설정 화면 (API 키, 모델 선택, 다크모드)
         └── layout/
             ├── MainLayout.tsx               # 글로벌 키보드 단축키 (Cmd+K, Cmd+,)
-            └── Sidebar.tsx
+            ├── Sidebar.tsx
+            ├── SettingsPanel.tsx             # 설정 모달 (API 키, 모델 선택)
+            ├── SettingsMenu.tsx              # 프로필 클릭 팝오버 메뉴
+            └── SessionContextMenu.tsx        # 세션 우클릭/⋯ 컨텍스트 메뉴
 ```
 
 ## 데이터 흐름

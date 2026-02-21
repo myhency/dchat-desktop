@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { X, ChevronDown, Shield, ChevronRight, ExternalLink } from 'lucide-react'
+import { X, ChevronDown, Shield, ExternalLink } from 'lucide-react'
 import { useSettingsStore } from '../../stores/settings.store'
 
 type Tab =
@@ -263,9 +263,6 @@ function GeneralTopContent(): React.JSX.Element {
 }
 
 function PrivacyContent(): React.JSX.Element {
-  const [locationMeta, setLocationMeta] = useState(true)
-  const [improveClaudeToggle, setImproveClaudeToggle] = useState(false)
-
   return (
     <div>
       {/* 헤더 영역 */}
@@ -274,33 +271,13 @@ function PrivacyContent(): React.JSX.Element {
         <h2 className="text-base font-semibold">개인정보보호</h2>
       </div>
       <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-3">
-        Anthropic은 투명한 데이터 처리 방침을 지향합니다
+        D Chat은 투명한 데이터 처리 방침을 지향합니다
       </p>
       <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-4">
-        Anthropic 제품 사용 시 귀하의 정보가 어떻게 보호되는지 알아보시고, 자세한 내용은{' '}
+        D Chat 사용 시 귀하의 정보가 어떻게 보호되는지 알아보시고, 자세한 내용은{' '}
         <span className="font-semibold text-neutral-900 dark:text-neutral-100">개인정보 보호 센터</span> 및{' '}
         <span className="font-semibold text-neutral-900 dark:text-neutral-100">개인정보처리방침</span>를 참조하세요.
       </p>
-
-      {/* 네비게이션 링크 */}
-      <div className="flex gap-4 mb-6">
-        <button
-          type="button"
-          className="flex items-center gap-1 text-sm text-neutral-700 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors"
-          onClick={() => {}}
-        >
-          데이터 보호 방법
-          <ChevronRight size={14} />
-        </button>
-        <button
-          type="button"
-          className="flex items-center gap-1 text-sm text-neutral-700 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors"
-          onClick={() => {}}
-        >
-          데이터 사용 방법
-          <ChevronRight size={14} />
-        </button>
-      </div>
 
       <hr className="border-neutral-200 dark:border-neutral-700 mb-6" />
 
@@ -319,18 +296,6 @@ function PrivacyContent(): React.JSX.Element {
           </button>
         </div>
 
-        {/* 공유된 채팅 */}
-        <div className="flex items-center justify-between">
-          <span className="text-sm">공유된 채팅</span>
-          <button
-            type="button"
-            onClick={() => {}}
-            className="rounded-lg border border-neutral-300 dark:border-neutral-600 px-3 py-1.5 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
-          >
-            관리
-          </button>
-        </div>
-
         {/* 메모리 설정 */}
         <div className="flex items-center justify-between">
           <span className="text-sm">메모리 설정</span>
@@ -344,27 +309,6 @@ function PrivacyContent(): React.JSX.Element {
           </button>
         </div>
 
-        {/* 위치 메타데이터 */}
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-sm">위치 메타데이터</p>
-            <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-              위치 정보를 포함하여 더 관련성 높은 응답을 제공합니다.
-            </p>
-          </div>
-          <Toggle checked={locationMeta} onChange={setLocationMeta} />
-        </div>
-
-        {/* Claude 개선에 도움주기 */}
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-sm">Claude 개선에 도움주기</p>
-            <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-              대화 내용을 Claude 개선에 활용하는 것을 허용합니다.
-            </p>
-          </div>
-          <Toggle checked={improveClaudeToggle} onChange={setImproveClaudeToggle} />
-        </div>
       </div>
     </div>
   )
