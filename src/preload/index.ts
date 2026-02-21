@@ -25,7 +25,9 @@ const api = {
       return () => ipcRenderer.removeListener('chat:stream-error', listener)
     },
     stopStream: (sessionId: string, content: string) =>
-      ipcRenderer.invoke('chat:stop-stream', sessionId, content)
+      ipcRenderer.invoke('chat:stop-stream', sessionId, content),
+    regenerate: (sessionId: string, messageId: string) =>
+      ipcRenderer.invoke('chat:regenerate', sessionId, messageId)
   },
   session: {
     create: (title: string, model: string) =>
@@ -35,6 +37,8 @@ const api = {
     delete: (id: string) => ipcRenderer.invoke('session:delete', id),
     updateModel: (id: string, model: string) =>
       ipcRenderer.invoke('session:update-model', id, model),
+    updateTitle: (id: string, title: string) =>
+      ipcRenderer.invoke('session:update-title', id, title),
     onTitleUpdated: (callback: (sessionId: string, title: string) => void) => {
       const listener = (
         _event: Electron.IpcRendererEvent,

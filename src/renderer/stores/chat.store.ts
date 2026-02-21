@@ -32,11 +32,13 @@ interface ChatState {
   selectSession: (id: string) => Promise<void>
   deleteSession: (id: string) => Promise<void>
   sendMessage: (content: string) => Promise<void>
+  regenerateMessage: (messageId: string) => Promise<void>
   stopStream: () => void
   appendStreamChunk: (sessionId: string, text: string) => void
   finishStream: (sessionId: string, message: Message) => void
   setStreamError: (sessionId: string, error: string) => void
-  updateSessionTitle: (sessionId: string, title: string) => void
+  setSessionTitleLocal: (sessionId: string, title: string) => void
+  updateSessionTitle: (sessionId: string, title: string) => Promise<void>
   updateSessionModel: (sessionId: string, model: string) => Promise<void>
   openSearch: () => void
   closeSearch: () => void
@@ -118,6 +120,32 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
+  regenerateMessage: async (messageId) => {
+    const { currentSessionId, messages } = get()
+    if (!currentSessionId) return
+
+    const targetIndex = messages.findIndex((m) => m.id === messageId)
+    if (targetIndex === -1) return
+
+    const target = messages[targetIndex]
+    const keepMessages = target.role === 'user'
+      ? messages.slice(0, targetIndex + 1)
+      : messages.slice(0, targetIndex)
+
+    set((state) => ({
+      messages: keepMessages,
+      streamingSessionIds: new Set([...state.streamingSessionIds, currentSessionId]),
+      streamingContents: { ...state.streamingContents, [currentSessionId]: '' },
+      error: null
+    }))
+
+    try {
+      await window.hchat.chat.regenerate(currentSessionId, messageId)
+    } catch {
+      // 에러는 onStreamError 콜백에서 처리됨
+    }
+  },
+
   stopStream: () => {
     const { streamingContents, currentSessionId } = get()
     if (!currentSessionId) return
@@ -190,7 +218,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
     })
   },
 
-  updateSessionTitle: (sessionId, title) => {
+  setSessionTitleLocal: (sessionId, title) => {
+    set((state) => ({
+      sessions: state.sessions.map((s) =>
+        s.id === sessionId ? { ...s, title } : s
+      )
+    }))
+  },
+
+  updateSessionTitle: async (sessionId, title) => {
+    await window.hchat.session.updateTitle(sessionId, title)
     set((state) => ({
       sessions: state.sessions.map((s) =>
         s.id === sessionId ? { ...s, title } : s

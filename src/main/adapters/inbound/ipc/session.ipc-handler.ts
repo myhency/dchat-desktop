@@ -37,5 +37,12 @@ export class SessionIpcHandler {
         return this.sessionService.updateModel(id, model)
       }
     )
+
+    ipcMain.handle(
+      IPC_CHANNELS.SESSION.UPDATE_TITLE,
+      async (_event, id: string, title: string) => {
+        return this.sessionService.updateTitle(id, title)
+      }
+    )
   }
 }

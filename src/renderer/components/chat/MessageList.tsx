@@ -10,6 +10,8 @@ export function MessageList(): React.JSX.Element {
   const streamingContent = useChatStore((s) => s.streamingContents[s.currentSessionId ?? ''] ?? '')
   const isStreaming = useChatStore((s) => s.streamingSessionIds.has(s.currentSessionId ?? ''))
   const error = useChatStore((s) => s.error)
+  const regenerateMessage = useChatStore((s) => s.regenerateMessage)
+
   const bottomRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const isNearBottomRef = useRef(true)
@@ -98,7 +100,14 @@ export function MessageList(): React.JSX.Element {
         )}
 
         {messages.map((msg) => (
-          <MessageBubble key={msg.id} role={msg.role} content={msg.content} createdAt={msg.createdAt} />
+          <MessageBubble
+            key={msg.id}
+            id={msg.id}
+            role={msg.role}
+            content={msg.content}
+            createdAt={msg.createdAt}
+            onRegenerate={regenerateMessage}
+          />
         ))}
 
         {isStreaming && streamingContent && (

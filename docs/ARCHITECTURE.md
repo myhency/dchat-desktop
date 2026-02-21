@@ -32,6 +32,7 @@ src/
 │   │   │   ├── inbound/                      # 유스케이스 인터페이스
 │   │   │   │   ├── send-message.usecase.ts   # execute(sessionId, content, onChunk, signal?)
 │   │   │   │   ├── generate-title.usecase.ts # execute(sessionId)
+│   │   │   │   ├── regenerate-message.usecase.ts # regenerate(sessionId, messageId, onChunk, signal?)
 │   │   │   │   ├── manage-session.usecase.ts # create, list, getById, delete
 │   │   │   │   └── manage-settings.usecase.ts# get, set, getAll
 │   │   │   └── outbound/                     # 리포지토리/게이트웨이 인터페이스
@@ -42,7 +43,7 @@ src/
 │   │   │       ├── settings.repository.ts
 │   │   │       └── file-system.gateway.ts
 │   │   └── services/                         # 도메인 서비스 (포트 구현)
-│   │       ├── chat.service.ts               # → SendMessageUseCase, GenerateTitleUseCase
+│   │       ├── chat.service.ts               # → SendMessageUseCase, RegenerateMessageUseCase, GenerateTitleUseCase
 │   │       ├── session.service.ts            # → ManageSessionUseCase
 │   │       ├── settings.service.ts           # → ManageSettingsUseCase
 │   │       └── id.ts                         # generateId()
@@ -120,6 +121,22 @@ Renderer: chat.store.sendMessage()
       → webContents.send('chat:stream-end', message)
 Renderer: useIpc 훅이 stream-chunk/stream-end 이벤트 수신 → store 업데이트
 
+### 1-2. 메시지 재생성
+
+```
+Renderer: chat.store.regenerateMessage(messageId)
+  → role 기반으로 messages 잘라내기 (user: 본인 유지, assistant: 본인 제거)
+  → IPC invoke: chat:regenerate(sessionId, messageId)
+    → ChatIpcHandler (AbortController 생성)
+      → ChatService.regenerate(sessionId, messageId, onChunk, signal)
+        1. messageRepo.findBySessionId(sessionId)         // 전체 조회
+        2. 대상 메시지 findIndex → role 기반 keepCount 결정
+        3. 이후 메시지 deleteById 루프로 삭제
+        4. 남은 history로 gateway.streamChat()             // 스트리밍
+        5. messageRepo.save(assistantMessage)
+      → webContents.send('chat:stream-end', message)
+```
+
 중단 흐름:
 Renderer: chat.store.stopStream()
   → IPC invoke: chat:stop-stream
@@ -161,6 +178,7 @@ Preload 노출: `window.hchat` (`src/preload/index.ts`)
 | `chat:send-message` | `sessionId, content` | `Message` | 메시지 전송 + 스트리밍 시작 |
 | `chat:stop-stream` | (없음) | `void` | 스트리밍 중단 |
 | `chat:get-messages` | `sessionId` | `Message[]` | 세션 메시지 조회 |
+| `chat:regenerate` | `sessionId, messageId` | `Message` | 메시지 재생성 (role 기반 삭제 + 스트리밍) |
 | `session:create` | `title, model` | `Session` | 새 세션 생성 |
 | `session:list` | (없음) | `Session[]` | 전체 세션 목록 |
 | `session:get` | `id` | `Session \| null` | 세션 단건 조회 |
@@ -287,6 +305,7 @@ CREATE TABLE settings (
 | `createSession(title, model)` | action | 새 세션 생성 |
 | `deleteSession(id)` | action | 세션 삭제 |
 | `sendMessage(content)` | action | 메시지 전송 + 스트리밍 시작 |
+| `regenerateMessage(messageId)` | action | 메시지 재생성 (role 기반 삭제 + 스트리밍) |
 | `stopStream()` | action | 스트리밍 중단 (IPC로 abort 요청) |
 
 ### settings.store.ts

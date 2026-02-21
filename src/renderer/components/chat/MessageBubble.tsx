@@ -8,12 +8,16 @@ interface MessageBubbleProps {
   role: 'user' | 'assistant'
   content: string
   createdAt?: string
+  id?: string
+  onRegenerate?: (id: string) => void
 }
 
 export function MessageBubble({
   role,
   content,
-  createdAt
+  createdAt,
+  id,
+  onRegenerate
 }: MessageBubbleProps): React.JSX.Element {
   const [copied, setCopied] = useState(false)
 
@@ -39,6 +43,7 @@ export function MessageBubble({
             <button
               type="button"
               title="재시도"
+              onClick={() => onRegenerate?.(id!)}
               className="hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -109,6 +114,40 @@ export function MessageBubble({
           >
             {content}
           </ReactMarkdown>
+        </div>
+        <div
+          className="flex items-center gap-3 mt-1 text-xs text-neutral-400 dark:text-neutral-500"
+        >
+          <button
+            type="button"
+            title="복사"
+            onClick={handleCopy}
+            className={`transition-colors ${copied ? 'text-green-500' : 'hover:text-neutral-600 dark:hover:text-neutral-300'}`}
+          >
+            {copied ? (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M20 6L9 17L4 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" strokeWidth="2"/>
+                <path d="M5 15H4C2.89543 15 2 14.1046 2 13V4C2 2.89543 2.89543 2 4 2H13C14.1046 2 15 2.89543 15 4V5" stroke="currentColor" strokeWidth="2"/>
+              </svg>
+            )}
+          </button>
+          {id && onRegenerate && (
+            <button
+              type="button"
+              title="재생성"
+              onClick={() => onRegenerate(id)}
+              className="hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M1 4V10H7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M3.51 15A9 9 0 1 0 5.64 5.64L1 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+          )}
         </div>
       </div>
     </div>

@@ -5,7 +5,7 @@ export function useIpcListeners(): void {
   const appendStreamChunk = useChatStore((s) => s.appendStreamChunk)
   const finishStream = useChatStore((s) => s.finishStream)
   const setStreamError = useChatStore((s) => s.setStreamError)
-  const updateSessionTitle = useChatStore((s) => s.updateSessionTitle)
+  const setSessionTitleLocal = useChatStore((s) => s.setSessionTitleLocal)
 
   useEffect(() => {
     const removeChunk = window.hchat.chat.onStreamChunk((sessionId: string, chunk: unknown) => {
@@ -25,7 +25,7 @@ export function useIpcListeners(): void {
 
     const removeTitleUpdated = window.hchat.session.onTitleUpdated(
       (sessionId: string, title: string) => {
-        updateSessionTitle(sessionId, title)
+        setSessionTitleLocal(sessionId, title)
       }
     )
 
@@ -35,5 +35,5 @@ export function useIpcListeners(): void {
       removeError()
       removeTitleUpdated()
     }
-  }, [appendStreamChunk, finishStream, setStreamError, updateSessionTitle])
+  }, [appendStreamChunk, finishStream, setStreamError, setSessionTitleLocal])
 }

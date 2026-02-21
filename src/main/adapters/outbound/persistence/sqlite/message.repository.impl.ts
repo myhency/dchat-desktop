@@ -33,6 +33,10 @@ export class SqliteMessageRepository implements MessageRepository {
     this.db.prepare('UPDATE messages SET content = ? WHERE id = ?').run(content, id)
   }
 
+  async deleteById(id: string): Promise<void> {
+    this.db.prepare('DELETE FROM messages WHERE id = ?').run(id)
+  }
+
   async deleteBySessionId(sessionId: string): Promise<void> {
     this.db.prepare('DELETE FROM messages WHERE session_id = ?').run(sessionId)
   }

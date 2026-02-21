@@ -46,4 +46,15 @@ export class SessionService implements ManageSessionUseCase {
     await this.sessionRepo.save(session)
     return session
   }
+
+  async updateTitle(id: string, title: string): Promise<Session> {
+    const session = await this.sessionRepo.findById(id)
+    if (!session) {
+      throw new Error(`Session not found: ${id}`)
+    }
+    session.title = title
+    session.updatedAt = new Date()
+    await this.sessionRepo.save(session)
+    return session
+  }
 }

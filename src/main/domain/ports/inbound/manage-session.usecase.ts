@@ -6,4 +6,5 @@ export interface ManageSessionUseCase {
   getById(id: string): Promise<Session | null>
   delete(id: string): Promise<void>
   updateModel(id: string, model: string): Promise<Session>
+  updateTitle(id: string, title: string): Promise<Session>
 }

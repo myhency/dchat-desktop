@@ -1,5 +1,8 @@
+import { useState } from 'react'
 import { useChatStore } from '../../stores/chat.store'
 import { useSettingsStore } from '../../stores/settings.store'
+import { SessionContextMenu } from './SessionContextMenu'
+import { SettingsMenu } from './SettingsMenu'
 
 export function Sidebar(): React.JSX.Element {
   const sessions = useChatStore((s) => s.sessions)
@@ -7,6 +10,7 @@ export function Sidebar(): React.JSX.Element {
   const deselectSession = useChatStore((s) => s.deselectSession)
   const selectSession = useChatStore((s) => s.selectSession)
   const deleteSession = useChatStore((s) => s.deleteSession)
+  const updateSessionTitle = useChatStore((s) => s.updateSessionTitle)
   const openSearch = useChatStore((s) => s.openSearch)
   const openAllChats = useChatStore((s) => s.openAllChats)
   const streamingSessionIds = useChatStore((s) => s.streamingSessionIds)
@@ -14,8 +18,22 @@ export function Sidebar(): React.JSX.Element {
   const toggleDarkMode = useSettingsStore((s) => s.toggleDarkMode)
   const toggleSettings = useSettingsStore((s) => s.toggleSettings)
 
+  const [menuSessionId, setMenuSessionId] = useState<string | null>(null)
+  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null)
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null)
+  const [editingTitle, setEditingTitle] = useState('')
+  const [settingsMenuAnchor, setSettingsMenuAnchor] = useState<HTMLElement | null>(null)
+
   const handleNewSession = () => {
     deselectSession()
+  }
+
+  const saveTitle = (sessionId: string, original: string) => {
+    const trimmed = editingTitle.trim()
+    setEditingSessionId(null)
+    if (trimmed && trimmed !== original) {
+      updateSessionTitle(sessionId, trimmed)
+    }
   }
 
   return (
@@ -54,15 +72,34 @@ export function Sidebar(): React.JSX.Element {
             {streamingSessionIds.has(session.id) && session.id !== currentSessionId && (
               <span className="mr-1.5 h-2 w-2 shrink-0 rounded-full bg-green-500 animate-pulse" />
             )}
-            <span className="truncate flex-1">{session.title}</span>
+            {editingSessionId === session.id ? (
+              <input
+                className="flex-1 text-sm truncate bg-transparent border border-neutral-300 dark:border-neutral-600 rounded px-1 outline-none"
+                value={editingTitle}
+                onChange={(e) => setEditingTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                    saveTitle(session.id, session.title)
+                  } else if (e.key === 'Escape') {
+                    setEditingSessionId(null)
+                  }
+                }}
+                onBlur={() => saveTitle(session.id, session.title)}
+                onClick={(e) => e.stopPropagation()}
+                autoFocus
+              />
+            ) : (
+              <span className="truncate flex-1">{session.title}</span>
+            )}
             <button
               onClick={(e) => {
                 e.stopPropagation()
-                deleteSession(session.id)
+                setMenuSessionId(session.id)
+                setMenuAnchor(e.currentTarget)
               }}
-              className="hidden group-hover:block text-neutral-400 hover:text-red-500 ml-2 text-xs"
+              className="hidden group-hover:block text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 ml-2 text-xs"
             >
-              ✕
+              ⋯
             </button>
           </div>
         ))}
@@ -77,6 +114,40 @@ export function Sidebar(): React.JSX.Element {
         )}
       </div>
 
+      {/* Context menu */}
+      {menuSessionId && menuAnchor && (
+        <SessionContextMenu
+          anchorEl={menuAnchor}
+          onRename={() => {
+            const session = sessions.find((s) => s.id === menuSessionId)
+            if (session) {
+              setEditingSessionId(menuSessionId)
+              setEditingTitle(session.title)
+            }
+            setMenuSessionId(null)
+            setMenuAnchor(null)
+          }}
+          onDelete={() => {
+            deleteSession(menuSessionId)
+            setMenuSessionId(null)
+            setMenuAnchor(null)
+          }}
+          onClose={() => {
+            setMenuSessionId(null)
+            setMenuAnchor(null)
+          }}
+        />
+      )}
+
+      {/* Settings menu */}
+      {settingsMenuAnchor && (
+        <SettingsMenu
+          anchorEl={settingsMenuAnchor}
+          onSettings={toggleSettings}
+          onClose={() => setSettingsMenuAnchor(null)}
+        />
+      )}
+
       {/* Bottom fixed area: D Chat branding */}
       <div className="shrink-0 border-t border-neutral-200 dark:border-neutral-700 flex items-center justify-between px-4 py-3">
         <span className="text-sm font-semibold">D Chat</span>
@@ -89,7 +160,9 @@ export function Sidebar(): React.JSX.Element {
             <span className="text-xs">{darkMode ? '☀' : '☾'}</span>
           </button>
           <button
-            onClick={toggleSettings}
+            onClick={(e) =>
+              setSettingsMenuAnchor(settingsMenuAnchor ? null : e.currentTarget)
+            }
             className="rounded p-1.5 text-neutral-500 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
             title="Settings"
           >

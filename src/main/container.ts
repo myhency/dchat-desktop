@@ -41,7 +41,7 @@ export function createContainer(): AppContainer {
   const settingsService = new SettingsService(settingsRepo)
 
   // Inbound Adapters
-  const chatIpcHandler = new ChatIpcHandler(chatService, messageRepo, chatService)
+  const chatIpcHandler = new ChatIpcHandler(chatService, messageRepo, chatService, chatService)
   const sessionIpcHandler = new SessionIpcHandler(sessionService)
   const settingsIpcHandler = new SettingsIpcHandler(settingsService, llmFactory)
 

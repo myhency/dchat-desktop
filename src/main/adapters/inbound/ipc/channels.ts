@@ -5,7 +5,8 @@ export const IPC_CHANNELS = {
     STREAM_CHUNK: 'chat:stream-chunk',
     STREAM_END: 'chat:stream-end',
     STREAM_ERROR: 'chat:stream-error',
-    STOP_STREAM: 'chat:stop-stream'
+    STOP_STREAM: 'chat:stop-stream',
+    REGENERATE: 'chat:regenerate'
   },
   SESSION: {
     CREATE: 'session:create',
@@ -13,6 +14,7 @@ export const IPC_CHANNELS = {
     GET: 'session:get',
     DELETE: 'session:delete',
     UPDATE_MODEL: 'session:update-model',
+    UPDATE_TITLE: 'session:update-title',
     TITLE_UPDATED: 'session:title-updated'
   },
   SETTINGS: {
