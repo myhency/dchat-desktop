@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { X, ChevronDown, Shield, ExternalLink } from 'lucide-react'
+import { X, ChevronDown, Shield, ExternalLink, RefreshCw } from 'lucide-react'
 import { useSettingsStore } from '../../stores/settings.store'
 
 type Tab =
@@ -262,6 +262,71 @@ function GeneralTopContent(): React.JSX.Element {
   )
 }
 
+function UsageContent(): React.JSX.Element {
+  const [overageEnabled, setOverageEnabled] = useState(false)
+
+  return (
+    <div className="space-y-6">
+      {/* 섹션 A: 플랜 사용량 한도 */}
+      <section>
+        <h3 className="text-base font-semibold mb-4">플랜 사용량 한도</h3>
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-sm">현재 세션</span>
+            <span className="text-sm text-neutral-500">8% 사용됨</span>
+          </div>
+          <div className="h-2 rounded-full bg-neutral-200 dark:bg-neutral-700">
+            <div className="h-full rounded-full bg-blue-500" style={{ width: '8%' }} />
+          </div>
+          <p className="text-xs text-neutral-500 mt-1">4시간 3분 후 재설정</p>
+        </div>
+      </section>
+
+      {/* 섹션 B: 주간 한도 */}
+      <section>
+        <h3 className="text-base font-semibold mb-2">주간 한도</h3>
+        <a
+          href="#"
+          onClick={(e) => e.preventDefault()}
+          className="text-sm text-blue-600 dark:text-blue-400 underline mb-4 inline-block"
+        >
+          사용량 한도에 대해 자세히 알아보기
+        </a>
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-sm">모든 모델</span>
+            <span className="text-sm text-neutral-500">5% 사용됨</span>
+          </div>
+          <div className="h-2 rounded-full bg-neutral-200 dark:bg-neutral-700">
+            <div className="h-full rounded-full bg-blue-500" style={{ width: '5%' }} />
+          </div>
+          <p className="text-xs text-neutral-500 mt-1">(목) 오후 10:00에 재설정</p>
+        </div>
+        <div className="flex items-center gap-1.5 mt-3 text-xs text-neutral-500">
+          <span>마지막 업데이트: 1분 전</span>
+          <button type="button" className="hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors">
+            <RefreshCw size={12} />
+          </button>
+        </div>
+      </section>
+
+      <hr className="border-neutral-200 dark:border-neutral-700" />
+
+      {/* 섹션 C: 추가 사용량 */}
+      <section>
+        <h3 className="text-base font-semibold mb-2">추가 사용량</h3>
+        <div className="flex items-start justify-between gap-4">
+          <p className="text-sm text-neutral-600 dark:text-neutral-400">
+            사용량 한도에 도달하면 D Chat이 자동으로 추가 사용량을 활성화합니다.
+            추가 사용량은 별도로 청구됩니다.
+          </p>
+          <Toggle checked={overageEnabled} onChange={setOverageEnabled} />
+        </div>
+      </section>
+    </div>
+  )
+}
+
 function PrivacyContent(): React.JSX.Element {
   return (
     <div>
@@ -362,6 +427,8 @@ export function SettingsScreen(): React.JSX.Element {
         <div className="max-w-2xl mx-auto px-8 py-6">
           {activeTab === 'general-top' ? (
             <GeneralTopContent />
+          ) : activeTab === 'usage' ? (
+            <UsageContent />
           ) : activeTab === 'privacy' ? (
             <PrivacyContent />
           ) : (

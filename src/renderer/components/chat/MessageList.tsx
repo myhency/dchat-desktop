@@ -12,6 +12,7 @@ export function MessageList(): React.JSX.Element {
   const isStreaming = useChatStore((s) => s.streamingSessionIds.has(s.currentSessionId ?? ''))
   const error = useChatStore((s) => s.error)
   const regenerateMessage = useChatStore((s) => s.regenerateMessage)
+  const openArtifact = useChatStore((s) => s.openArtifact)
 
   const bottomRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
@@ -19,6 +20,23 @@ export function MessageList(): React.JSX.Element {
   const isProgrammaticScrollRef = useRef(false)
   const [showScrollButton, setShowScrollButton] = useState(false)
   const prevMessagesLengthRef = useRef(messages.length)
+  const prevStreamingRef = useRef(false)
+
+  // Auto-open artifact panel when streaming finishes with HTML code block
+  useEffect(() => {
+    if (prevStreamingRef.current && !isStreaming) {
+      const lastMsg = messages[messages.length - 1]
+      if (lastMsg?.role === 'assistant' && lastMsg.content) {
+        const htmlMatch = /```html\n([\s\S]*?)```/.exec(lastMsg.content)
+        if (htmlMatch) {
+          const code = htmlMatch[1].replace(/\n$/, '')
+          const title = /<title>(.*?)<\/title>/i.exec(code)?.[1] || 'HTML'
+          openArtifact(code, title)
+        }
+      }
+    }
+    prevStreamingRef.current = isStreaming
+  }, [isStreaming, messages, openArtifact])
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
     if (e.deltaY < 0) {
