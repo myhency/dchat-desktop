@@ -8,6 +8,7 @@ export function Sidebar(): React.JSX.Element {
   const selectSession = useChatStore((s) => s.selectSession)
   const deleteSession = useChatStore((s) => s.deleteSession)
   const openSearch = useChatStore((s) => s.openSearch)
+  const openAllChats = useChatStore((s) => s.openAllChats)
   const streamingSessionIds = useChatStore((s) => s.streamingSessionIds)
   const darkMode = useSettingsStore((s) => s.darkMode)
   const toggleDarkMode = useSettingsStore((s) => s.toggleDarkMode)
@@ -40,7 +41,7 @@ export function Sidebar(): React.JSX.Element {
       {/* Middle scroll area: Recent sessions */}
       <div className="flex-1 overflow-y-auto px-3 py-1 space-y-0.5">
         <div className="px-4 py-2 text-xs text-neutral-500 font-medium">최근 항목</div>
-        {sessions.map((session) => (
+        {sessions.slice(0, 30).map((session) => (
           <div
             key={session.id}
             className={`group flex items-center justify-between rounded-lg px-3 py-2 text-sm cursor-pointer transition-colors ${
@@ -65,6 +66,15 @@ export function Sidebar(): React.JSX.Element {
             </button>
           </div>
         ))}
+        {sessions.length > 30 && (
+          <button
+            onClick={openAllChats}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 cursor-pointer transition-colors"
+          >
+            <span>💬</span>
+            <span>모든 채팅</span>
+          </button>
+        )}
       </div>
 
       {/* Bottom fixed area: D Chat branding */}

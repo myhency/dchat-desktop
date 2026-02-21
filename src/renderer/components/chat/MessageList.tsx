@@ -98,7 +98,7 @@ export function MessageList(): React.JSX.Element {
         )}
 
         {messages.map((msg) => (
-          <MessageBubble key={msg.id} role={msg.role} content={msg.content} />
+          <MessageBubble key={msg.id} role={msg.role} content={msg.content} createdAt={msg.createdAt} />
         ))}
 
         {isStreaming && streamingContent && (

@@ -79,7 +79,7 @@ src/
     │   └── useIpc.ts                         # 스트리밍 이벤트 리스너 관리
     ├── lib/
     │   ├── model-meta.ts                    # 모델 UI 메타데이터 (공유)
-    │   └── time.ts                          # formatRelativeTime() — 상대 시간 한국어 포맷
+    │   └── time.ts                          # formatRelativeTime(), formatTime() — 시간 포맷 유틸
     └── components/
         ├── chat/
         │   ├── ChatArea.tsx
@@ -89,7 +89,8 @@ src/
         │   ├── PromptInput.tsx
         │   └── StreamingIndicator.tsx
         ├── home/
-        │   └── HomeScreen.tsx               # 세션 미선택 시 홈 화면 (퀵 액션, 시간대 인사)
+        │   ├── HomeScreen.tsx               # 세션 미선택 시 홈 화면 (퀵 액션, 시간대 인사)
+        │   └── AllChatsScreen.tsx           # 전체 채팅 목록 페이지 (검색, 세션 리스트)
         ├── search/
         │   └── SearchModal.tsx              # Cmd+K 검색 모달 (세션 검색, 키보드 네비게이션)
         └── layout/
@@ -276,10 +277,13 @@ CREATE TABLE settings (
 | `isStreaming` | `boolean` | 스트리밍 진행 중 여부 |
 | `streamingContent` | `string` | 스트리밍 중 누적 텍스트 |
 | `searchOpen` | `boolean` | 검색 모달 열림 상태 |
+| `allChatsOpen` | `boolean` | 전체 채팅 목록 페이지 열림 상태 |
 | `openSearch()` | action | 검색 모달 열기 |
 | `closeSearch()` | action | 검색 모달 닫기 |
-| `selectSession(id)` | action | 세션 선택 + 메시지 로드 |
-| `deselectSession()` | action | 세션 선택 해제 → HomeScreen |
+| `openAllChats()` | action | 전체 채팅 목록 열기 (`currentSessionId = null`) |
+| `closeAllChats()` | action | 전체 채팅 목록 닫기 |
+| `selectSession(id)` | action | 세션 선택 + 메시지 로드 + `allChatsOpen = false` |
+| `deselectSession()` | action | 세션 선택 해제 + `allChatsOpen = false` → HomeScreen |
 | `createSession(title, model)` | action | 새 세션 생성 |
 | `deleteSession(id)` | action | 세션 삭제 |
 | `sendMessage(content)` | action | 메시지 전송 + 스트리밍 시작 |

@@ -23,9 +23,15 @@ onKeyDown={(e) => {
 
 ## 화면 전환 흐름
 
-- `currentSessionId === null` → HomeScreen 표시
-- `currentSessionId !== null` → ChatArea (MessageList + PromptInput) 표시
-- "New Chat" 버튼: `deselectSession()`으로 `currentSessionId`를 `null`로 설정
+`ChatArea.tsx`의 3-way 라우팅 (우선순위 순서):
+
+1. `allChatsOpen === true` → AllChatsScreen 표시
+2. `currentSessionId === null` → HomeScreen 표시
+3. `currentSessionId !== null` → MessageList + PromptInput 표시
+
+- "새 채팅" 버튼: `deselectSession()` → `currentSessionId = null`, `allChatsOpen = false`
+- 세션 선택: `selectSession(id)` → `allChatsOpen = false` (자동 복귀)
+- "모든 채팅" 버튼: `openAllChats()` → `allChatsOpen = true`, `currentSessionId = null`
 - HomeScreen에서 메시지 전송 시: `createSession` → `sendMessage` 순서로 호출
 
 ## 키보드 단축키
@@ -144,16 +150,35 @@ max-w-[90%] md:max-w-[80%] lg:max-w-[70%] mx-auto w-full
 - **User**: 파란 버블 — `max-w-[80%] rounded-2xl px-4 py-3 bg-blue-600 text-white`
 - **Assistant**: 배경/테두리 없음 (Claude 앱 스타일) — `max-w-none py-1 text-neutral-900 dark:text-neutral-100`
 
+### User 메시지 Hover 액션 바
+
+User 버블 아래에 hover 시 나타나는 액션 바 (시간, 재시도, 편집, 복사):
+
+- **구조**: 외부 `div`에 `group` 클래스, 액션 바에 `opacity-0 group-hover:opacity-100` (CodeBlock Copy 버튼과 동일 패턴)
+- **복사 피드백**: `copied` state → 체크마크 아이콘 + `text-green-500` → 2초 후 원복. `copied` 상태일 때 `opacity-100` 유지
+- **아이콘 규격**: inline SVG, `width="14" height="14" viewBox="0 0 24 24"`, stroke 기반 (`currentColor`)
+- **재시도/편집**: 아이콘만 렌더링 (기능 미구현, 추후 연결 예정)
+- **Assistant 메시지**: 액션 바 없음
+
 ### PromptInput 외부 패딩
 
 `py-4`만 사용 (좌우 패딩 없음). 좌우 여백은 내부 콘텐츠 div의 `mx-auto` + max-width로 제어. 외부에 `px-*`를 넣으면 MessageList와 너비 불일치 발생.
+
+## AllChatsScreen
+
+`src/renderer/components/home/AllChatsScreen.tsx`
+
+- **진입**: 사이드바 "모든 채팅" 버튼 (`openAllChats()`)
+- **레이아웃**: 제목("채팅") + 검색 입력 + 개수 표시("채팅 N개") + 세션 리스트
+- **검색**: SearchModal과 동일한 클라이언트 사이드 제목 필터링 (`title.toLowerCase().includes(query)`)
+- **항목 클릭**: `selectSession(id)` 호출 → store에서 `allChatsOpen = false`로 자동 복귀
 
 ## 공유 모듈
 
 `src/renderer/lib/` 디렉토리에 여러 컴포넌트가 공유하는 데이터/유틸 배치.
 
 - `model-meta.ts` — 모델 표시명, 아이콘 등 UI 메타데이터
-- `time.ts` — `formatRelativeTime(isoDate)` 상대 시간 한국어 포맷 ("5분 전", "2시간 전", "1주 전" 등)
+- `time.ts` — `formatRelativeTime(isoDate)` 상대 시간 한국어 포맷 ("5분 전", "2시간 전", "1주 전" 등), `formatTime(isoDate)` 시:분 포맷 ("오후 3:42")
 
 ## 사이드바 레이아웃 (Sidebar)
 
@@ -175,8 +200,12 @@ max-w-[90%] md:max-w-[80%] lg:max-w-[70%] mx-auto w-full
 ```
 
 - **상단 고정**: 새 채팅 + 검색 — 테두리 없는 텍스트 행 (`flex items-center gap-3`)
-- **중간 스크롤**: "최근 항목" 라벨(콘텐츠와 함께 스크롤, sticky 아님) + 세션 목록
+- **중간 스크롤**: "최근 항목" 라벨(콘텐츠와 함께 스크롤, sticky 아님) + 세션 목록 (최대 30개)
 - **하단 고정**: "D Chat" 브랜딩 + 다크모드/설정 버튼
+
+### 세션 목록 30개 제한
+
+사이드바는 `sessions.slice(0, 30)`으로 최근 30개만 렌더링. 세션이 30개 초과 시 목록 하단에 "💬 모든 채팅" 버튼 표시 → `openAllChats()` 호출 → AllChatsScreen으로 전환.
 
 ### 백그라운드 스트리밍 인디케이터
 

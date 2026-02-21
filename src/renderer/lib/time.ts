@@ -12,3 +12,7 @@ export function formatRelativeTime(isoDate: string): string {
   if (days < 365) return `${Math.floor(days / 30)}개월 전`
   return `${Math.floor(days / 365)}년 전`
 }
+
+export function formatTime(isoDate: string): string {
+  return new Date(isoDate).toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' })
+}

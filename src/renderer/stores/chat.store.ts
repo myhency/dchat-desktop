@@ -24,6 +24,7 @@ interface ChatState {
   streamingContents: Record<string, string>
   error: string | null
   searchOpen: boolean
+  allChatsOpen: boolean
 
   loadSessions: () => Promise<void>
   createSession: (title: string, model: string) => Promise<Session>
@@ -39,6 +40,8 @@ interface ChatState {
   updateSessionModel: (sessionId: string, model: string) => Promise<void>
   openSearch: () => void
   closeSearch: () => void
+  openAllChats: () => void
+  closeAllChats: () => void
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -49,6 +52,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   streamingContents: {},
   error: null,
   searchOpen: false,
+  allChatsOpen: false,
 
   loadSessions: async () => {
     const sessions = await window.hchat.session.list()
@@ -63,12 +67,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   deselectSession: () => {
-    set({ currentSessionId: null, messages: [], error: null })
+    set({ currentSessionId: null, messages: [], error: null, allChatsOpen: false })
   },
 
   selectSession: async (id) => {
     const messages = await window.hchat.chat.getMessages(id)
-    set({ currentSessionId: id, messages, error: null })
+    set({ currentSessionId: id, messages, error: null, allChatsOpen: false })
   },
 
   deleteSession: async (id) => {
@@ -200,6 +204,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   closeSearch: () => {
     set({ searchOpen: false })
+  },
+
+  openAllChats: () => {
+    set({ allChatsOpen: true, currentSessionId: null, messages: [], error: null })
+  },
+
+  closeAllChats: () => {
+    set({ allChatsOpen: false })
   },
 
   updateSessionModel: async (sessionId, model) => {
