@@ -51,6 +51,7 @@ onKeyDown={(e) => {
 - `autoFocus` 속성으로 초기 포커스 설정
 - `useEffect`로 `currentSessionId` 변경 시 입력 필드에 focus 재설정
 - 하단 바 레이아웃: 왼쪽 빈 `div` + 오른쪽 `flex items-center gap-2` (모델 셀렉터 + 전송 버튼)
+- **이미지 첨부 썸네일**: textarea **위**에 표시 (아래가 아님). 순서: `{thumbnails} → <TextareaAutosize /> → {bottomBar}`. X(삭제) 버튼은 썸네일 **좌측 상단** (`top-0.5 left-0.5`). PromptInput과 HomeScreen 양쪽 동일하게 적용.
 
 ## 화면 전환 흐름
 
@@ -184,7 +185,8 @@ max-w-[90%] md:max-w-[80%] lg:max-w-[70%] mx-auto w-full
 
 ### 메시지 버블 스타일
 
-- **User**: 파란 버블 — `max-w-[80%] rounded-2xl px-4 py-3 bg-blue-600 text-white`
+- **User (텍스트)**: 파란 버블 — `max-w-[80%] rounded-2xl px-4 py-3 bg-blue-600 text-white`
+- **User (이미지 첨부)**: 이미지는 파란 버블 **바깥 위쪽**에 별도 컨테이너로 렌더링 (`rounded-2xl overflow-hidden border border-neutral-200 dark:border-neutral-700`). 텍스트가 있으면 그 아래에 파란 버블. 이미지만 있고 텍스트 없으면 파란 버블 렌더링 안 함.
 - **Assistant**: 배경/테두리 없음 (Claude 앱 스타일) — `max-w-none py-1 text-neutral-900 dark:text-neutral-100`
 
 ### User 메시지 Hover 액션 바
