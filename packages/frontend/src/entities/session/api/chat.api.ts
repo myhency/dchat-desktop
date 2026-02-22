@@ -45,6 +45,23 @@ export const chatApi = {
       onError: (data) => callbacks.onError(data.message)
     }),
 
+  editMessage: (
+    sessionId: string,
+    messageId: string,
+    content: string,
+    callbacks: StreamCallbacks
+  ): AbortController =>
+    apiSSE(`/api/chat/${sessionId}/messages/${messageId}/edit`, { content }, {
+      onChunk: (data) => {
+        if (data.type === 'text') {
+          callbacks.onChunk(data.content)
+        }
+      },
+      onTitle: (data) => callbacks.onTitle(data.sessionId, data.title),
+      onEnd: (data) => callbacks.onEnd(data as Message),
+      onError: (data) => callbacks.onError(data.message)
+    }),
+
   stopStream: (sessionId: string, content: string) =>
     apiFetch(`/api/chat/${sessionId}/stop`, {
       method: 'POST',

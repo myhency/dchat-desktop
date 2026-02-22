@@ -4,7 +4,7 @@ import type { SendMessageUseCase } from '../../../domain/ports/inbound/send-mess
 import type { RegenerateMessageUseCase } from '../../../domain/ports/inbound/regenerate-message.usecase'
 import type { GenerateTitleUseCase } from '../../../domain/ports/inbound/generate-title.usecase'
 import type { ManageMessagesUseCase } from '../../../domain/ports/inbound/manage-messages.usecase'
-import type { SendMessageRequest, StopStreamRequest } from '@dchat/shared'
+import type { SendMessageRequest, StopStreamRequest, EditMessageRequest } from '@dchat/shared'
 import logger from '../../../logger'
 
 // Per-session stream management
@@ -159,6 +159,67 @@ export function createChatRoutes(
         sendSSE(res, 'end', { content: '' })
       } else {
         logger.error({ err: error, sessionId }, 'SSE regenerate stream error')
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        sendSSE(res, 'error', { message: errorMessage })
+      }
+    } finally {
+      activeStreams.delete(sessionId)
+      res.end()
+    }
+  })
+
+  // POST /api/chat/:sessionId/messages/:messageId/edit — SSE streaming
+  router.post('/:sessionId/messages/:messageId/edit', async (req: Request, res: Response) => {
+    const { sessionId, messageId } = req.params
+    const { content } = req.body as EditMessageRequest
+
+    // SSE headers
+    res.setHeader('Content-Type', 'text/event-stream')
+    res.setHeader('Cache-Control', 'no-cache')
+    res.setHeader('Connection', 'keep-alive')
+    res.flushHeaders()
+
+    const abortController = new AbortController()
+    activeStreams.set(sessionId, abortController)
+    stoppedContents.delete(sessionId)
+    lastAssistantMessageIds.delete(sessionId)
+
+    logger.info({ sessionId, messageId }, 'SSE edit stream started')
+
+    res.on('close', () => {
+      abortController.abort()
+      activeStreams.delete(sessionId)
+    })
+
+    try {
+      await manageMessages.updateMessageContent(messageId, content)
+
+      const message = await regenerateMessage.regenerate(
+        sessionId,
+        messageId,
+        (chunk) => {
+          sendSSE(res, 'chunk', chunk)
+        },
+        abortController.signal
+      )
+
+      lastAssistantMessageIds.set(sessionId, message.content ? message.id : '')
+
+      const stopped = stoppedContents.get(sessionId)
+      if (stopped && message.content) {
+        await manageMessages.updateMessageContent(message.id, stopped)
+        stoppedContents.delete(sessionId)
+        lastAssistantMessageIds.delete(sessionId)
+      }
+
+      sendSSE(res, 'end', message)
+      logger.info({ sessionId }, 'SSE edit stream ended')
+    } catch (error) {
+      if (abortController.signal.aborted) {
+        logger.info({ sessionId }, 'Edit stream stopped by client')
+        sendSSE(res, 'end', { content: '' })
+      } else {
+        logger.error({ err: error, sessionId }, 'SSE edit stream error')
         const errorMessage = error instanceof Error ? error.message : 'Unknown error'
         sendSSE(res, 'error', { message: errorMessage })
       }

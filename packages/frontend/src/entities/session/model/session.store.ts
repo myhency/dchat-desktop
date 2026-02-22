@@ -36,6 +36,7 @@ interface ChatState {
   deleteSession: (id: string) => Promise<void>
   sendMessage: (content: string, attachments?: ImageAttachment[]) => Promise<void>
   regenerateMessage: (messageId: string) => Promise<void>
+  editMessage: (messageId: string, content: string) => Promise<void>
   stopStream: () => void
   setSessionTitleLocal: (sessionId: string, title: string) => void
   updateSessionTitle: (sessionId: string, title: string) => Promise<void>
@@ -213,6 +214,89 @@ export const useSessionStore = create<ChatState>((set, get) => ({
 
     const sessionId = currentSessionId
     const controller = chatApi.regenerate(sessionId, messageId, {
+      onChunk: (text) => {
+        if (!get().streamingSessionIds.has(sessionId)) return
+        set((state) => ({
+          streamingContents: {
+            ...state.streamingContents,
+            [sessionId]: (state.streamingContents[sessionId] ?? '') + text
+          }
+        }))
+      },
+      onTitle: (sid, title) => {
+        get().setSessionTitleLocal(sid, title)
+      },
+      onEnd: (message) => {
+        const state = get()
+        if (!state.streamingSessionIds.has(sessionId)) return
+        const isCurrentSession = sessionId === state.currentSessionId
+
+        set((s) => {
+          const newIds = new Set(s.streamingSessionIds)
+          newIds.delete(sessionId)
+          const { [sessionId]: _, ...rest } = s.streamingContents
+          return {
+            ...(isCurrentSession && message.content
+              ? { messages: [...s.messages, message] }
+              : {}),
+            streamingSessionIds: newIds,
+            streamingContents: rest
+          }
+        })
+
+        if (isCurrentSession) {
+          chatApi.getMessages(sessionId).then((msgs) => {
+            if (get().currentSessionId === sessionId) {
+              set({ messages: msgs })
+            }
+          })
+        }
+
+        activeControllers.delete(sessionId)
+      },
+      onError: (error) => {
+        const state = get()
+        if (!state.streamingSessionIds.has(sessionId)) return
+        const isCurrentSession = sessionId === state.currentSessionId
+
+        set((s) => {
+          const newIds = new Set(s.streamingSessionIds)
+          newIds.delete(sessionId)
+          const { [sessionId]: _, ...rest } = s.streamingContents
+          return {
+            ...(isCurrentSession ? { error } : {}),
+            streamingSessionIds: newIds,
+            streamingContents: rest
+          }
+        })
+
+        activeControllers.delete(sessionId)
+      }
+    })
+
+    activeControllers.set(sessionId, controller)
+  },
+
+  editMessage: async (messageId, content) => {
+    const { currentSessionId, messages } = get()
+    if (!currentSessionId) return
+
+    const targetIndex = messages.findIndex((m) => m.id === messageId)
+    if (targetIndex === -1) return
+
+    // Optimistic update: change content and remove subsequent messages
+    const updatedMessages = messages.slice(0, targetIndex + 1)
+    updatedMessages[targetIndex] = { ...updatedMessages[targetIndex], content }
+
+    set((state) => ({
+      messages: updatedMessages,
+      streamingSessionIds: new Set([...state.streamingSessionIds, currentSessionId]),
+      streamingContents: { ...state.streamingContents, [currentSessionId]: '' },
+      error: null
+    }))
+
+    const sessionId = currentSessionId
+    const controller = chatApi.editMessage(sessionId, messageId, content, {
       onChunk: (text) => {
         if (!get().streamingSessionIds.has(sessionId)) return
         set((state) => ({

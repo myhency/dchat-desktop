@@ -12,6 +12,7 @@ export function MessageList(): React.JSX.Element {
   const isStreaming = useSessionStore((s) => s.streamingSessionIds.has(s.currentSessionId ?? ''))
   const error = useSessionStore((s) => s.error)
   const regenerateMessage = useSessionStore((s) => s.regenerateMessage)
+  const editMessage = useSessionStore((s) => s.editMessage)
   const openArtifact = useSessionStore((s) => s.openArtifact)
 
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -126,6 +127,7 @@ export function MessageList(): React.JSX.Element {
             content={msg.content}
             createdAt={msg.createdAt}
             onRegenerate={regenerateMessage}
+            onEdit={editMessage}
             attachments={msg.attachments}
           />
         ))}
