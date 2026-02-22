@@ -2,6 +2,7 @@ import OpenAI from 'openai'
 import type { Message } from '../../../domain/entities/message'
 import type { ModelInfo } from '../../../domain/entities/model-info'
 import type { LLMGateway, StreamChunk, ChatOptions } from '../../../domain/ports/outbound/llm.gateway'
+import logger from '../../../logger'
 
 export class OpenAIAdapter implements LLMGateway {
   private client: OpenAI
@@ -38,6 +39,8 @@ export class OpenAIAdapter implements LLMGateway {
       }
     }
 
+    logger.debug({ model: options.model, messageCount: messages.length }, 'OpenAI stream start')
+
     try {
       const stream = await this.client.chat.completions.create(
         {
@@ -57,9 +60,11 @@ export class OpenAIAdapter implements LLMGateway {
         }
       }
 
+      logger.debug({ model: options.model }, 'OpenAI stream done')
       yield { type: 'done', content: '' }
     } catch (error) {
       if (signal?.aborted) return
+      logger.error({ err: error, model: options.model }, 'OpenAI stream error')
       throw error
     }
   }

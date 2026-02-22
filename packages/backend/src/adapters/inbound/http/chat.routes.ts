@@ -3,8 +3,9 @@ import type { Request, Response, NextFunction } from 'express'
 import type { SendMessageUseCase } from '../../../domain/ports/inbound/send-message.usecase'
 import type { RegenerateMessageUseCase } from '../../../domain/ports/inbound/regenerate-message.usecase'
 import type { GenerateTitleUseCase } from '../../../domain/ports/inbound/generate-title.usecase'
-import type { MessageRepository } from '../../../domain/ports/outbound/message.repository'
-import type { SendMessageRequest, StopStreamRequest } from '@dchat/shared'
+import type { ManageMessagesUseCase } from '../../../domain/ports/inbound/manage-messages.usecase'
+import type { SendMessageRequest, StopStreamRequest, EditMessageRequest } from '@dchat/shared'
+import logger from '../../../logger'
 
 // Per-session stream management
 const activeStreams = new Map<string, AbortController>()
@@ -19,7 +20,7 @@ export function createChatRoutes(
   sendMessage: SendMessageUseCase,
   regenerateMessage: RegenerateMessageUseCase,
   generateTitle: GenerateTitleUseCase,
-  messageRepo: MessageRepository
+  manageMessages: ManageMessagesUseCase
 ): Router {
   const router = Router()
 
@@ -29,7 +30,7 @@ export function createChatRoutes(
 
   // GET /api/chat/:sessionId/messages
   router.get('/:sessionId/messages', asyncHandler(async (req, res) => {
-    const messages = await messageRepo.findBySessionId(req.params.sessionId)
+    const messages = await manageMessages.getMessagesBySession(req.params.sessionId)
     res.json(messages)
   }))
 
@@ -48,6 +49,8 @@ export function createChatRoutes(
     activeStreams.set(sessionId, abortController)
     stoppedContents.delete(sessionId)
     lastAssistantMessageIds.delete(sessionId)
+
+    logger.info({ sessionId }, 'SSE stream started')
 
     // Clean up on client disconnect
     res.on('close', () => {
@@ -85,17 +88,19 @@ export function createChatRoutes(
       // Handle stopped content if stop was called during streaming
       const stopped = stoppedContents.get(sessionId)
       if (stopped && message.content) {
-        await messageRepo.updateContent(message.id, stopped)
+        await manageMessages.updateMessageContent(message.id, stopped)
         stoppedContents.delete(sessionId)
         lastAssistantMessageIds.delete(sessionId)
       }
 
       sendSSE(res, 'end', message)
+      logger.info({ sessionId }, 'SSE stream ended')
     } catch (error) {
       if (abortController.signal.aborted) {
+        logger.info({ sessionId }, 'Stream stopped by client')
         sendSSE(res, 'end', { content: '' })
       } else {
-        console.error('[chat]', error instanceof Error ? error.message : error)
+        logger.error({ err: error, sessionId }, 'SSE stream error')
         const errorMessage = error instanceof Error ? error.message : 'Unknown error'
         sendSSE(res, 'error', { message: errorMessage })
       }
@@ -120,6 +125,8 @@ export function createChatRoutes(
     stoppedContents.delete(sessionId)
     lastAssistantMessageIds.delete(sessionId)
 
+    logger.info({ sessionId }, 'SSE regenerate stream started')
+
     res.on('close', () => {
       abortController.abort()
       activeStreams.delete(sessionId)
@@ -139,17 +146,80 @@ export function createChatRoutes(
 
       const stopped = stoppedContents.get(sessionId)
       if (stopped && message.content) {
-        await messageRepo.updateContent(message.id, stopped)
+        await manageMessages.updateMessageContent(message.id, stopped)
         stoppedContents.delete(sessionId)
         lastAssistantMessageIds.delete(sessionId)
       }
 
       sendSSE(res, 'end', message)
+      logger.info({ sessionId }, 'SSE regenerate stream ended')
     } catch (error) {
       if (abortController.signal.aborted) {
+        logger.info({ sessionId }, 'Regenerate stream stopped by client')
         sendSSE(res, 'end', { content: '' })
       } else {
-        console.error('[chat]', error instanceof Error ? error.message : error)
+        logger.error({ err: error, sessionId }, 'SSE regenerate stream error')
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        sendSSE(res, 'error', { message: errorMessage })
+      }
+    } finally {
+      activeStreams.delete(sessionId)
+      res.end()
+    }
+  })
+
+  // POST /api/chat/:sessionId/messages/:messageId/edit — SSE streaming
+  router.post('/:sessionId/messages/:messageId/edit', async (req: Request, res: Response) => {
+    const { sessionId, messageId } = req.params
+    const { content } = req.body as EditMessageRequest
+
+    // SSE headers
+    res.setHeader('Content-Type', 'text/event-stream')
+    res.setHeader('Cache-Control', 'no-cache')
+    res.setHeader('Connection', 'keep-alive')
+    res.flushHeaders()
+
+    const abortController = new AbortController()
+    activeStreams.set(sessionId, abortController)
+    stoppedContents.delete(sessionId)
+    lastAssistantMessageIds.delete(sessionId)
+
+    logger.info({ sessionId, messageId }, 'SSE edit stream started')
+
+    res.on('close', () => {
+      abortController.abort()
+      activeStreams.delete(sessionId)
+    })
+
+    try {
+      await manageMessages.updateMessageContent(messageId, content)
+
+      const message = await regenerateMessage.regenerate(
+        sessionId,
+        messageId,
+        (chunk) => {
+          sendSSE(res, 'chunk', chunk)
+        },
+        abortController.signal
+      )
+
+      lastAssistantMessageIds.set(sessionId, message.content ? message.id : '')
+
+      const stopped = stoppedContents.get(sessionId)
+      if (stopped && message.content) {
+        await manageMessages.updateMessageContent(message.id, stopped)
+        stoppedContents.delete(sessionId)
+        lastAssistantMessageIds.delete(sessionId)
+      }
+
+      sendSSE(res, 'end', message)
+      logger.info({ sessionId }, 'SSE edit stream ended')
+    } catch (error) {
+      if (abortController.signal.aborted) {
+        logger.info({ sessionId }, 'Edit stream stopped by client')
+        sendSSE(res, 'end', { content: '' })
+      } else {
+        logger.error({ err: error, sessionId }, 'SSE edit stream error')
         const errorMessage = error instanceof Error ? error.message : 'Unknown error'
         sendSSE(res, 'error', { message: errorMessage })
       }
@@ -172,7 +242,7 @@ export function createChatRoutes(
 
       const lastId = lastAssistantMessageIds.get(sessionId)
       if (lastId) {
-        await messageRepo.updateContent(lastId, content)
+        await manageMessages.updateMessageContent(lastId, content)
         stoppedContents.delete(sessionId)
         lastAssistantMessageIds.delete(sessionId)
       }

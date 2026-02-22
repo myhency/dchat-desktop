@@ -6,6 +6,7 @@ export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin()],
     build: {
+      sourcemap: true,
       lib: {
         entry: resolve(__dirname, 'src/main.ts')
       }
@@ -14,6 +15,7 @@ export default defineConfig({
   preload: {
     plugins: [externalizeDepsPlugin()],
     build: {
+      sourcemap: true,
       lib: {
         entry: resolve(__dirname, 'src/preload.ts')
       }
@@ -25,6 +27,7 @@ export default defineConfig({
       postcss: resolve(__dirname, '../frontend')
     },
     build: {
+      sourcemap: true,
       rollupOptions: {
         input: resolve(__dirname, '../frontend/index.html')
       }

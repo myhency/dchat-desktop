@@ -17,13 +17,15 @@ import { SessionService } from './domain/services/session.service'
 import { SettingsService } from './domain/services/settings.service'
 import { ProjectService } from './domain/services/project.service'
 
+// Domain Ports
+import type { LLMGatewayResolver } from './domain/ports/outbound/llm-gateway.resolver'
+
 export interface AppContainer {
   chatService: ChatService
   sessionService: SessionService
   settingsService: SettingsService
   projectService: ProjectService
-  llmFactory: LLMAdapterFactory
-  messageRepo: SqliteMessageRepository
+  llmFactory: LLMGatewayResolver
   restoreApiKeys(): Promise<void>
 }
 
@@ -49,16 +51,15 @@ export function createContainer(): AppContainer {
     settingsService,
     projectService,
     llmFactory,
-    messageRepo,
 
     async restoreApiKeys(): Promise<void> {
       const anthropicKey = await settingsService.get('anthropic_api_key')
       const anthropicBaseUrl = await settingsService.get('anthropic_base_url')
-      if (anthropicKey) llmFactory.setAnthropicKey(anthropicKey, anthropicBaseUrl || undefined)
+      if (anthropicKey) llmFactory.configureProvider('anthropic', anthropicKey, anthropicBaseUrl || undefined)
 
       const openaiKey = await settingsService.get('openai_api_key')
       const openaiBaseUrl = await settingsService.get('openai_base_url')
-      if (openaiKey) llmFactory.setOpenAIKey(openaiKey, openaiBaseUrl || undefined)
+      if (openaiKey) llmFactory.configureProvider('openai', openaiKey, openaiBaseUrl || undefined)
     }
   }
 }

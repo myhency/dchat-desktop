@@ -31,6 +31,10 @@ export interface StopStreamRequest {
   content: string
 }
 
+export interface EditMessageRequest {
+  content: string
+}
+
 // ── Settings ──
 
 export interface SetSettingRequest {

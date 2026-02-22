@@ -1,63 +1,71 @@
 # D Chat Desktop
 
-크로스 플랫폼 AI 채팅 데스크톱 애플리케이션. 여러 LLM 프로바이더(Anthropic Claude, OpenAI GPT)를 하나의 인터페이스에서 사용할 수 있습니다.
+크로스 플랫폼 AI 채팅 데스크톱 애플리케이션. Anthropic Claude 및 OpenAI GPT 모델을 지원하며, 웹 브라우저와 Electron 데스크톱 앱으로 실행 가능.
 
 ## 기술 스택
 
-- **프레임워크**: Electron + electron-vite
-- **프론트엔드**: React 18 + TypeScript + Tailwind CSS
-- **상태관리**: Zustand
-- **DB**: better-sqlite3 (WAL 모드)
-- **LLM**: Anthropic SDK, OpenAI SDK
+| 분류 | 기술 |
+|------|------|
+| 모노레포 | npm workspaces |
+| 백엔드 | Express + TypeScript, better-sqlite3, REST/SSE |
+| 프론트엔드 | React 18, Vite, Zustand, Tailwind CSS |
+| 데스크톱 | Electron |
+| LLM | Anthropic SDK, OpenAI SDK |
 
-## 지원 모델
+## 프로젝트 구조
 
-| Provider | 모델 |
-|----------|------|
-| Anthropic | Claude Opus 4.6, Claude Sonnet 4.6, Claude Haiku 4.5 |
-| OpenAI | GPT-4o, GPT-4o Mini, o3-mini |
+```
+packages/
+├── shared/     # 공유 TypeScript 타입 (entities, API DTO)
+├── backend/    # Express 서버 (헥사고날 아키텍처, REST/SSE)
+├── frontend/   # React SPA (Vite, Zustand, API 클라이언트)
+└── electron/   # Thin Electron shell (백엔드 spawn + native IPC)
+```
 
 ## 시작하기
 
-### 사전 요구사항
+### Prerequisites
 
 - Node.js 18+
-- npm
+- npm 7+ (workspaces 지원 필요)
 
-### 설치 및 실행
+### 설치
 
 ```bash
-# 의존성 설치
 npm install
+```
 
-# 개발 모드 실행
+### 실행
+
+**웹 모드** (백엔드 + 프론트엔드 동시 실행):
+
+```bash
 npm run dev
+```
+
+http://localhost:5173 에서 접속. 백엔드는 http://localhost:3131 에서 실행.
+
+**Electron 모드**:
+
+```bash
+npm run dev:electron
+```
+
+**개별 실행**:
+
+```bash
+npm run dev:backend    # 백엔드만 (http://localhost:3131)
+npm run dev:frontend   # 프론트엔드만 (Vite proxy → localhost:3131)
 ```
 
 ### 빌드
 
 ```bash
-npm run build
+npm run build           # 백엔드 + 프론트엔드
+npm run build:electron  # Electron 앱
 ```
-
-## 프로젝트 구조
-
-```
-src/
-├── main/           # Electron 메인 프로세스
-│   ├── domain/     # 순수 도메인 (외부 의존성 없음)
-│   ├── adapters/   # 포트 구현체 (SQLite, LLM SDK, Node fs)
-│   └── container.ts # 컴포지션 루트 (DI 와이어링)
-├── preload/        # contextBridge (window.hchat API)
-└── renderer/       # React 프론트엔드
-    ├── components/ # UI 컴포넌트
-    ├── stores/     # Zustand 스토어
-    └── hooks/      # 커스텀 훅
-```
-
-헥사고날 아키텍처(Ports & Adapters)를 적용하여 도메인 로직이 프레임워크나 인프라에 의존하지 않습니다.
 
 ## 문서
 
-- [아키텍처 상세](docs/ARCHITECTURE.md) — 기술 스택, 데이터 흐름, IPC 채널, DB 스키마, 변경 작업 가이드
+- [아키텍처 상세 레퍼런스](docs/ARCHITECTURE.md) — 데이터 흐름, REST API, DB 스키마, Zustand 스토어
 - [프론트엔드 컨벤션](docs/CONVENTIONS.md) — IME 처리, 입력 패턴, 화면 전환, 키보드 단축키

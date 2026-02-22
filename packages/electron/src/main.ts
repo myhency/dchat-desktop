@@ -10,6 +10,8 @@ let mainWindow: BrowserWindow | null = null
 let backendProcess: ChildProcess | null = null
 let backendPort: number = 0
 
+const logFilePath = join(app.getPath('logs'), 'dchat-backend.log')
+
 /**
  * Find an available port
  */
@@ -54,23 +56,22 @@ async function startBackend(): Promise<number> {
 
   const dbPath = join(app.getPath('userData'), 'hchat.db')
 
+  const commonEnv = {
+    ...process.env,
+    PORT: String(port),
+    DCHAT_DB_PATH: dbPath,
+    DCHAT_LOG_PATH: logFilePath
+  }
+
   if (isDev) {
     backendProcess = spawn('npx', ['tsx', join(app.getAppPath(), '../backend/src/index.ts')], {
-      env: {
-        ...process.env,
-        PORT: String(port),
-        DCHAT_DB_PATH: dbPath
-      },
+      env: commonEnv,
       stdio: ['pipe', 'pipe', 'pipe'],
       shell: true
     })
   } else {
     backendProcess = spawn('node', [join(app.getAppPath(), '../backend/dist/index.js')], {
-      env: {
-        ...process.env,
-        PORT: String(port),
-        DCHAT_DB_PATH: dbPath
-      },
+      env: { ...commonEnv, NODE_ENV: 'production' },
       stdio: ['pipe', 'pipe', 'pipe']
     })
   }
@@ -83,9 +84,14 @@ async function startBackend(): Promise<number> {
     console.error(`[backend] ${data.toString().trim()}`)
   })
 
-  backendProcess.on('exit', (code) => {
-    console.log(`Backend exited with code ${code}`)
+  backendProcess.on('exit', (code, _signal) => {
     backendProcess = null
+    if (code !== 0 && code !== null) {
+      dialog.showErrorBox(
+        'Backend Error',
+        `Backend exited unexpectedly (code ${code}).\n\nLogs: ${logFilePath}`
+      )
+    }
   })
 
   await waitForBackend(port)
@@ -191,6 +197,9 @@ function registerNativeIpc(): void {
   ipcMain.on('native:get-api-url-sync', (event) => {
     event.returnValue = `http://localhost:${backendPort}`
   })
+
+  // Open log folder in system file manager
+  ipcMain.handle('native:open-log-folder', () => shell.openPath(app.getPath('logs')))
 }
 
 // ── App Lifecycle ──
@@ -200,7 +209,10 @@ app.whenReady().then(async () => {
     backendPort = await startBackend()
     console.log(`Backend started on port ${backendPort}`)
   } catch (err) {
-    console.error('Failed to start backend:', err)
+    dialog.showErrorBox(
+      'Backend Startup Failed',
+      `Could not start backend server.\n\nLogs: ${logFilePath}\n\n${err}`
+    )
     app.quit()
     return
   }

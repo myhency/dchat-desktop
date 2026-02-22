@@ -21,9 +21,9 @@ packages/
   - `inbound/http/` — Express 라우트 핸들러 (REST + SSE)
   - `outbound/` — SQLite, Anthropic SDK, OpenAI SDK
 - `packages/backend/src/container.ts` — 컴포지션 루트. 모든 DI 와이어링은 이 파일에서만
-- `packages/frontend/src/` — React SPA (API 클라이언트로 백엔드 통신)
-- `packages/frontend/src/api/` — HTTP/SSE 클라이언트 (`window.hchat` 대체)
-- `packages/frontend/src/lib/native.ts` — Electron/웹 이중 지원 (pickImage, openInBrowser)
+- `packages/frontend/src/` — React SPA (FSD 아키텍처: app → pages → widgets → features → entities → shared)
+- `packages/frontend/src/shared/api/` — HTTP/SSE 클라이언트, `entities/*/api/` — 엔티티별 API
+- `packages/frontend/src/shared/lib/native.ts` — Electron/웹 이중 지원 (pickImage, openInBrowser)
 - `packages/electron/` — 백엔드 spawn + BrowserWindow + native IPC (pickImage, openInBrowser)
 
 ## 실행 방법
@@ -33,8 +33,16 @@ packages/
 - **프론트엔드만**: `npm run dev:frontend` (Vite proxy → localhost:3131)
 - **Electron 모드**: `npm run dev:electron`
 
-상세 레퍼런스: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-프론트엔드 컨벤션: [docs/CONVENTIONS.md](docs/CONVENTIONS.md)
+## 상세 문서
+
+- 전체 구조/데이터 흐름: [docs/overview.md](docs/overview.md)
+- 변경 가이드: [docs/guides.md](docs/guides.md)
+- 백엔드 아키텍처/DB: [docs/backend/architecture.md](docs/backend/architecture.md)
+- REST API 레퍼런스: [docs/backend/api-reference.md](docs/backend/api-reference.md)
+- 프론트엔드 아키텍처/FSD: [docs/frontend/architecture.md](docs/frontend/architecture.md)
+- UI 컨벤션: [docs/frontend/ui-conventions.md](docs/frontend/ui-conventions.md)
+- 디자인 시스템 (색상, 버튼, 다크모드): [docs/frontend/design-system.md](docs/frontend/design-system.md)
+- 프론트엔드 동작 패턴: [docs/frontend/patterns.md](docs/frontend/patterns.md)
 
 ## 코딩 가이드라인
 
@@ -67,3 +75,17 @@ packages/
   1. [단계] → 검증: [확인 방법]
   2. [단계] → 검증: [확인 방법]
 - 변경된 모든 라인은 사용자의 요청으로 직접 추적 가능해야 함
+
+### 백엔드 테스트
+
+- 백엔드(`packages/backend`) 코드 변경 시 반드시 테스트 코드를 작성할 것
+- 테스트 파일 위치: `packages/backend/src/__tests__/` (기존 패턴 따름)
+- 테스트 실행 명령: `npm run test -w packages/backend`
+- 변경 완료 후 테스트가 모두 통과하는 것을 확인하고 마무리할 것
+
+### 프론트엔드 E2E 테스트
+
+- 프론트엔드(`packages/frontend`) UI 변경 시 E2E 테스트를 작성/수정할 것
+- 테스트 파일 위치: `e2e/` (vibium 브라우저 자동화)
+- 테스트 실행 명령: `npm run test:e2e` (dev 서버 자동 시작/종료)
+- 변경 완료 후 E2E 테스트가 모두 통과하는 것을 확인하고 마무리할 것

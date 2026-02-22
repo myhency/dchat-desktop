@@ -6,6 +6,7 @@ import { createChatRoutes } from './adapters/inbound/http/chat.routes'
 import { createSettingsRoutes } from './adapters/inbound/http/settings.routes'
 import { createProjectRoutes } from './adapters/inbound/http/project.routes'
 import { createModelsRoutes } from './adapters/inbound/http/models.routes'
+import logger from './logger'
 
 export function createApp(container: AppContainer): express.Express {
   const app = express()
@@ -17,7 +18,7 @@ export function createApp(container: AppContainer): express.Express {
   app.use((req, res, next) => {
     const start = Date.now()
     res.on('finish', () => {
-      console.log(`[http] ${req.method} ${req.originalUrl} ${res.statusCode} ${Date.now() - start}ms`)
+      logger.info({ method: req.method, url: req.originalUrl, statusCode: res.statusCode, duration: Date.now() - start }, 'HTTP request')
     })
     next()
   })
@@ -35,7 +36,7 @@ export function createApp(container: AppContainer): express.Express {
       container.chatService,
       container.chatService,
       container.chatService,
-      container.messageRepo
+      container.chatService
     )
   )
   app.use('/api/settings', createSettingsRoutes(container.settingsService, container.llmFactory))
@@ -44,7 +45,7 @@ export function createApp(container: AppContainer): express.Express {
 
   // Global error handler — Express 4 does not catch rejected promises from async handlers
   app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-    console.error('[server]', err.message)
+    logger.error({ err }, 'Unhandled error')
     if (!res.headersSent) {
       res.status(500).json({ error: err.message })
     }

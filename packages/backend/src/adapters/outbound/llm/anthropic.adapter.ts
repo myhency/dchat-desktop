@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import type { Message } from '../../../domain/entities/message'
 import type { ModelInfo } from '../../../domain/entities/model-info'
 import type { LLMGateway, StreamChunk, ChatOptions } from '../../../domain/ports/outbound/llm.gateway'
+import logger from '../../../logger'
 
 export class AnthropicAdapter implements LLMGateway {
   private client: Anthropic
@@ -28,6 +29,8 @@ export class AnthropicAdapter implements LLMGateway {
         : m.content
     }))
 
+    logger.debug({ model: options.model, messageCount: messages.length }, 'Anthropic stream start')
+
     try {
       const stream = this.client.messages.stream(
         {
@@ -49,9 +52,11 @@ export class AnthropicAdapter implements LLMGateway {
         }
       }
 
+      logger.debug({ model: options.model }, 'Anthropic stream done')
       yield { type: 'done', content: '' }
     } catch (error) {
       if (signal?.aborted) return
+      logger.error({ err: error, model: options.model }, 'Anthropic stream error')
       throw error
     }
   }

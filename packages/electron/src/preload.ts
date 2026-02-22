@@ -8,7 +8,8 @@ const electronApi = {
     // This is called synchronously; the value is cached after first IPC call
     // We use sendSync for the initial API URL retrieval
     return ipcRenderer.sendSync('native:get-api-url-sync')
-  }
+  },
+  openLogFolder: () => ipcRenderer.invoke('native:open-log-folder')
 }
 
 export type ElectronAPI = typeof electronApi

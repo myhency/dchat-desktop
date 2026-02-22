@@ -61,8 +61,8 @@ beforeAll(async () => {
   const llmFactory = {
     getGateway: () => mockGateway,
     listAllModels: () => [],
-    setAnthropicKey: () => {},
-    setOpenAIKey: () => {}
+    configureProvider: () => {},
+    testConnection: async () => {}
   }
 
   // Domain services
@@ -78,7 +78,6 @@ beforeAll(async () => {
     settingsService,
     projectService,
     llmFactory,
-    messageRepo,
     async restoreApiKeys() {}
   } as any
 
@@ -194,7 +193,50 @@ describe('API Integration', () => {
     expect(messages[1].content).toBe('Hello World')
   })
 
-  it('e. SSE 이벤트 순서 검증', async () => {
+  it('e. POST /api/chat/:sessionId/messages/:messageId/edit → 메시지 편집 후 재생성', async () => {
+    // 기존 세션(test b)의 메시지 조회
+    const messagesRes = await fetch(`${baseUrl}/api/chat/${sessionId}/messages`)
+    const messages = await messagesRes.json()
+    const userMessage = messages.find((m: any) => m.role === 'user')
+    expect(userMessage).toBeDefined()
+
+    // edit 엔드포인트 호출
+    const res = await fetch(`${baseUrl}/api/chat/${sessionId}/messages/${userMessage.id}/edit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: 'Edited message' })
+    })
+
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-type')).toBe('text/event-stream')
+
+    const raw = await res.text()
+    const events = parseSSE(raw)
+
+    // chunk + end 이벤트 존재
+    const chunkEvents = events.filter((e) => e.event === 'chunk')
+    expect(chunkEvents.length).toBeGreaterThan(0)
+
+    const endEvents = events.filter((e) => e.event === 'end')
+    expect(endEvents.length).toBe(1)
+
+    const endData = endEvents[0].data as any
+    expect(endData.role).toBe('assistant')
+    expect(endData.content).toBe('Hello World')
+
+    // 편집 후 메시지 조회: user 메시지 content가 변경됨
+    const afterRes = await fetch(`${baseUrl}/api/chat/${sessionId}/messages`)
+    const afterMessages = await afterRes.json()
+    const editedUser = afterMessages.find((m: any) => m.role === 'user')
+    expect(editedUser.content).toBe('Edited message')
+
+    // assistant 응답이 새로 생성됨
+    const assistant = afterMessages.find((m: any) => m.role === 'assistant')
+    expect(assistant).toBeDefined()
+    expect(assistant.content).toBe('Hello World')
+  })
+
+  it('f. SSE 이벤트 순서 검증', async () => {
     // 새 세션 생성
     const sessionRes = await fetch(`${baseUrl}/api/sessions`, {
       method: 'POST',
