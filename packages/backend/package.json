@@ -6,8 +6,8 @@
   "main": "./src/index.ts",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc",
-    "start": "node dist/index.js",
+    "build": "tsc -p tsconfig.build.json && echo '{\"type\":\"commonjs\"}' > dist/package.json",
+    "start": "node dist/backend/src/index.js",
     "test": "vitest run",
     "test:watch": "vitest"
   },

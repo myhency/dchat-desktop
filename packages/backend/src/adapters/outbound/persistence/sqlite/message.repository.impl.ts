@@ -42,6 +42,10 @@ export class SqliteMessageRepository implements MessageRepository {
     this.db.prepare('DELETE FROM messages WHERE session_id = ?').run(sessionId)
   }
 
+  async deleteAll(): Promise<void> {
+    this.db.prepare('DELETE FROM messages').run()
+  }
+
   private toDomain(row: MessageRow): Message {
     let attachments: Message['attachments'] = []
     try {

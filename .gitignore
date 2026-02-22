@@ -5,3 +5,6 @@ dist/
 *.log
 .env
 .env.local
+build/
+packages/electron/release/
+packages/shared/src/**/*.js

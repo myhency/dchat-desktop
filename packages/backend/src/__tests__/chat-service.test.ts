@@ -64,7 +64,8 @@ describe('ChatService', () => {
       save: vi.fn(async (msg: Message) => { savedMessages.push(msg) }),
       updateContent: vi.fn(async () => {}),
       deleteById: vi.fn(async () => {}),
-      deleteBySessionId: vi.fn(async () => {})
+      deleteBySessionId: vi.fn(async () => {}),
+      deleteAll: vi.fn(async () => {})
     }
 
     sessionRepo = {
@@ -72,21 +73,24 @@ describe('ChatService', () => {
       findById: vi.fn(async () => createMockSession()),
       findByProjectId: vi.fn(async () => []),
       save: vi.fn(async () => {}),
-      delete: vi.fn(async () => {})
+      delete: vi.fn(async () => {}),
+      deleteAll: vi.fn(async () => {})
     }
 
     settingsRepo = {
       get: vi.fn(async () => null),
       set: vi.fn(async () => {}),
       delete: vi.fn(async () => {}),
-      getAll: vi.fn(async () => ({}))
+      getAll: vi.fn(async () => ({})),
+      deleteAll: vi.fn(async () => {})
     }
 
     projectRepo = {
       findAll: vi.fn(async () => []),
       findById: vi.fn(async () => null),
       save: vi.fn(async () => {}),
-      delete: vi.fn(async () => {})
+      delete: vi.fn(async () => {}),
+      deleteAll: vi.fn(async () => {})
     }
 
     mockGateway = createMockGateway([

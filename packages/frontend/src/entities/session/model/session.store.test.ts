@@ -117,7 +117,7 @@ describe('session store', () => {
 
       useSessionStore.setState({ currentSessionId: 'sess-1', messages: [] })
 
-      const attachments = [{ data: 'base64data', mediaType: 'image/png' as const }]
+      const attachments = [{ id: 'att-1', fileName: 'test.png', mimeType: 'image/png', base64Data: 'base64data' }]
       await useSessionStore.getState().sendMessage('Look at this', attachments)
 
       const state = useSessionStore.getState()

@@ -56,6 +56,13 @@ Base URL: `/api` (기본 포트 3131)
 |--------|------|------|------|------|
 | GET | `/api/models` | — | `ModelInfo[]` | 사용 가능 모델 목록 |
 
+## Backup
+
+| 메서드 | 경로 | Body | 응답 | 설명 |
+|--------|------|------|------|------|
+| GET | `/api/backup/export` | — | `BackupData` | 전체 데이터 내보내기 (settings, projects, sessions, messages) |
+| POST | `/api/backup/import` | `BackupData` | `{ ok: true }` | 데이터 가져오기 (기존 데이터 전체 삭제 후 복원) |
+
 ## SSE 스트리밍 이벤트
 
 `POST /api/chat/:sessionId/messages` 및 `POST /api/chat/:sessionId/messages/:messageId/regenerate`는 SSE(Server-Sent Events)로 응답.

@@ -55,7 +55,8 @@ packages/
 │       │   │   │   ├── generate-title.usecase.ts
 │       │   │   │   ├── manage-session.usecase.ts
 │       │   │   │   ├── manage-project.usecase.ts
-│       │   │   │   └── manage-settings.usecase.ts
+│       │   │   │   ├── manage-settings.usecase.ts
+│       │   │   │   └── backup-restore.usecase.ts
 │       │   │   └── outbound/                    # 리포지토리/게이트웨이 인터페이스
 │       │   │       ├── llm.gateway.ts
 │       │   │       ├── llm-gateway.resolver.ts
@@ -69,6 +70,7 @@ packages/
 │       │       ├── session.service.ts           # → ManageSession
 │       │       ├── project.service.ts           # → ManageProject
 │       │       ├── settings.service.ts          # → ManageSettings
+│       │       ├── backup.service.ts           # → BackupRestore
 │       │       └── id.ts                        # generateId()
 │       └── adapters/
 │           ├── inbound/http/                    # Express 라우트 핸들러 (REST + SSE)
@@ -76,6 +78,7 @@ packages/
 │           │   ├── session.routes.ts            # 세션 CRUD + 즐겨찾기 + 프로젝트 연결
 │           │   ├── project.routes.ts            # 프로젝트 CRUD + 지침 + 즐겨찾기
 │           │   ├── settings.routes.ts           # 설정 조회/저장 + 연결 테스트
+│           │   ├── backup.routes.ts            # 백업 내보내기/가져오기
 │           │   └── models.routes.ts             # 모델 목록 조회
 │           └── outbound/
 │               ├── persistence/sqlite/          # SQLite 리포지토리
@@ -117,7 +120,7 @@ packages/
 │       ├── entities/                            # 비즈니스 엔티티 (api/ + model/ + index.ts barrel)
 │       │   ├── session/                         # sessionApi, chatApi, useSessionStore
 │       │   ├── project/                         # projectApi, useProjectStore
-│       │   └── settings/                        # settingsApi, useSettingsStore
+│       │   └── settings/                        # settingsApi, backupApi, useSettingsStore
 │       └── shared/                              # 인프라, 유틸
 │           ├── api/                             # client.ts (apiFetch, apiSSE), models.api.ts
 │           └── lib/                             # native.ts, model-meta.ts, time.ts
@@ -232,6 +235,7 @@ Request/Response DTO:
 - `StopStreamRequest` (content)
 - `SetSettingRequest` (value)
 - `CreateProjectRequest`, `UpdateProjectRequest`, `UpdateInstructionsRequest`
+- `BackupData` (version, exportedAt, data: settings/projects/sessions/messages)
 - `HealthResponse`
 
 SSE 이벤트 타입:
@@ -247,7 +251,7 @@ SSE 이벤트 타입:
 
 ### 백엔드 Spawn
 
-- Production: 랜덤 가용 포트, `node`로 빌드된 백엔드 실행
+- Production: 랜덤 가용 포트, `process.execPath` + `ELECTRON_RUN_AS_NODE=1`로 빌드된 백엔드 실행
 - Dev: 포트 3131 고정, `npx tsx`로 TypeScript 직접 실행
 - DB 경로: `${app.getPath('userData')}/hchat.db` (환경변수 `DCHAT_DB_PATH`로 오버라이드 가능)
 - 백엔드 stdout/stderr → `[backend]` 프리픽스로 로깅

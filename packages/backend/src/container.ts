@@ -16,6 +16,7 @@ import { ChatService } from './domain/services/chat.service'
 import { SessionService } from './domain/services/session.service'
 import { SettingsService } from './domain/services/settings.service'
 import { ProjectService } from './domain/services/project.service'
+import { BackupService } from './domain/services/backup.service'
 
 // Domain Ports
 import type { LLMGatewayResolver } from './domain/ports/outbound/llm-gateway.resolver'
@@ -25,6 +26,7 @@ export interface AppContainer {
   sessionService: SessionService
   settingsService: SettingsService
   projectService: ProjectService
+  backupService: BackupService
   llmFactory: LLMGatewayResolver
   restoreApiKeys(): Promise<void>
 }
@@ -44,12 +46,14 @@ export function createContainer(): AppContainer {
   const sessionService = new SessionService(sessionRepo, messageRepo)
   const settingsService = new SettingsService(settingsRepo)
   const projectService = new ProjectService(projectRepo)
+  const backupService = new BackupService(messageRepo, sessionRepo, projectRepo, settingsRepo)
 
   return {
     chatService,
     sessionService,
     settingsService,
     projectService,
+    backupService,
     llmFactory,
 
     async restoreApiKeys(): Promise<void> {

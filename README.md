@@ -65,6 +65,31 @@ npm run build           # 백엔드 + 프론트엔드
 npm run build:electron  # Electron 앱
 ```
 
+### macOS 앱 패키징
+
+```bash
+npm run build:package --workspaces=false
+```
+
+이 명령은 아래 단계를 순서대로 실행합니다:
+
+1. 백엔드 TypeScript → CJS 컴파일
+2. 프론트엔드 Vite 프로덕션 빌드
+3. Electron main/preload 빌드
+4. 백엔드 독립 node_modules 생성 + better-sqlite3 네이티브 리빌드
+5. electron-builder로 .app/.dmg 패키징
+
+산출물은 `packages/electron/release/`에 생성됩니다:
+
+```
+packages/electron/release/
+  D Chat-{version}-arm64.dmg   # 설치용 DMG
+  mac-arm64/D Chat.app          # 앱 번들
+```
+
+DMG를 열어 D Chat을 Applications 폴더로 드래그하여 설치합니다.
+코드 서명이 없으므로 처음 실행 시 **시스템 설정 > 개인정보 보호 및 보안**에서 "확인 없이 열기"를 허용해야 합니다.
+
 ## 문서
 
 - [아키텍처 상세 레퍼런스](docs/ARCHITECTURE.md) — 데이터 흐름, REST API, DB 스키마, Zustand 스토어

@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
-import { X, ChevronDown, Shield, ExternalLink, RefreshCw, Eye, EyeOff, Loader2, Check } from 'lucide-react'
+import { X, ChevronDown, Shield, ExternalLink, RefreshCw, Eye, EyeOff, Loader2, Check, Upload, Download } from 'lucide-react'
 import { useSettingsStore, settingsApi } from '@/entities/settings'
+import { useSessionStore } from '@/entities/session'
+import { backupApi } from '@/entities/settings/api/backup.api'
 
 type Tab =
   | 'general-top'
@@ -328,6 +330,64 @@ function UsageContent(): React.JSX.Element {
 }
 
 function PrivacyContent(): React.JSX.Element {
+  const loadSettings = useSettingsStore((s) => s.loadSettings)
+  const loadSessions = useSessionStore((s) => s.loadSessions)
+  const [exportStatus, setExportStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+  const [importStatus, setImportStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+  const [statusMessage, setStatusMessage] = useState('')
+
+  const handleExport = async (): Promise<void> => {
+    setExportStatus('loading')
+    setStatusMessage('')
+    try {
+      const data = await backupApi.exportBackup()
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `dchat-backup-${new Date().toISOString().slice(0, 10)}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+      setExportStatus('success')
+      setStatusMessage('백업 파일이 다운로드되었습니다')
+      setTimeout(() => { setExportStatus('idle'); setStatusMessage('') }, 3000)
+    } catch (err) {
+      setExportStatus('error')
+      setStatusMessage(err instanceof Error ? err.message : '내보내기 실패')
+      setTimeout(() => { setExportStatus('idle'); setStatusMessage('') }, 5000)
+    }
+  }
+
+  const handleImport = (): void => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.json'
+    input.onchange = async () => {
+      const file = input.files?.[0]
+      if (!file) return
+
+      if (!window.confirm('기존 데이터가 모두 삭제됩니다. 계속하시겠습니까?')) return
+
+      setImportStatus('loading')
+      setStatusMessage('')
+      try {
+        const text = await file.text()
+        const data = JSON.parse(text)
+        await backupApi.importBackup(data)
+        await loadSettings()
+        await loadSessions()
+        setImportStatus('success')
+        setStatusMessage('데이터가 복구되었습니다')
+        setTimeout(() => { setImportStatus('idle'); setStatusMessage('') }, 3000)
+      } catch (err) {
+        setImportStatus('error')
+        setStatusMessage(err instanceof Error ? err.message : '가져오기 실패')
+        setTimeout(() => { setImportStatus('idle'); setStatusMessage('') }, 5000)
+      }
+    }
+    input.click()
+  }
+
   return (
     <div>
       {/* 헤더 영역 */}
@@ -354,12 +414,45 @@ function PrivacyContent(): React.JSX.Element {
           <span className="text-sm">데이터 내보내기</span>
           <button
             type="button"
-            onClick={() => {}}
-            className="rounded-lg border border-neutral-300 dark:border-neutral-600 px-3 py-1.5 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+            disabled={exportStatus === 'loading'}
+            onClick={handleExport}
+            className="flex items-center gap-1.5 rounded-lg border border-neutral-300 dark:border-neutral-600 px-3 py-1.5 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors disabled:opacity-50"
           >
-            데이터 내보내기
+            {exportStatus === 'loading' ? (
+              <><Loader2 size={14} className="animate-spin" /> 내보내는 중...</>
+            ) : (
+              <><Download size={14} /> 데이터 내보내기</>
+            )}
           </button>
         </div>
+
+        {/* 데이터 가져오기 */}
+        <div className="flex items-center justify-between">
+          <span className="text-sm">데이터 가져오기</span>
+          <button
+            type="button"
+            disabled={importStatus === 'loading'}
+            onClick={handleImport}
+            className="flex items-center gap-1.5 rounded-lg border border-neutral-300 dark:border-neutral-600 px-3 py-1.5 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors disabled:opacity-50"
+          >
+            {importStatus === 'loading' ? (
+              <><Loader2 size={14} className="animate-spin" /> 가져오는 중...</>
+            ) : (
+              <><Upload size={14} /> 데이터 가져오기</>
+            )}
+          </button>
+        </div>
+
+        {/* 상태 메시지 */}
+        {statusMessage && (
+          <p className={`text-xs ${
+            exportStatus === 'error' || importStatus === 'error'
+              ? 'text-red-500'
+              : 'text-green-500'
+          }`}>
+            {statusMessage}
+          </p>
+        )}
 
         {/* 메모리 설정 */}
         <div className="flex items-center justify-between">

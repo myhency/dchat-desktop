@@ -43,6 +43,10 @@ export class SqliteProjectRepository implements ProjectRepository {
     this.db.prepare('DELETE FROM projects WHERE id = ?').run(id)
   }
 
+  async deleteAll(): Promise<void> {
+    this.db.prepare('DELETE FROM projects').run()
+  }
+
   private toDomain(row: ProjectRow): Project {
     return {
       id: row.id,

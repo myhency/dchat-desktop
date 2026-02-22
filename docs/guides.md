@@ -28,6 +28,26 @@
 4. 아웃바운드 어댑터 구현 → `packages/backend/src/adapters/outbound/`
 5. `packages/backend/src/container.ts`에서 와이어링
 
+## macOS 앱 패키징 주의사항
+
+### 백엔드 tsc 출력 구조
+
+`tsconfig.build.json`으로 CJS 빌드 시 출력이 `dist/index.js`가 아닌 `dist/backend/src/index.js`에 생성됨. `tsconfig.json`의 `paths`가 `@dchat/shared`를 `../shared/src/`로 매핑하기 때문에 tsc가 공통 루트를 상위로 잡아 중첩 구조를 만듦. `rootDir` 명시로는 해결 불가 (tsc가 paths 대상 파일도 rootDir 내에 있어야 한다고 요구).
+
+- 진입점 경로를 변경하려면: `main.ts`의 spawn 경로 + `backend/package.json`의 `start` 스크립트 동시 수정 필요
+
+### 프론트엔드 Vite base 설정
+
+`packages/frontend/vite.config.ts`의 `base: './'`는 필수. Electron 패키지 앱은 `file://` 프로토콜로 HTML을 로드하므로, 절대 경로(`/assets/...`)는 파일시스템 루트를 참조하게 됨. 제거하면 패키지 앱에서 빈 화면 발생.
+
+### build:package 실행
+
+```bash
+npm run build:package --workspaces=false
+```
+
+`--workspaces=false` 플래그 필수. 없으면 npm이 모든 워크스페이스에서 스크립트를 찾아 실패함.
+
 ## 프론트엔드 컴포넌트 추가 (FSD 규칙)
 
 1. 적절한 FSD 레이어에 파일 배치:

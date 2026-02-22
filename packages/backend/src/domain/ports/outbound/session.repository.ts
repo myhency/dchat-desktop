@@ -6,4 +6,5 @@ export interface SessionRepository {
   findByProjectId(projectId: string): Promise<Session[]>
   save(session: Session): Promise<void>
   delete(id: string): Promise<void>
+  deleteAll(): Promise<void>
 }
