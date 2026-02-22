@@ -103,7 +103,7 @@ export function HomeScreen(): React.JSX.Element {
         </div>
 
         {/* Input area */}
-        <div className="rounded-xl border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 shadow-sm focus-within:ring-2 focus-within:ring-blue-500 dark:focus-within:ring-blue-400">
+        <div className="rounded-xl border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 shadow-sm focus-within:ring-2 focus-within:ring-primary-500 dark:focus-within:ring-primary-400">
           {attachments.length > 0 && (
             <div className="flex gap-2 px-3 pt-2 overflow-x-auto">
               {attachments.map((a) => (
@@ -165,7 +165,7 @@ export function HomeScreen(): React.JSX.Element {
                     >
                       <span>{getShortName(modelId)}</span>
                       {modelId === selectedModel && (
-                        <Check size={14} className="text-blue-500" />
+                        <Check size={14} className="text-primary-500" />
                       )}
                     </button>
                   ))}
@@ -175,7 +175,7 @@ export function HomeScreen(): React.JSX.Element {
 
             {/* Send button */}
             <button
-              className="flex items-center justify-center rounded-lg bg-blue-600 w-8 h-8 text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center justify-center rounded-lg bg-primary w-8 h-8 text-white hover:bg-primary-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               onClick={handleSubmit}
               disabled={!value.trim() && attachments.length === 0}
             >

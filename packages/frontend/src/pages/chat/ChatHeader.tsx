@@ -67,7 +67,7 @@ export function ChatHeader(): React.JSX.Element | null {
             </span>
             <span className="text-neutral-300 dark:text-neutral-600">/</span>
             <input
-              className="bg-transparent text-sm text-neutral-800 dark:text-neutral-100 outline-none border-b border-blue-500 py-0.5"
+              className="bg-transparent text-sm text-neutral-800 dark:text-neutral-100 outline-none border-b border-primary-500 py-0.5"
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
               onKeyDown={handleRenameKeyDown}

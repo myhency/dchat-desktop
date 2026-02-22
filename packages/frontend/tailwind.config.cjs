@@ -1,4 +1,5 @@
 const path = require('path')
+const colors = require('tailwindcss/colors')
 
 /** @type {import('tailwindcss').Config} */
 module.exports = {
@@ -8,7 +9,17 @@ module.exports = {
   ],
   darkMode: 'class',
   theme: {
-    extend: {}
+    extend: {
+      colors: {
+        primary: {
+          DEFAULT: colors.blue[600],
+          400: colors.blue[400],
+          500: colors.blue[500],
+          600: colors.blue[600],
+          700: colors.blue[700],
+        },
+      }
+    }
   },
   plugins: [require('@tailwindcss/typography')]
 }

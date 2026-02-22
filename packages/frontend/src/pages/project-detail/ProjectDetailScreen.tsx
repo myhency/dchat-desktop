@@ -189,7 +189,7 @@ export function ProjectDetailScreen(): React.JSX.Element {
                       updateProject(project.id, nameDraft.trim(), descriptionDraft.trim())
                       setIsEditingDetails(false)
                     }}
-                    className="rounded-lg bg-neutral-800 dark:bg-neutral-100 px-4 py-1.5 text-sm text-white dark:text-neutral-900 hover:opacity-80 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="rounded-lg bg-primary px-4 py-1.5 text-sm text-white hover:bg-primary-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     저장
                   </button>
@@ -199,7 +199,7 @@ export function ProjectDetailScreen(): React.JSX.Element {
           )}
 
           {/* Input area */}
-          <div className="mb-8 rounded-xl border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 shadow-sm focus-within:ring-2 focus-within:ring-blue-500 dark:focus-within:ring-blue-400">
+          <div className="mb-8 rounded-xl border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 shadow-sm focus-within:ring-2 focus-within:ring-primary-500 dark:focus-within:ring-primary-400">
             <TextareaAutosize
               ref={textareaRef}
               className="w-full resize-none bg-transparent px-4 py-3 text-sm outline-none border-none placeholder:text-neutral-400"
@@ -236,7 +236,7 @@ export function ProjectDetailScreen(): React.JSX.Element {
                         >
                           <span>{getShortName(modelId)}</span>
                           {modelId === selectedModel && (
-                            <Check size={14} className="text-blue-500" />
+                            <Check size={14} className="text-primary-500" />
                           )}
                         </button>
                       ))}
@@ -246,7 +246,7 @@ export function ProjectDetailScreen(): React.JSX.Element {
 
                 {/* Send button */}
                 <button
-                  className="flex items-center justify-center rounded-lg bg-blue-600 w-8 h-8 text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  className="flex items-center justify-center rounded-lg bg-primary w-8 h-8 text-white hover:bg-primary-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                   onClick={handleSubmit}
                   disabled={!value.trim()}
                 >
@@ -311,7 +311,7 @@ export function ProjectDetailScreen(): React.JSX.Element {
           {isEditingInstructions ? (
             <div>
               <textarea
-                className="w-full resize-none rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                className="w-full resize-none rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-500 dark:focus:ring-primary-400"
                 rows={5}
                 value={instructionsDraft}
                 onChange={(e) => setInstructionsDraft(e.target.value)}
@@ -335,7 +335,7 @@ export function ProjectDetailScreen(): React.JSX.Element {
                     await updateInstructions(project.id, instructionsDraft)
                     setIsEditingInstructions(false)
                   }}
-                  className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs text-white hover:bg-blue-700 transition-colors"
+                  className="rounded-lg bg-primary px-3 py-1.5 text-xs text-white hover:bg-primary-700 transition-colors"
                 >
                   저장
                 </button>

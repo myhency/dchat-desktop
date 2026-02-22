@@ -47,7 +47,7 @@ export function PromptInput(): React.JSX.Element {
 
   return (
     <div className="border-t border-neutral-200 dark:border-neutral-700 py-4">
-      <div className="max-w-[90%] md:max-w-[80%] lg:max-w-[70%] mx-auto w-full rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 focus-within:ring-2 focus-within:ring-blue-500 dark:focus-within:ring-blue-400">
+      <div className="max-w-[90%] md:max-w-[80%] lg:max-w-[70%] mx-auto w-full rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 focus-within:ring-2 focus-within:ring-primary-500 dark:focus-within:ring-primary-400">
         {attachments.length > 0 && (
           <div className="flex gap-2 px-3 pt-2 overflow-x-auto">
             {attachments.map((a) => (
@@ -102,7 +102,7 @@ export function PromptInput(): React.JSX.Element {
               </button>
             ) : (
               <button
-                className="flex items-center justify-center rounded-lg bg-blue-600 w-8 h-8 text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                className="flex items-center justify-center rounded-lg bg-primary w-8 h-8 text-white hover:bg-primary-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 onClick={handleSubmit}
                 disabled={(!value.trim() && attachments.length === 0) || !currentSessionId}
               >

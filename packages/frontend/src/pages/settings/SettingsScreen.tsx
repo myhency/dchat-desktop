@@ -51,7 +51,7 @@ function Toggle({
       aria-checked={checked}
       onClick={() => onChange(!checked)}
       className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
-        checked ? 'bg-blue-600' : 'bg-neutral-300 dark:bg-neutral-600'
+        checked ? 'bg-primary' : 'bg-neutral-300 dark:bg-neutral-600'
       }`}
     >
       <span
@@ -91,7 +91,7 @@ function RoleDropdown({
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+        className="w-full flex items-center justify-between rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-500"
       >
         <span className={value ? '' : 'text-neutral-400 dark:text-neutral-500'}>{display}</span>
         <ChevronDown size={12} className={`shrink-0 text-neutral-400 transition-transform ${open ? 'rotate-180' : ''}`} />
@@ -166,7 +166,7 @@ function GeneralTopContent(): React.JSX.Element {
                 type="text"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                className="w-full rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-500"
               />
             </div>
           </div>
@@ -178,7 +178,7 @@ function GeneralTopContent(): React.JSX.Element {
               type="text"
               value={nickname}
               onChange={(e) => setNickname(e.target.value)}
-              className="w-full rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-500"
             />
           </div>
         </div>
@@ -204,7 +204,7 @@ function GeneralTopContent(): React.JSX.Element {
             onChange={(e) => setCustomInstructions(e.target.value)}
             placeholder="예시: 설명을 간단명료하게 유지"
             rows={4}
-            className="w-full rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+            className="w-full rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-500 resize-none"
           />
         </div>
       </section>
@@ -242,7 +242,7 @@ function GeneralTopContent(): React.JSX.Element {
               onClick={() => setColorMode(mode.id)}
               className={`rounded-lg border-2 p-1 transition-colors ${
                 colorMode === mode.id
-                  ? 'border-blue-500'
+                  ? 'border-primary-500'
                   : 'border-neutral-200 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-600'
               }`}
             >
@@ -276,7 +276,7 @@ function UsageContent(): React.JSX.Element {
             <span className="text-sm text-neutral-500">8% 사용됨</span>
           </div>
           <div className="h-2 rounded-full bg-neutral-200 dark:bg-neutral-700">
-            <div className="h-full rounded-full bg-blue-500" style={{ width: '8%' }} />
+            <div className="h-full rounded-full bg-primary-500" style={{ width: '8%' }} />
           </div>
           <p className="text-xs text-neutral-500 mt-1">4시간 3분 후 재설정</p>
         </div>
@@ -288,7 +288,7 @@ function UsageContent(): React.JSX.Element {
         <a
           href="#"
           onClick={(e) => e.preventDefault()}
-          className="text-sm text-blue-600 dark:text-blue-400 underline mb-4 inline-block"
+          className="text-sm text-primary dark:text-primary-400 underline mb-4 inline-block"
         >
           사용량 한도에 대해 자세히 알아보기
         </a>
@@ -298,7 +298,7 @@ function UsageContent(): React.JSX.Element {
             <span className="text-sm text-neutral-500">5% 사용됨</span>
           </div>
           <div className="h-2 rounded-full bg-neutral-200 dark:bg-neutral-700">
-            <div className="h-full rounded-full bg-blue-500" style={{ width: '5%' }} />
+            <div className="h-full rounded-full bg-primary-500" style={{ width: '5%' }} />
           </div>
           <p className="text-xs text-neutral-500 mt-1">(목) 오후 10:00에 재설정</p>
         </div>
@@ -440,7 +440,7 @@ function ModelDropdown({
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+        className="w-full flex items-center justify-between rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-500"
       >
         <span>{currentLabel}</span>
         <ChevronDown size={12} className={`shrink-0 text-neutral-400 transition-transform ${open ? 'rotate-180' : ''}`} />
@@ -543,7 +543,7 @@ function ProviderCard({
               onChange={(e) => setLocalKey(e.target.value)}
               onBlur={() => { if (localKey !== apiKey) onApiKeyChange(localKey) }}
               placeholder="API 키를 입력하세요"
-              className="w-full rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 px-3 py-2 pr-9 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 px-3 py-2 pr-9 text-sm outline-none focus:ring-2 focus:ring-primary-500"
             />
             <button
               type="button"
@@ -563,7 +563,7 @@ function ProviderCard({
             onChange={(e) => setLocalBaseUrl(e.target.value)}
             onBlur={() => { if (localBaseUrl !== baseUrl) onBaseUrlChange(localBaseUrl) }}
             placeholder={baseUrlPlaceholder}
-            className="w-full rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-500"
           />
         </div>
 

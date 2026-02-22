@@ -75,7 +75,7 @@ export function ProjectsScreen(): React.JSX.Element {
               setDescription('')
               setCreating(true)
             }}
-            className="rounded-lg bg-neutral-800 dark:bg-neutral-100 px-3 py-1.5 text-sm text-white dark:text-neutral-900 hover:opacity-80 transition-opacity"
+            className="rounded-lg bg-primary px-3 py-1.5 text-sm text-white hover:bg-primary-700 transition-colors"
           >
             + 새 프로젝트
           </button>
@@ -123,7 +123,7 @@ export function ProjectsScreen(): React.JSX.Element {
                   createProject(name.trim(), description.trim())
                   setCreating(false)
                 }}
-                className="rounded-lg bg-neutral-800 dark:bg-neutral-100 px-4 py-1.5 text-sm text-white dark:text-neutral-900 hover:opacity-80 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+                className="rounded-lg bg-primary px-4 py-1.5 text-sm text-white hover:bg-primary-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 프로젝트 만들기
               </button>
@@ -286,7 +286,7 @@ export function ProjectsScreen(): React.JSX.Element {
                         updateProject(editingProject.id, editName.trim(), editDescription.trim())
                         setEditingProject(null)
                       }}
-                      className="rounded-lg bg-neutral-800 dark:bg-neutral-100 px-4 py-1.5 text-sm text-white dark:text-neutral-900 hover:opacity-80 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="rounded-lg bg-primary px-4 py-1.5 text-sm text-white hover:bg-primary-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       저장
                     </button>

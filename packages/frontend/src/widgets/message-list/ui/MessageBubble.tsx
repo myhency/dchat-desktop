@@ -75,14 +75,14 @@ export function MessageBubble({
             <textarea
               value={editContent}
               onChange={(e) => setEditContent(e.target.value)}
-              className="w-full min-h-[80px] rounded-2xl px-4 py-3 border-2 border-blue-500 bg-white dark:bg-neutral-800 text-sm leading-relaxed text-neutral-900 dark:text-neutral-100 resize-y focus:outline-none"
+              className="w-full min-h-[80px] rounded-2xl px-4 py-3 border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-sm leading-relaxed text-neutral-900 dark:text-neutral-100 resize-y focus:outline-none focus:ring-2 focus:ring-primary-500"
               autoFocus
             />
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={handleEditCancel}
-                className="px-3 py-1 text-xs rounded-lg bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-300 dark:hover:bg-neutral-600 transition-colors"
+                className="px-3 py-1.5 text-sm rounded-lg text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
               >
                 취소
               </button>
@@ -90,7 +90,7 @@ export function MessageBubble({
                 type="button"
                 onClick={handleEditSave}
                 disabled={editContent.trim() === ''}
-                className="px-3 py-1 text-xs rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50"
+                className="px-3 py-1.5 text-sm font-medium rounded-lg bg-primary text-white hover:bg-primary-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 저장
               </button>
@@ -117,7 +117,7 @@ export function MessageBubble({
             </div>
           )}
           {content && (
-            <div className="rounded-2xl px-4 py-3 bg-blue-600 text-white text-sm leading-relaxed">
+            <div className="rounded-2xl px-4 py-3 bg-primary text-white text-sm leading-relaxed">
               <p className="whitespace-pre-wrap">{content}</p>
             </div>
           )}
