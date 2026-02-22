@@ -19,11 +19,8 @@
       "Bash(xargs ls:*)",
       "Bash(npm run typecheck:*)",
       "Bash(npm run:*)",
-      "Bash(git -C /Users/james/Developer/dchat-desktop show HEAD:src/main/index.ts 2>/dev/null | head -50)",
-      "Bash(git -C /Users/james/Developer/dchat-desktop show HEAD:package.json 2>/dev/null | head -50)",
-      "Bash(git -C /Users/james/Developer/dchat-desktop show HEAD:tsconfig.node.json 2>/dev/null)",
-      "Bash(git -C /Users/james/Developer/dchat-desktop show HEAD:electron.vite.config.ts 2>/dev/null || echo \"NOT IN HEAD\")",
-      "Bash(git add .claude/settings.local.json CLAUDE.md electron.vite.config.ts package-lock.json package.json postcss.config.js tailwind.config.js tsconfig.json tsconfig.node.json tsconfig.web.json src/ packages/)"
+      "Bash(git -C:*)",
+      "Bash(git add:*)"
     ]
   }
 }
