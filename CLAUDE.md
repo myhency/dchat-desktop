@@ -21,9 +21,9 @@ packages/
   - `inbound/http/` — Express 라우트 핸들러 (REST + SSE)
   - `outbound/` — SQLite, Anthropic SDK, OpenAI SDK
 - `packages/backend/src/container.ts` — 컴포지션 루트. 모든 DI 와이어링은 이 파일에서만
-- `packages/frontend/src/` — React SPA (API 클라이언트로 백엔드 통신)
-- `packages/frontend/src/api/` — HTTP/SSE 클라이언트 (`window.hchat` 대체)
-- `packages/frontend/src/lib/native.ts` — Electron/웹 이중 지원 (pickImage, openInBrowser)
+- `packages/frontend/src/` — React SPA (FSD 아키텍처: app → pages → widgets → features → entities → shared)
+- `packages/frontend/src/shared/api/` — HTTP/SSE 클라이언트, `entities/*/api/` — 엔티티별 API
+- `packages/frontend/src/shared/lib/native.ts` — Electron/웹 이중 지원 (pickImage, openInBrowser)
 - `packages/electron/` — 백엔드 spawn + BrowserWindow + native IPC (pickImage, openInBrowser)
 
 ## 실행 방법
@@ -33,8 +33,15 @@ packages/
 - **프론트엔드만**: `npm run dev:frontend` (Vite proxy → localhost:3131)
 - **Electron 모드**: `npm run dev:electron`
 
-상세 레퍼런스: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-프론트엔드 컨벤션: [docs/CONVENTIONS.md](docs/CONVENTIONS.md)
+## 상세 문서
+
+- 전체 구조/데이터 흐름: [docs/overview.md](docs/overview.md)
+- 변경 가이드: [docs/guides.md](docs/guides.md)
+- 백엔드 아키텍처/DB: [docs/backend/architecture.md](docs/backend/architecture.md)
+- REST API 레퍼런스: [docs/backend/api-reference.md](docs/backend/api-reference.md)
+- 프론트엔드 아키텍처/FSD: [docs/frontend/architecture.md](docs/frontend/architecture.md)
+- UI 컨벤션: [docs/frontend/ui-conventions.md](docs/frontend/ui-conventions.md)
+- 프론트엔드 동작 패턴: [docs/frontend/patterns.md](docs/frontend/patterns.md)
 
 ## 코딩 가이드라인
 
