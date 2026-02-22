@@ -8,3 +8,4 @@ dist/
 build/
 packages/electron/release/
 packages/shared/src/**/*.js
+*.tsbuildinfo

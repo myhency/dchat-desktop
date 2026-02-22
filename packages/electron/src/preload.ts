@@ -9,6 +9,7 @@ const electronApi = {
     // We use sendSync for the initial API URL retrieval
     return ipcRenderer.sendSync('native:get-api-url-sync')
   },
+  openFile: (filePath: string) => ipcRenderer.invoke('native:open-file', filePath),
   openLogFolder: () => ipcRenderer.invoke('native:open-log-folder')
 }
 

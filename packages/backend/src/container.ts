@@ -9,7 +9,9 @@ import { SqliteMessageRepository } from './adapters/outbound/persistence/sqlite/
 import { SqliteSessionRepository } from './adapters/outbound/persistence/sqlite/session.repository.impl'
 import { SqliteSettingsRepository } from './adapters/outbound/persistence/sqlite/settings.repository.impl'
 import { SqliteProjectRepository } from './adapters/outbound/persistence/sqlite/project.repository.impl'
+import { JsonFileMcpServerRepository } from './adapters/outbound/persistence/json/mcp-config.repository'
 import { LLMAdapterFactory } from './adapters/outbound/llm/llm-adapter.factory'
+import { StdioMcpClientManager } from './adapters/outbound/mcp/stdio-mcp-client.manager'
 
 // Domain Services
 import { ChatService } from './domain/services/chat.service'
@@ -17,9 +19,11 @@ import { SessionService } from './domain/services/session.service'
 import { SettingsService } from './domain/services/settings.service'
 import { ProjectService } from './domain/services/project.service'
 import { BackupService } from './domain/services/backup.service'
+import { McpServerService } from './domain/services/mcp-server.service'
 
 // Domain Ports
 import type { LLMGatewayResolver } from './domain/ports/outbound/llm-gateway.resolver'
+import type { McpClientGateway } from './domain/ports/outbound/mcp-client.gateway'
 
 export interface AppContainer {
   chatService: ChatService
@@ -27,8 +31,11 @@ export interface AppContainer {
   settingsService: SettingsService
   projectService: ProjectService
   backupService: BackupService
+  mcpServerService: McpServerService
+  mcpClient: McpClientGateway
   llmFactory: LLMGatewayResolver
   restoreApiKeys(): Promise<void>
+  startMcpServers(): Promise<void>
 }
 
 export function createContainer(): AppContainer {
@@ -39,14 +46,17 @@ export function createContainer(): AppContainer {
   const sessionRepo = new SqliteSessionRepository(db)
   const settingsRepo = new SqliteSettingsRepository(db)
   const projectRepo = new SqliteProjectRepository(db)
+  const mcpServerRepo = new JsonFileMcpServerRepository()
   const llmFactory = new LLMAdapterFactory()
+  const mcpClient = new StdioMcpClientManager()
 
   // Domain Services
-  const chatService = new ChatService(messageRepo, sessionRepo, llmFactory, settingsRepo, projectRepo)
+  const chatService = new ChatService(messageRepo, sessionRepo, llmFactory, settingsRepo, projectRepo, mcpClient)
   const sessionService = new SessionService(sessionRepo, messageRepo)
   const settingsService = new SettingsService(settingsRepo)
   const projectService = new ProjectService(projectRepo)
   const backupService = new BackupService(messageRepo, sessionRepo, projectRepo, settingsRepo)
+  const mcpServerService = new McpServerService(mcpServerRepo, mcpClient)
 
   return {
     chatService,
@@ -54,6 +64,8 @@ export function createContainer(): AppContainer {
     settingsService,
     projectService,
     backupService,
+    mcpServerService,
+    mcpClient,
     llmFactory,
 
     async restoreApiKeys(): Promise<void> {
@@ -64,6 +76,10 @@ export function createContainer(): AppContainer {
       const openaiKey = await settingsService.get('openai_api_key')
       const openaiBaseUrl = await settingsService.get('openai_base_url')
       if (openaiKey) llmFactory.configureProvider('openai', openaiKey, openaiBaseUrl || undefined)
+    },
+
+    async startMcpServers(): Promise<void> {
+      await mcpServerService.startEnabledServers()
     }
   }
 }

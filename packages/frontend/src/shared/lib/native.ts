@@ -63,6 +63,16 @@ export function openInBrowser(htmlContent: string): void {
 }
 
 /**
+ * Open a file with system default application — Electron only
+ */
+export function openFile(path: string): Promise<string> | undefined {
+  if (isElectron) {
+    return (window as any).electron.openFile(path)
+  }
+  return undefined
+}
+
+/**
  * Open log folder — Electron only, no web fallback
  */
 export function openLogFolder(): Promise<string> | undefined {

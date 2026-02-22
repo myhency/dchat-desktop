@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
-import { X, ChevronDown, Shield, ExternalLink, RefreshCw, Eye, EyeOff, Loader2, Check, Upload, Download } from 'lucide-react'
+import { X, ChevronDown, Shield, ExternalLink, RefreshCw, Eye, EyeOff, Loader2, Check, Upload, Download, Trash2, Play, Square, RotateCw, FileText, FolderOpen } from 'lucide-react'
 import { useSettingsStore, settingsApi } from '@/entities/settings'
 import { useSessionStore } from '@/entities/session'
+import { useMcpStore } from '@/entities/mcp'
 import { backupApi } from '@/entities/settings/api/backup.api'
+import { openFile } from '@/shared/lib/native'
 
 type Tab =
   | 'general-top'
@@ -754,6 +756,281 @@ function ConnectorsContent(): React.JSX.Element {
   )
 }
 
+function DeveloperContent(): React.JSX.Element {
+  const servers = useMcpStore((s) => s.servers)
+  const selectedServerId = useMcpStore((s) => s.selectedServerId)
+  const loading = useMcpStore((s) => s.loading)
+  const logs = useMcpStore((s) => s.logs)
+  const logsServerId = useMcpStore((s) => s.logsServerId)
+  const configPath = useMcpStore((s) => s.configPath)
+  const loadServers = useMcpStore((s) => s.loadServers)
+  const deleteServer = useMcpStore((s) => s.deleteServer)
+  const startServer = useMcpStore((s) => s.startServer)
+  const stopServer = useMcpStore((s) => s.stopServer)
+  const restartServer = useMcpStore((s) => s.restartServer)
+  const selectServer = useMcpStore((s) => s.selectServer)
+  const loadLogs = useMcpStore((s) => s.loadLogs)
+  const closeLogs = useMcpStore((s) => s.closeLogs)
+  const loadConfigPath = useMcpStore((s) => s.loadConfigPath)
+  const reloadConfig = useMcpStore((s) => s.reloadConfig)
+
+  const [reloading, setReloading] = useState(false)
+
+  useEffect(() => {
+    loadServers()
+    loadConfigPath()
+  }, [loadServers, loadConfigPath])
+
+  const handleOpenConfigFile = (): void => {
+    if (!configPath) return
+    openFile(configPath)
+  }
+
+  const handleReload = async (): Promise<void> => {
+    setReloading(true)
+    await reloadConfig()
+    setReloading(false)
+  }
+
+  const selected = servers.find((s) => s.config.id === selectedServerId)
+
+  const statusColor = (status: string): string => {
+    if (status === 'running') return 'bg-blue-500'
+    if (status === 'error') return 'bg-red-500'
+    return 'bg-neutral-400'
+  }
+
+  const statusLabel = (status: string): string => {
+    if (status === 'running') return '실행 중'
+    if (status === 'error') return '오류'
+    return '중지됨'
+  }
+
+  // Show logs modal
+  if (logsServerId) {
+    const logServer = servers.find((s) => s.config.id === logsServerId)
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold">{logServer?.config.name ?? ''} 로그</h3>
+          <button
+            type="button"
+            onClick={closeLogs}
+            className="text-sm text-primary dark:text-primary-400 hover:underline"
+          >
+            돌아가기
+          </button>
+        </div>
+        <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 p-3 max-h-96 overflow-y-auto">
+          {logs.length === 0 ? (
+            <p className="text-xs text-neutral-500">로그가 없습니다</p>
+          ) : (
+            <pre className="text-xs text-neutral-600 dark:text-neutral-300 whitespace-pre-wrap font-mono">
+              {logs.join('\n')}
+            </pre>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div>
+        <h3 className="text-base font-semibold">로컬 MCP 서버</h3>
+        <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-0.5">
+          MCP 서버를 추가하여 AI에게 도구를 제공합니다
+        </p>
+      </div>
+
+      {/* Config file actions */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleOpenConfigFile}
+            className="flex items-center gap-1.5 rounded-lg border border-neutral-300 dark:border-neutral-600 px-3 py-1.5 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+          >
+            <FolderOpen size={14} />
+            설정 파일 편집
+          </button>
+          <button
+            type="button"
+            onClick={handleReload}
+            disabled={reloading}
+            className="flex items-center gap-1.5 rounded-lg border border-neutral-300 dark:border-neutral-600 px-3 py-1.5 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors disabled:opacity-50"
+          >
+            {reloading ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <RefreshCw size={14} />
+            )}
+            다시 불러오기
+          </button>
+        </div>
+        {configPath && (
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 font-mono">{configPath}</p>
+        )}
+      </div>
+
+      {/* Loading */}
+      {loading && (
+        <div className="flex items-center gap-2 text-sm text-neutral-500">
+          <Loader2 size={14} className="animate-spin" />
+          불러오는 중...
+        </div>
+      )}
+
+      {/* Server list + detail layout */}
+      {!loading && servers.length === 0 && (
+        <div className="text-sm text-neutral-500 dark:text-neutral-400 py-8 text-center">
+          등록된 MCP 서버가 없습니다
+        </div>
+      )}
+
+      {!loading && servers.length > 0 && (
+        <div className="flex gap-4">
+          {/* Left: Server list */}
+          <div className="w-[200px] shrink-0 space-y-1">
+            {servers.map((srv) => (
+              <button
+                key={srv.config.id}
+                type="button"
+                onClick={() => selectServer(srv.config.id)}
+                className={`w-full text-left rounded-lg px-3 py-2 text-sm transition-colors ${
+                  selectedServerId === srv.config.id
+                    ? 'bg-neutral-200 dark:bg-neutral-700 font-medium'
+                    : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${statusColor(srv.status)}`} />
+                  <span className="truncate">{srv.config.name}</span>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {/* Right: Detail */}
+          <div className="flex-1 min-w-0">
+            {selected ? (
+              <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 p-4 space-y-4">
+                {/* Name + status */}
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-semibold">{selected.config.name}</h4>
+                  <span className={`flex items-center gap-1.5 text-xs ${
+                    selected.status === 'running' ? 'text-blue-500' :
+                    selected.status === 'error' ? 'text-red-500' :
+                    'text-neutral-400'
+                  }`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${statusColor(selected.status)}`} />
+                    {statusLabel(selected.status)}
+                  </span>
+                </div>
+
+                {/* Command info */}
+                <div className="space-y-2">
+                  <div>
+                    <span className="text-xs text-neutral-500 dark:text-neutral-400">명령어</span>
+                    <p className="text-sm font-mono bg-neutral-50 dark:bg-neutral-800 rounded px-2 py-1 mt-0.5">
+                      {selected.config.command}
+                    </p>
+                  </div>
+                  {selected.config.args.length > 0 && (
+                    <div>
+                      <span className="text-xs text-neutral-500 dark:text-neutral-400">인수</span>
+                      <p className="text-sm font-mono bg-neutral-50 dark:bg-neutral-800 rounded px-2 py-1 mt-0.5">
+                        {selected.config.args.join(' ')}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Tools */}
+                {selected.tools.length > 0 && (
+                  <div>
+                    <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                      도구 ({selected.tools.length})
+                    </span>
+                    <div className="mt-1 space-y-1">
+                      {selected.tools.map((tool) => (
+                        <div
+                          key={tool.name}
+                          className="text-xs bg-neutral-50 dark:bg-neutral-800 rounded px-2 py-1.5"
+                        >
+                          <span className="font-medium">{tool.name}</span>
+                          {tool.description && (
+                            <span className="text-neutral-500 dark:text-neutral-400 ml-1.5">
+                              — {tool.description}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex items-center gap-2 pt-2 border-t border-neutral-200 dark:border-neutral-700">
+                  {selected.status === 'running' ? (
+                    <button
+                      type="button"
+                      onClick={() => stopServer(selected.config.id)}
+                      className="flex items-center gap-1.5 rounded-lg border border-neutral-300 dark:border-neutral-600 px-3 py-1.5 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+                    >
+                      <Square size={12} />
+                      중지
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => startServer(selected.config.id)}
+                      className="flex items-center gap-1.5 rounded-lg border border-neutral-300 dark:border-neutral-600 px-3 py-1.5 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+                    >
+                      <Play size={12} />
+                      시작
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => restartServer(selected.config.id)}
+                    className="flex items-center gap-1.5 rounded-lg border border-neutral-300 dark:border-neutral-600 px-3 py-1.5 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+                  >
+                    <RotateCw size={12} />
+                    재시작
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => loadLogs(selected.config.id)}
+                    className="flex items-center gap-1.5 rounded-lg border border-neutral-300 dark:border-neutral-600 px-3 py-1.5 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+                  >
+                    <FileText size={12} />
+                    로그
+                  </button>
+                  <div className="flex-1" />
+                  <button
+                    type="button"
+                    onClick={() => deleteServer(selected.config.id)}
+                    className="flex items-center gap-1.5 rounded-lg border border-red-300 dark:border-red-800 px-3 py-1.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                  >
+                    <Trash2 size={12} />
+                    삭제
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="text-sm text-neutral-500 dark:text-neutral-400 py-8 text-center">
+                서버를 선택하세요
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function SettingsScreen(): React.JSX.Element {
   const closeSettings = useSettingsStore((s) => s.closeSettings)
   const [activeTab, setActiveTab] = useState<Tab>('general-top')
@@ -808,6 +1085,8 @@ export function SettingsScreen(): React.JSX.Element {
             <PrivacyContent />
           ) : activeTab === 'connectors' ? (
             <ConnectorsContent />
+          ) : activeTab === 'developer' ? (
+            <DeveloperContent />
           ) : (
             <div className="text-sm text-neutral-500 dark:text-neutral-400">
               {activeLabel} 설정

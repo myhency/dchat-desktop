@@ -47,7 +47,8 @@ packages/
 │       │   │   ├── message.ts
 │       │   │   ├── session.ts
 │       │   │   ├── project.ts
-│       │   │   └── model-info.ts
+│       │   │   ├── model-info.ts
+│       │   │   └── mcp-server.ts                # MCP 서버 설정 + 상태 타입
 │       │   ├── ports/
 │       │   │   ├── inbound/                     # 유스케이스 인터페이스
 │       │   │   │   ├── send-message.usecase.ts
@@ -56,21 +57,25 @@ packages/
 │       │   │   │   ├── manage-session.usecase.ts
 │       │   │   │   ├── manage-project.usecase.ts
 │       │   │   │   ├── manage-settings.usecase.ts
-│       │   │   │   └── backup-restore.usecase.ts
+│       │   │   │   ├── backup-restore.usecase.ts
+│       │   │   │   └── manage-mcp-servers.usecase.ts
 │       │   │   └── outbound/                    # 리포지토리/게이트웨이 인터페이스
-│       │   │       ├── llm.gateway.ts
+│       │   │       ├── llm.gateway.ts           # + streamChatRaw (tool use), LLMMessage, LLMContentBlock
 │       │   │       ├── llm-gateway.resolver.ts
 │       │   │       ├── message.repository.ts
 │       │   │       ├── session.repository.ts
 │       │   │       ├── project.repository.ts
 │       │   │       ├── settings.repository.ts
-│       │   │       └── file-system.gateway.ts
+│       │   │       ├── file-system.gateway.ts
+│       │   │       ├── mcp-server.repository.ts # JSON 파일 기반 설정 저장
+│       │   │       └── mcp-client.gateway.ts    # MCP 서버 프로세스 관리 + 도구 호출
 │       │   └── services/                        # 도메인 서비스 (포트 구현)
-│       │       ├── chat.service.ts              # → SendMessage, Regenerate, GenerateTitle
+│       │       ├── chat.service.ts              # → SendMessage, Regenerate, GenerateTitle (+ tool use 루프)
 │       │       ├── session.service.ts           # → ManageSession
 │       │       ├── project.service.ts           # → ManageProject
 │       │       ├── settings.service.ts          # → ManageSettings
 │       │       ├── backup.service.ts           # → BackupRestore
+│       │       ├── mcp-server.service.ts        # → ManageMcpServers
 │       │       └── id.ts                        # generateId()
 │       └── adapters/
 │           ├── inbound/http/                    # Express 라우트 핸들러 (REST + SSE)
@@ -79,7 +84,8 @@ packages/
 │           │   ├── project.routes.ts            # 프로젝트 CRUD + 지침 + 즐겨찾기
 │           │   ├── settings.routes.ts           # 설정 조회/저장 + 연결 테스트
 │           │   ├── backup.routes.ts            # 백업 내보내기/가져오기
-│           │   └── models.routes.ts             # 모델 목록 조회
+│           │   ├── models.routes.ts             # 모델 목록 조회
+│           │   └── mcp-server.routes.ts         # MCP 서버 CRUD + 상태/로그/리로드
 │           └── outbound/
 │               ├── persistence/sqlite/          # SQLite 리포지토리
 │               │   ├── connection.ts            # DB 연결 (WAL 모드, DCHAT_DB_PATH 오버라이드)
@@ -88,10 +94,14 @@ packages/
 │               │   ├── session.repository.impl.ts
 │               │   ├── project.repository.impl.ts
 │               │   └── settings.repository.impl.ts
+│               ├── persistence/json/            # JSON 파일 기반 저장
+│               │   └── mcp-config.repository.ts # ~/.dchat/mcp_config.json
+│               ├── mcp/                         # MCP 클라이언트
+│               │   └── stdio-mcp-client.manager.ts  # stdio 프로세스 기반 MCP 서버 관리
 │               └── llm/                         # LLM 어댑터
 │                   ├── llm-adapter.factory.ts   # → LLMGatewayResolver
-│                   ├── anthropic.adapter.ts     # → LLMGateway
-│                   └── openai.adapter.ts        # → LLMGateway
+│                   ├── anthropic.adapter.ts     # → LLMGateway (+ streamChatRaw for tool use)
+│                   └── openai.adapter.ts        # → LLMGateway (+ streamChatRaw for tool use)
 ├── frontend/                                    # React SPA (Vite, FSD 아키텍처)
 │   ├── vite.config.ts                           # Vite 설정 (proxy → localhost:3131, @ alias)
 │   ├── index.html                               # 진입점: /src/app/main.tsx
@@ -111,7 +121,7 @@ packages/
 │       ├── widgets/                             # 독립 UI 블록
 │       │   ├── main-layout/                     # MainLayout (뷰 디스패치 포함)
 │       │   ├── sidebar/                         # Sidebar, SessionContextMenu, SettingsMenu, SettingsPanel
-│       │   ├── message-list/                    # MessageList, MessageBubble, CodeBlock, HtmlArtifactCard, StreamingIndicator
+│       │   ├── message-list/                    # MessageList, MessageBubble, CodeBlock, HtmlArtifactCard, StreamingIndicator, ToolCallBlock
 │       │   ├── prompt-input/                    # PromptInput, PromptMenu, ModelSelector
 │       │   └── artifact-panel/                  # ArtifactPanel
 │       ├── features/                            # 사용자 인터랙션
@@ -120,7 +130,8 @@ packages/
 │       ├── entities/                            # 비즈니스 엔티티 (api/ + model/ + index.ts barrel)
 │       │   ├── session/                         # sessionApi, chatApi, useSessionStore
 │       │   ├── project/                         # projectApi, useProjectStore
-│       │   └── settings/                        # settingsApi, backupApi, useSettingsStore
+│       │   ├── settings/                        # settingsApi, backupApi, useSettingsStore
+│       │   └── mcp/                             # mcpApi, useMcpStore (MCP 서버 관리)
 │       └── shared/                              # 인프라, 유틸
 │           ├── api/                             # client.ts (apiFetch, apiSSE), models.api.ts
 │           └── lib/                             # native.ts, model-meta.ts, time.ts
@@ -269,6 +280,7 @@ Electron의 `ipcMain.handle()`로 등록, preload의 `contextBridge`를 통해 `
 |------|------|------|------|
 | `native:pick-image` | — | `ImageAttachment[]` | 파일 다이얼로그 (png, jpg, gif, webp) → base64 인코딩 |
 | `native:open-in-browser` | `htmlContent: string` | `void` | HTML을 temp 파일로 쓰고 시스템 브라우저에서 열기 |
+| `native:open-file` | `filePath: string` | `void` | 파일을 시스템 기본 앱으로 열기 (MCP 설정 파일 편집용) |
 | `native:get-api-url` / `native:get-api-url-sync` | — | `string` | `http://localhost:${backendPort}` 반환 |
 
 ### BrowserWindow

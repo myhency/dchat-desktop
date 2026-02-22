@@ -43,11 +43,28 @@ export async function apiFetch<T>(
   }
 }
 
+export interface SSEToolUseData {
+  type: 'tool_use'
+  toolUseId: string
+  toolName: string
+  toolInput: Record<string, unknown>
+}
+
+export interface SSEToolResultData {
+  type: 'tool_result'
+  toolUseId: string
+  toolName: string
+  content: string
+  isError: boolean
+}
+
 export interface SSECallbacks {
   onChunk?: (data: { type: string; content: string }) => void
   onTitle?: (data: { sessionId: string; title: string }) => void
   onEnd?: (data: any) => void
   onError?: (data: { message: string }) => void
+  onToolUse?: (data: SSEToolUseData) => void
+  onToolResult?: (data: SSEToolResultData) => void
 }
 
 export function apiSSE(
@@ -99,6 +116,12 @@ export function apiSSE(
                 break
               case 'error':
                 callbacks.onError?.(data)
+                break
+              case 'tool_use':
+                callbacks.onToolUse?.(data)
+                break
+              case 'tool_result':
+                callbacks.onToolResult?.(data)
                 break
             }
             currentEvent = ''

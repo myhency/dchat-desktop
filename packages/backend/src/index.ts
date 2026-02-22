@@ -15,9 +15,15 @@ async function main(): Promise<void> {
     logger.info({ port: PORT }, 'D Chat backend listening')
   })
 
+  // Start enabled MCP servers (non-blocking)
+  container.startMcpServers().catch((err) => {
+    logger.error({ err }, 'Failed to start MCP servers')
+  })
+
   // Graceful shutdown
   const shutdown = (): void => {
     logger.info('Shutting down server')
+    container.mcpClient.shutdownAll().catch(() => {})
     server.close(() => {
       closeDatabase()
       process.exit(0)

@@ -7,6 +7,7 @@ declare global {
     electron?: {
       pickImage: () => Promise<ImageAttachment[]>
       openInBrowser: (htmlContent: string) => void
+      openFile: (path: string) => Promise<string>
       getApiUrl: () => string
       openLogFolder: () => Promise<string>
     }

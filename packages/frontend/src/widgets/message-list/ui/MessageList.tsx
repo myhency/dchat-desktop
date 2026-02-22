@@ -3,6 +3,7 @@ import { ArrowDown } from 'lucide-react'
 import { useSessionStore } from '@/entities/session'
 import { MessageBubble } from './MessageBubble'
 import { StreamingIndicator } from './StreamingIndicator'
+import { ToolCallBlock } from './ToolCallBlock'
 
 const NEAR_BOTTOM_THRESHOLD = 50
 
@@ -10,6 +11,7 @@ export function MessageList(): React.JSX.Element {
   const messages = useSessionStore((s) => s.messages)
   const streamingContent = useSessionStore((s) => s.streamingContents[s.currentSessionId ?? ''] ?? '')
   const isStreaming = useSessionStore((s) => s.streamingSessionIds.has(s.currentSessionId ?? ''))
+  const activeToolCalls = useSessionStore((s) => s.activeToolCalls)
   const error = useSessionStore((s) => s.error)
   const regenerateMessage = useSessionStore((s) => s.regenerateMessage)
   const editMessage = useSessionStore((s) => s.editMessage)
@@ -82,7 +84,7 @@ export function MessageList(): React.JSX.Element {
         el.scrollTo({ top: el.scrollHeight })
       }
     }
-  }, [messages, streamingContent])
+  }, [messages, streamingContent, activeToolCalls])
 
   // Force scroll to bottom when a new message is added (user sends a message)
   useEffect(() => {
@@ -132,11 +134,19 @@ export function MessageList(): React.JSX.Element {
           />
         ))}
 
+        {isStreaming && activeToolCalls.length > 0 && (
+          <div className="space-y-1">
+            {activeToolCalls.map((tc) => (
+              <ToolCallBlock key={tc.toolUseId} toolCall={tc} />
+            ))}
+          </div>
+        )}
+
         {isStreaming && streamingContent && (
           <MessageBubble role="assistant" content={streamingContent} isStreaming />
         )}
 
-        {isStreaming && !streamingContent && <StreamingIndicator />}
+        {isStreaming && !streamingContent && activeToolCalls.length === 0 && <StreamingIndicator />}
 
         {error && (
           <div className="rounded-lg bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-600 dark:text-red-400">

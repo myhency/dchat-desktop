@@ -48,6 +48,39 @@ npm run build:package --workspaces=false
 
 `--workspaces=false` 플래그 필수. 없으면 npm이 모든 워크스페이스에서 스크립트를 찾아 실패함.
 
+## E2E 테스트 작성 (vibium)
+
+테스트 프레임워크: vibium (경량 브라우저 자동화) + vitest
+
+### vibium `evaluate` 제약
+
+`vibe.evaluate(script)`는 내부적으로 `() => { ${script} }`로 래핑되므로, 값을 반환하려면 **명시적 `return`** 필요:
+
+```typescript
+// ❌ undefined 반환 — 암시적 반환 안 됨
+await vibe.evaluate('document.title')
+
+// ✅ 명시적 return 필요
+await vibe.evaluate<string>('return document.title')
+```
+
+텍스트 기반 요소 탐색이 필요한 경우 (vibium `find`는 CSS 셀렉터만 지원):
+
+```typescript
+// evaluate 내에서 querySelectorAll + textContent 로 탐색
+await vibe.evaluate(
+  'const btn = [...document.querySelectorAll("button")].find(b => b.textContent.includes("설정")); if (btn) btn.click();'
+)
+```
+
+### 테스트 파일 간 포트 충돌
+
+vibium은 기본적으로 포트 9515를 사용. vitest가 테스트 파일을 병렬 실행하므로, 여러 파일에서 `browser.launch()`를 호출하면 포트 충돌 발생. 두 번째 테스트 파일부터 다른 포트 지정:
+
+```typescript
+vibe = await browser.launch({ headless: true, port: 9516 })
+```
+
 ## 프론트엔드 컴포넌트 추가 (FSD 규칙)
 
 1. 적절한 FSD 레이어에 파일 배치:
