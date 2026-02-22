@@ -84,7 +84,7 @@ max-w-[90%] md:max-w-[80%] lg:max-w-[70%] mx-auto w-full
 
 ### 메시지 버블 스타일
 
-- **User (텍스트)**: 파란 버블 — `max-w-[80%] rounded-2xl px-4 py-3 bg-blue-600 text-white`
+- **User (텍스트)**: 파란 버블 — `max-w-[80%] rounded-2xl px-4 py-3 bg-primary text-white`
 - **User (이미지 첨부)**: 이미지는 파란 버블 **바깥 위쪽**에 별도 컨테이너로 렌더링 (`rounded-2xl overflow-hidden border border-neutral-200 dark:border-neutral-700`). 텍스트가 있으면 그 아래에 파란 버블. 이미지만 있고 텍스트 없으면 파란 버블 렌더링 안 함.
 - **Assistant**: 배경/테두리 없음 (Claude 앱 스타일) — `max-w-none py-1 text-neutral-900 dark:text-neutral-100`
 

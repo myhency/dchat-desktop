@@ -41,6 +41,7 @@ packages/
 - REST API 레퍼런스: [docs/backend/api-reference.md](docs/backend/api-reference.md)
 - 프론트엔드 아키텍처/FSD: [docs/frontend/architecture.md](docs/frontend/architecture.md)
 - UI 컨벤션: [docs/frontend/ui-conventions.md](docs/frontend/ui-conventions.md)
+- 디자인 시스템 (색상, 버튼, 다크모드): [docs/frontend/design-system.md](docs/frontend/design-system.md)
 - 프론트엔드 동작 패턴: [docs/frontend/patterns.md](docs/frontend/patterns.md)
 
 ## 코딩 가이드라인
