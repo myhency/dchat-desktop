@@ -29,6 +29,7 @@ shared/   → 외부 패키지만
 - `useSessionStore` (`entities/session`) — 세션, 메시지, 스트리밍, UI 뷰 상태
 - `useProjectStore` (`entities/project`) — 프로젝트 CRUD
 - `useSettingsStore` (`entities/settings`) — 설정, 테마, API 키
+- `useMcpStore` (`entities/mcp`) — MCP 서버 목록/상태, 로그, 설정 파일 경로
 
 ## 프로젝트 구조 (frontend/src/)
 
@@ -49,7 +50,7 @@ src/
 ├── widgets/                             # 독립 UI 블록
 │   ├── main-layout/                     # MainLayout (뷰 디스패치 포함)
 │   ├── sidebar/                         # Sidebar, SessionContextMenu, SettingsMenu, SettingsPanel
-│   ├── message-list/                    # MessageList, MessageBubble, CodeBlock, HtmlArtifactCard, StreamingIndicator
+│   ├── message-list/                    # MessageList, MessageBubble, CodeBlock, HtmlArtifactCard, StreamingIndicator, ToolCallBlock
 │   ├── prompt-input/                    # PromptInput, PromptMenu, ModelSelector
 │   └── artifact-panel/                  # ArtifactPanel
 ├── features/                            # 사용자 인터랙션
@@ -58,7 +59,8 @@ src/
 ├── entities/                            # 비즈니스 엔티티 (api/ + model/ + index.ts barrel)
 │   ├── session/                         # sessionApi, chatApi, useSessionStore
 │   ├── project/                         # projectApi, useProjectStore
-│   └── settings/                        # settingsApi, useSettingsStore
+│   ├── settings/                        # settingsApi, useSettingsStore
+│   └── mcp/                             # mcpApi, useMcpStore
 └── shared/                              # 인프라, 유틸
     ├── api/                             # client.ts (apiFetch, apiSSE), models.api.ts
     └── lib/                             # native.ts, model-meta.ts, time.ts
@@ -85,6 +87,7 @@ src/
 | `entities/project/api/project.api.ts` | `create`, `list`, `delete`, `update`, `updateInstructions`, `toggleFavorite` |
 | `entities/settings/api/settings.api.ts` | `getAll`, `get`, `set`, `testConnection` |
 | `entities/settings/api/backup.api.ts` | `exportBackup`, `importBackup` |
+| `entities/mcp/api/mcp.api.ts` | `listServers`, `getStatuses`, `createServer`, `updateServer`, `deleteServer`, `startServer`, `stopServer`, `restartServer`, `getLogs`, `getConfigPath`, `reload` |
 | `shared/api/models.api.ts` | `list` |
 
 ### Electron/웹 이중 지원 (`shared/lib/native.ts`)
@@ -93,6 +96,7 @@ src/
 |------|----------|-----|
 | `pickImage()` | `window.electron.pickImage()` → 파일 다이얼로그 | `<input type="file">` → FileReader base64 |
 | `openInBrowser(html)` | `window.electron.openInBrowser()` → temp 파일 | `URL.createObjectURL(Blob)` → 30초 후 revoke |
+| `openFile(path)` | `window.electron.openFile()` → shell.openPath | no-op (웹에서 미지원) |
 
 ## Zustand 스토어 상태
 

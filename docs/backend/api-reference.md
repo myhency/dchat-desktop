@@ -63,6 +63,22 @@ Base URL: `/api` (기본 포트 3131)
 | GET | `/api/backup/export` | — | `BackupData` | 전체 데이터 내보내기 (settings, projects, sessions, messages) |
 | POST | `/api/backup/import` | `BackupData` | `{ ok: true }` | 데이터 가져오기 (기존 데이터 전체 삭제 후 복원) |
 
+## MCP Server
+
+| 메서드 | 경로 | Body | 응답 | 설명 |
+|--------|------|------|------|------|
+| GET | `/api/mcp/servers` | — | `McpServerConfig[]` | 서버 목록 (설정만) |
+| GET | `/api/mcp/servers/status` | — | `McpServerStatusDTO[]` | 서버 상태 + 도구 목록 |
+| POST | `/api/mcp/servers` | `CreateMcpServerRequest` | `McpServerConfig` (201) | 서버 추가 + 자동 시작 |
+| PUT | `/api/mcp/servers/:id` | `UpdateMcpServerRequest` | `McpServerConfig` | 서버 수정 (command/args/env 변경 시 자동 재시작) |
+| DELETE | `/api/mcp/servers/:id` | — | `{ ok: true }` | 서버 삭제 (실행 중이면 중지 후 삭제) |
+| POST | `/api/mcp/servers/:id/start` | — | `{ ok: true }` | 서버 시작 |
+| POST | `/api/mcp/servers/:id/stop` | — | `{ ok: true }` | 서버 중지 |
+| POST | `/api/mcp/servers/:id/restart` | — | `{ ok: true }` | 서버 재시작 |
+| GET | `/api/mcp/servers/:id/logs` | — | `string[]` | stderr 로그 (최대 500줄) |
+| GET | `/api/mcp/config-path` | — | `{ path: string }` | 설정 파일 경로 |
+| POST | `/api/mcp/reload` | — | `{ ok: true }` | 전체 종료 후 설정 파일에서 재로드 |
+
 ## SSE 스트리밍 이벤트
 
 `POST /api/chat/:sessionId/messages` 및 `POST /api/chat/:sessionId/messages/:messageId/regenerate`는 SSE(Server-Sent Events)로 응답.
@@ -70,6 +86,8 @@ Base URL: `/api` (기본 포트 3131)
 | 이벤트 | 데이터 | 설명 |
 |--------|--------|------|
 | `chunk` | `{ type: "text", content: string }` | 스트리밍 텍스트 청크 |
+| `tool_use` | `{ type: "tool_use", toolUseId, toolName, toolInput }` | MCP 도구 호출 시작 |
+| `tool_result` | `{ type: "tool_result", toolUseId, toolName, content, isError }` | MCP 도구 실행 결과 |
 | `title` | `{ sessionId: string, title: string }` | 자동 생성된 세션 제목 |
 | `end` | `{ id, sessionId, role, content, attachments, createdAt }` | 스트리밍 완료 + 최종 assistant 메시지 |
 | `error` | `{ message: string }` | 스트리밍 에러 |
