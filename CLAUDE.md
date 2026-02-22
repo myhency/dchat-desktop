@@ -1,18 +1,40 @@
 # D Chat Desktop
 
-Claude Code Desktop과 유사한 크로스 플랫폼 데스크톱 채팅 애플리케이션. Electron + React + TypeScript 기반, 헥사고날 아키텍처 적용.
+크로스 플랫폼 AI 채팅 애플리케이션. 모노레포 구조 (npm workspaces) + REST/SSE 아키텍처. 백엔드(Express)와 프론트엔드(React SPA)가 독립 실행 가능하며, Electron은 thin shell로 백엔드를 child process로 spawn.
+
+## 프로젝트 구조
+
+```
+packages/
+├── shared/     # 공유 TypeScript 타입 (entities, API DTO)
+├── backend/    # Express 서버 (도메인, 어댑터, REST/SSE 라우트)
+├── frontend/   # React SPA (Vite, Zustand, API 클라이언트)
+└── electron/   # Thin Electron shell (백엔드 spawn + native IPC)
+```
 
 ## 아키텍처
 
 - 헥사고날 아키텍처 (Ports & Adapters)
-- `src/main/domain/` — 외부 의존성 ZERO. electron, better-sqlite3, SDK 등 import 금지
-- `src/main/domain/ports/` — inbound(유스케이스), outbound(repository/gateway) 인터페이스
-- `src/main/adapters/` — 포트 인터페이스의 구체 구현 (SQLite, Anthropic SDK, OpenAI SDK, Node fs)
-- `src/main/container.ts` — 컴포지션 루트. 모든 DI 와이어링은 이 파일에서만
-- `src/renderer/` — React 프론트엔드 (그 자체가 Inbound Adapter)
+- `packages/backend/src/domain/` — 외부 의존성 ZERO. express, better-sqlite3, SDK 등 import 금지
+- `packages/backend/src/domain/ports/` — inbound(유스케이스), outbound(repository/gateway) 인터페이스
+- `packages/backend/src/adapters/` — 포트 인터페이스의 구체 구현
+  - `inbound/http/` — Express 라우트 핸들러 (REST + SSE)
+  - `outbound/` — SQLite, Anthropic SDK, OpenAI SDK
+- `packages/backend/src/container.ts` — 컴포지션 루트. 모든 DI 와이어링은 이 파일에서만
+- `packages/frontend/src/` — React SPA (API 클라이언트로 백엔드 통신)
+- `packages/frontend/src/api/` — HTTP/SSE 클라이언트 (`window.hchat` 대체)
+- `packages/frontend/src/lib/native.ts` — Electron/웹 이중 지원 (pickImage, openInBrowser)
+- `packages/electron/` — 백엔드 spawn + BrowserWindow + native IPC (pickImage, openInBrowser)
 
-상세 레퍼런스 (기술 스택, 프로젝트 구조, 데이터 흐름, IPC 채널, DB 스키마, Zustand 스토어, 변경 작업 가이드): [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-프론트엔드 컨벤션 (아이콘/Radius 컨벤션, IME 처리, 입력 패턴, 화면 전환, 키보드 단축키, 검색 모달, HomeScreen, AllChatsScreen, ProjectsScreen, ProjectDetailScreen, Sidebar, 즐겨찾기, CodeBlock, MessageBubble, 메시지 재생성, 낙관적 업데이트, Artifact 자동 열기, Cross-Store 접근 패턴, 시스템 프롬프트 구성): [docs/CONVENTIONS.md](docs/CONVENTIONS.md)
+## 실행 방법
+
+- **웹 모드**: `npm run dev` (백엔드 + 프론트엔드 동시 실행, http://localhost:5173)
+- **백엔드만**: `npm run dev:backend` (http://localhost:3131)
+- **프론트엔드만**: `npm run dev:frontend` (Vite proxy → localhost:3131)
+- **Electron 모드**: `npm run dev:electron`
+
+상세 레퍼런스: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+프론트엔드 컨벤션: [docs/CONVENTIONS.md](docs/CONVENTIONS.md)
 
 ## 코딩 가이드라인
 

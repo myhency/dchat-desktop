@@ -1,0 +1,54 @@
+import express from 'express'
+import cors from 'cors'
+import type { AppContainer } from './container'
+import { createSessionRoutes } from './adapters/inbound/http/session.routes'
+import { createChatRoutes } from './adapters/inbound/http/chat.routes'
+import { createSettingsRoutes } from './adapters/inbound/http/settings.routes'
+import { createProjectRoutes } from './adapters/inbound/http/project.routes'
+import { createModelsRoutes } from './adapters/inbound/http/models.routes'
+
+export function createApp(container: AppContainer): express.Express {
+  const app = express()
+
+  app.use(cors())
+  app.use(express.json({ limit: '50mb' }))
+
+  // Request logging
+  app.use((req, res, next) => {
+    const start = Date.now()
+    res.on('finish', () => {
+      console.log(`[http] ${req.method} ${req.originalUrl} ${res.statusCode} ${Date.now() - start}ms`)
+    })
+    next()
+  })
+
+  // Health check
+  app.get('/api/health', (_req, res) => {
+    res.json({ status: 'ok' })
+  })
+
+  // Routes
+  app.use('/api/sessions', createSessionRoutes(container.sessionService))
+  app.use(
+    '/api/chat',
+    createChatRoutes(
+      container.chatService,
+      container.chatService,
+      container.chatService,
+      container.messageRepo
+    )
+  )
+  app.use('/api/settings', createSettingsRoutes(container.settingsService, container.llmFactory))
+  app.use('/api/projects', createProjectRoutes(container.projectService))
+  app.use('/api/models', createModelsRoutes(container.llmFactory))
+
+  // Global error handler — Express 4 does not catch rejected promises from async handlers
+  app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    console.error('[server]', err.message)
+    if (!res.headersSent) {
+      res.status(500).json({ error: err.message })
+    }
+  })
+
+  return app
+}
