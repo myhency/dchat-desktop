@@ -36,7 +36,7 @@ packages/
 ## 상세 문서
 
 - 전체 구조/데이터 흐름: [docs/overview.md](docs/overview.md)
-- 변경 가이드: [docs/guides.md](docs/guides.md)
+- 변경 가이드 + 패키징 제약사항: [docs/guides.md](docs/guides.md)
 - 백엔드 아키텍처/DB: [docs/backend/architecture.md](docs/backend/architecture.md)
 - REST API 레퍼런스: [docs/backend/api-reference.md](docs/backend/api-reference.md)
 - 프론트엔드 아키텍처/FSD: [docs/frontend/architecture.md](docs/frontend/architecture.md)
