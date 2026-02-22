@@ -36,4 +36,8 @@ export class SqliteSettingsRepository implements SettingsRepository {
     }
     return result
   }
+
+  async deleteAll(): Promise<void> {
+    this.db.prepare('DELETE FROM settings').run()
+  }
 }

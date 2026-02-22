@@ -84,6 +84,19 @@ export interface SSEErrorEvent {
   message: string
 }
 
+// ── Backup ──
+
+export interface BackupData {
+  version: 1
+  exportedAt: string
+  data: {
+    settings: Record<string, string>
+    projects: Array<{ id: string; name: string; description: string; instructions: string; isFavorite: boolean; createdAt: string; updatedAt: string }>
+    sessions: Array<{ id: string; title: string; model: string; projectId: string | null; isFavorite: boolean; createdAt: string; updatedAt: string }>
+    messages: Array<{ id: string; sessionId: string; role: 'user' | 'assistant'; content: string; attachments: ImageAttachment[]; createdAt: string }>
+  }
+}
+
 // ── Health ──
 
 export interface HealthResponse {

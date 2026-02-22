@@ -1,0 +1,47 @@
+appId: com.dchat.desktop
+productName: D Chat
+
+directories:
+  output: release
+  buildResources: resources
+
+files:
+  - out/main/**
+  - out/preload/**
+  - package.json
+
+asar: true
+
+extraResources:
+  - from: ../backend/dist
+    to: backend/dist
+    filter:
+      - "**/*"
+  - from: ../../build/backend-node_modules
+    to: backend/node_modules
+    filter:
+      - "**/*"
+  - from: ../frontend/dist
+    to: frontend/dist
+    filter:
+      - "**/*"
+
+mac:
+  category: public.app-category.productivity
+  target:
+    - target: dmg
+      arch:
+        - arm64
+  identity: null
+
+dmg:
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
+
+npmRebuild: false
+publish: null

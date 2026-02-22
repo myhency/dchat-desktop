@@ -70,8 +70,8 @@ async function startBackend(): Promise<number> {
       shell: true
     })
   } else {
-    backendProcess = spawn('node', [join(app.getAppPath(), '../backend/dist/index.js')], {
-      env: { ...commonEnv, NODE_ENV: 'production' },
+    backendProcess = spawn(process.execPath, [join(app.getAppPath(), '../backend/dist/index.js')], {
+      env: { ...commonEnv, NODE_ENV: 'production', ELECTRON_RUN_AS_NODE: '1' },
       stdio: ['pipe', 'pipe', 'pipe']
     })
   }

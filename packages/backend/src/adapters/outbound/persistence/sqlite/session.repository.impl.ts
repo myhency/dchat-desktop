@@ -51,6 +51,10 @@ export class SqliteSessionRepository implements SessionRepository {
     this.db.prepare('DELETE FROM sessions WHERE id = ?').run(id)
   }
 
+  async deleteAll(): Promise<void> {
+    this.db.prepare('DELETE FROM sessions').run()
+  }
+
   private toDomain(row: SessionRow): Session {
     return {
       id: row.id,
