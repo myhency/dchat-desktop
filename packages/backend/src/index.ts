@@ -1,6 +1,7 @@
 import { createContainer } from './container'
 import { createApp } from './server'
 import { closeDatabase } from './adapters/outbound/persistence/sqlite/connection'
+import logger from './logger'
 
 const PORT = parseInt(process.env.PORT || '3131', 10)
 
@@ -11,11 +12,12 @@ async function main(): Promise<void> {
   const app = createApp(container)
 
   const server = app.listen(PORT, () => {
-    console.log(`D Chat backend listening on port ${PORT}`)
+    logger.info({ port: PORT }, 'D Chat backend listening')
   })
 
   // Graceful shutdown
   const shutdown = (): void => {
+    logger.info('Shutting down server')
     server.close(() => {
       closeDatabase()
       process.exit(0)
@@ -27,6 +29,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err) => {
-  console.error('Failed to start server:', err)
+  logger.error({ err }, 'Failed to start server')
   process.exit(1)
 })

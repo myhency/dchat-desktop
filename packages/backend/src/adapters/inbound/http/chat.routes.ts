@@ -5,6 +5,7 @@ import type { RegenerateMessageUseCase } from '../../../domain/ports/inbound/reg
 import type { GenerateTitleUseCase } from '../../../domain/ports/inbound/generate-title.usecase'
 import type { MessageRepository } from '../../../domain/ports/outbound/message.repository'
 import type { SendMessageRequest, StopStreamRequest } from '@dchat/shared'
+import logger from '../../../logger'
 
 // Per-session stream management
 const activeStreams = new Map<string, AbortController>()
@@ -49,6 +50,8 @@ export function createChatRoutes(
     stoppedContents.delete(sessionId)
     lastAssistantMessageIds.delete(sessionId)
 
+    logger.info({ sessionId }, 'SSE stream started')
+
     // Clean up on client disconnect
     res.on('close', () => {
       abortController.abort()
@@ -91,11 +94,13 @@ export function createChatRoutes(
       }
 
       sendSSE(res, 'end', message)
+      logger.info({ sessionId }, 'SSE stream ended')
     } catch (error) {
       if (abortController.signal.aborted) {
+        logger.info({ sessionId }, 'Stream stopped by client')
         sendSSE(res, 'end', { content: '' })
       } else {
-        console.error('[chat]', error instanceof Error ? error.message : error)
+        logger.error({ err: error, sessionId }, 'SSE stream error')
         const errorMessage = error instanceof Error ? error.message : 'Unknown error'
         sendSSE(res, 'error', { message: errorMessage })
       }
@@ -119,6 +124,8 @@ export function createChatRoutes(
     activeStreams.set(sessionId, abortController)
     stoppedContents.delete(sessionId)
     lastAssistantMessageIds.delete(sessionId)
+
+    logger.info({ sessionId }, 'SSE regenerate stream started')
 
     res.on('close', () => {
       abortController.abort()
@@ -145,11 +152,13 @@ export function createChatRoutes(
       }
 
       sendSSE(res, 'end', message)
+      logger.info({ sessionId }, 'SSE regenerate stream ended')
     } catch (error) {
       if (abortController.signal.aborted) {
+        logger.info({ sessionId }, 'Regenerate stream stopped by client')
         sendSSE(res, 'end', { content: '' })
       } else {
-        console.error('[chat]', error instanceof Error ? error.message : error)
+        logger.error({ err: error, sessionId }, 'SSE regenerate stream error')
         const errorMessage = error instanceof Error ? error.message : 'Unknown error'
         sendSSE(res, 'error', { message: errorMessage })
       }

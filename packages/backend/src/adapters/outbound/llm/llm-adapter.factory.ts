@@ -3,6 +3,7 @@ import type { ModelInfo } from '../../../domain/entities/model-info'
 import type { LLMGatewayResolver } from '../../../domain/ports/outbound/llm-gateway.resolver'
 import { AnthropicAdapter } from './anthropic.adapter'
 import { OpenAIAdapter } from './openai.adapter'
+import logger from '../../../logger'
 
 export class LLMAdapterFactory implements LLMGatewayResolver {
   private anthropicAdapter: AnthropicAdapter | null = null
@@ -10,10 +11,12 @@ export class LLMAdapterFactory implements LLMGatewayResolver {
 
   setAnthropicKey(apiKey: string, baseURL?: string): void {
     this.anthropicAdapter = new AnthropicAdapter(apiKey, baseURL)
+    logger.info('Anthropic adapter configured')
   }
 
   setOpenAIKey(apiKey: string, baseURL?: string): void {
     this.openaiAdapter = new OpenAIAdapter(apiKey, baseURL)
+    logger.info('OpenAI adapter configured')
   }
 
   async testConnection(provider: 'anthropic' | 'openai'): Promise<void> {
@@ -31,6 +34,7 @@ export class LLMAdapterFactory implements LLMGatewayResolver {
       if (!this.anthropicAdapter) {
         throw new Error('Anthropic API key not configured')
       }
+      logger.debug({ model }, 'Resolved LLM gateway: anthropic')
       return this.anthropicAdapter
     }
 
@@ -38,6 +42,7 @@ export class LLMAdapterFactory implements LLMGatewayResolver {
       if (!this.openaiAdapter) {
         throw new Error('OpenAI API key not configured')
       }
+      logger.debug({ model }, 'Resolved LLM gateway: openai')
       return this.openaiAdapter
     }
 
