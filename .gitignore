@@ -7,3 +7,4 @@ dist/
 .env.local
 build/
 packages/electron/release/
+packages/shared/src/**/*.js
