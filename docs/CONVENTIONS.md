@@ -80,7 +80,7 @@ onKeyDown={(e) => {
 
 ## 검색 모달 (SearchModal)
 
-`src/renderer/components/search/SearchModal.tsx`
+`packages/frontend/src/components/search/SearchModal.tsx`
 
 - **열기/닫기**: `chat.store`의 `searchOpen` / `openSearch()` / `closeSearch()` 사용
 - **키보드 네비게이션**: `selectedIndex` 상태로 `ArrowUp`/`ArrowDown` 이동, `Enter`로 선택
@@ -94,14 +94,14 @@ onKeyDown={(e) => {
 
 ## HomeScreen
 
-`src/renderer/components/home/HomeScreen.tsx`
+`packages/frontend/src/components/home/HomeScreen.tsx`
 
 - **시간대 인사**: `getGreeting()` — 오전(6-12시)/오후(12-18시)/저녁(18-6시) 구분
 - **퀵 액션**: `QUICK_ACTIONS` 배열 — "작성하기", "학습하기", "코드", "일상생활", "Claude의 선택" 프리셋 프롬프트
 
 ## 스트리밍 중단 (Stop Streaming)
 
-`src/renderer/components/chat/PromptInput.tsx`
+`packages/frontend/src/components/chat/PromptInput.tsx`
 
 - **버튼 토글**: `isStreaming` 상태에 따라 전송 버튼 ↔ 중지 버튼 전환
   - `isStreaming === true` → 회색 정지(■) 버튼, `onClick={stopStream}`
@@ -109,11 +109,34 @@ onKeyDown={(e) => {
 - **textarea**: 스트리밍 중에도 활성 상태 유지 (`disabled={!currentSessionId}`)
 - **Enter 전송 차단**: `handleSubmit` 내에서 `isStreaming` 체크하여 스트리밍 중 전송 방지
 
+## SSE 응답 내 비동기 작업 패턴
+
+SSE 라우트(`chat.routes.ts`)에서 스트리밍 콜백 내부의 비동기 작업(예: `generateTitle`)은 **반드시 Promise를 캡처하여 `res.end()` 전에 await**해야 함. fire-and-forget으로 실행하면 `sendMessage.execute()` 완료 → `res.end()` 호출 후 닫힌 응답에 SSE 이벤트를 쓰게 되어 무시됨.
+
+```typescript
+// ❌ fire-and-forget — 응답 닫힌 후 title 이벤트 유실
+let triggered = false
+onChunk(chunk) {
+  if (!triggered) { triggered = true; generateTitle(id).then(...) }
+}
+await sendMessage.execute(...)
+res.end()  // generateTitle 아직 실행 중 → title 이벤트 유실
+
+// ✅ Promise 캡처 + await — null 체크로 중복 호출 방지 겸용
+let titlePromise: Promise<void> | null = null
+onChunk(chunk) {
+  if (!titlePromise) { titlePromise = generateTitle(id).then(...).catch(() => {}) }
+}
+await sendMessage.execute(...)
+if (titlePromise) await titlePromise  // 제목 생성 완료 대기
+res.end()
+```
+
 ## LLM SDK Abort 패턴
 
 스트리밍 중단 시 AbortSignal을 SDK에 전달하는 방식. 각 SDK마다 signal 전달 위치가 다름.
 
-**Anthropic** (`src/main/adapters/outbound/llm/anthropic.adapter.ts`):
+**Anthropic** (`packages/backend/src/adapters/outbound/llm/anthropic.adapter.ts`):
 
 ```ts
 const stream = this.client.messages.stream(
@@ -124,7 +147,7 @@ const stream = this.client.messages.stream(
 
 - ⚠️ `stream.abort()` 수동 호출은 async iterator가 정상 종료되지 않아 hang 발생. 반드시 AbortSignal을 통해 중단할 것.
 
-**OpenAI** (`src/main/adapters/outbound/llm/openai.adapter.ts`):
+**OpenAI** (`packages/backend/src/adapters/outbound/llm/openai.adapter.ts`):
 
 ```ts
 const stream = await this.client.chat.completions.create(
@@ -133,11 +156,11 @@ const stream = await this.client.chat.completions.create(
 )
 ```
 
-**IPC handler** (`src/main/adapters/inbound/ipc/chat.ipc-handler.ts`):
+**HTTP 라우트** (`packages/backend/src/adapters/inbound/http/chat.routes.ts`):
 
-- `chat:stop-stream` → `this.abortController.abort()`
-- abort 시에도 반드시 `STREAM_END` 전송 (catch 블록에서 `{ content: '' }`로 전송)
-- UI가 `isStreaming` 상태에서 빠져나올 수 있도록 보장
+- `POST /api/chat/:sessionId/stop` → per-session `AbortController.abort()`
+- abort 시에도 반드시 SSE `end` 이벤트 전송 (catch 블록에서 부분 content 저장)
+- UI가 스트리밍 상태에서 빠져나올 수 있도록 보장
 
 ## 채팅 영역 레이아웃
 
@@ -222,11 +245,11 @@ const keepCount = target.role === 'user' ? targetIndex + 1 : targetIndex
 
 `sendMessage`는 즉각적인 UI 반영을 위해 `crypto.randomUUID()`로 프론트엔드 전용 user 메시지 ID를 생성 (낙관적 업데이트). 백엔드(`chat.service`)는 별도로 `generateId()`를 호출하여 DB에 저장하므로, 동일 메시지에 대해 프론트엔드/백엔드 ID가 다름.
 
-`finishStream`에서 스트리밍 완료 후 `getMessages(sessionId)`로 DB를 re-fetch하여 프론트엔드 `messages` 배열의 ID를 백엔드 ID로 교체. 이 동기화가 없으면 재생성(`regenerateMessage`) 시 백엔드에서 메시지를 찾지 못함.
+`onEnd` 콜백에서 스트리밍 완료 후 `chatApi.getMessages(sessionId)`로 DB를 re-fetch하여 프론트엔드 `messages` 배열의 ID를 백엔드 ID로 교체. 이 동기화가 없으면 재생성(`regenerateMessage`) 시 백엔드에서 메시지를 찾지 못함.
 
-- **`sendMessage` 수정 시**: 낙관적 ID가 `finishStream` re-fetch 전까지만 유효함을 인지할 것
-- **`finishStream` 수정 시**: re-fetch 로직 제거 금지. 제거 시 user 재생성이 깨짐
-- **assistant 메시지**: `stream-end` 이벤트로 백엔드 ID가 직접 전달되므로 불일치 없음
+- **`sendMessage` 수정 시**: 낙관적 ID가 `onEnd` re-fetch 전까지만 유효함을 인지할 것
+- **`onEnd` 수정 시**: re-fetch 로직 제거 금지. 제거 시 user 재생성이 깨짐
+- **assistant 메시지**: SSE `end` 이벤트로 백엔드 ID가 직접 전달되므로 불일치 없음
 
 ### PromptInput 외부 패딩
 
@@ -234,7 +257,7 @@ const keepCount = target.role === 'user' ? targetIndex + 1 : targetIndex
 
 ## AllChatsScreen
 
-`src/renderer/components/home/AllChatsScreen.tsx`
+`packages/frontend/src/components/home/AllChatsScreen.tsx`
 
 - **진입**: 사이드바 "모든 채팅" 버튼 (`openAllChats()`)
 - **레이아웃**: 제목("채팅") + 검색 입력 + 개수 표시("채팅 N개") + 세션 리스트
@@ -243,14 +266,14 @@ const keepCount = target.role === 'user' ? targetIndex + 1 : targetIndex
 
 ## 공유 모듈
 
-`src/renderer/lib/` 디렉토리에 여러 컴포넌트가 공유하는 데이터/유틸 배치.
+`packages/frontend/src/lib/` 디렉토리에 여러 컴포넌트가 공유하는 데이터/유틸 배치.
 
 - `model-meta.ts` — 모델 표시명, 아이콘 등 UI 메타데이터
 - `time.ts` — `formatRelativeTime(isoDate)` 상대 시간 한국어 포맷 ("5분 전", "2시간 전", "1주 전" 등), `formatTime(isoDate)` 시:분 포맷 ("오후 3:42")
 
 ## 사이드바 레이아웃 (Sidebar)
 
-`src/renderer/components/layout/Sidebar.tsx`
+`packages/frontend/src/components/layout/Sidebar.tsx`
 
 3-zone 고정/스크롤 구조:
 
@@ -296,7 +319,7 @@ const keepCount = target.role === 'user' ? targetIndex + 1 : targetIndex
 스트리밍 완료 시 HTML 코드 블록이 있으면 아티팩트 패널을 자동으로 여는 로직. `MessageList.tsx`의 `useEffect`에서 처리.
 
 - **위치**: `MessageList.tsx` — `prevStreamingRef`로 `isStreaming` true→false 전환 감지
-- **스토어에 넣지 않는 이유**: `finishStream` set 콜백 내에서 `artifactPanel`을 동시 업데이트하면 React 배치 렌더링에서 상태 불일치 발생. 컴포넌트 `useEffect`로 분리하여 메시지 반영 후 패널 열기 순서 보장.
+- **스토어에 넣지 않는 이유**: `onEnd` 콜백 내에서 `artifactPanel`을 동시 업데이트하면 React 배치 렌더링에서 상태 불일치 발생. 컴포넌트 `useEffect`로 분리하여 메시지 반영 후 패널 열기 순서 보장.
 - **수정 시 주의**: HTML 감지 정규식(`/```html\n([\s\S]*?)```/`)은 MessageBubble의 CodeBlock 파싱과 동일 패턴이어야 함
 
 ## Cross-Store 접근 패턴
@@ -314,7 +337,7 @@ useSettingsStore.setState({ sidebarOpen: false })  // 직접 상태 변경
 
 ## 시스템 프롬프트 구성 (ChatService.buildSystemPrompt)
 
-`src/main/domain/services/chat.service.ts`의 `buildSystemPrompt(projectId)`가 LLM에 전달할 system prompt를 조합:
+`packages/backend/src/domain/services/chat.service.ts`의 `buildSystemPrompt(projectId)`가 LLM에 전달할 system prompt를 조합:
 
 1. `projectId`가 있으면 → `projectRepo.findById` → `project.instructions` (비어있지 않으면 추가)
 2. `settingsRepo.get('custom_instructions')` → 글로벌 커스텀 지침 (비어있지 않으면 추가)
@@ -326,7 +349,7 @@ useSettingsStore.setState({ sidebarOpen: false })  // 직접 상태 변경
 
 ## ProjectDetailScreen
 
-`src/renderer/components/home/ProjectDetailScreen.tsx`
+`packages/frontend/src/components/home/ProjectDetailScreen.tsx`
 
 - **진입**: `projectsOpen === true && selectedProjectId !== null` (ChatArea.tsx에서 분기)
 - **우측 사이드바**: 지침(instructions) + 파일 섹션. 메모리 섹션은 없음.
@@ -338,7 +361,7 @@ useSettingsStore.setState({ sidebarOpen: false })  // 직접 상태 변경
 
 ## 코드 블록 (CodeBlock)
 
-`src/renderer/components/chat/CodeBlock.tsx`
+`packages/frontend/src/components/chat/CodeBlock.tsx`
 
 ### Sticky 헤더
 
