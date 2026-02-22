@@ -2,6 +2,7 @@ import type { Message, ImageAttachment } from '../entities/message'
 import type { SendMessageUseCase } from '../ports/inbound/send-message.usecase'
 import type { RegenerateMessageUseCase } from '../ports/inbound/regenerate-message.usecase'
 import type { GenerateTitleUseCase } from '../ports/inbound/generate-title.usecase'
+import type { ManageMessagesUseCase } from '../ports/inbound/manage-messages.usecase'
 import type { MessageRepository } from '../ports/outbound/message.repository'
 import type { SessionRepository } from '../ports/outbound/session.repository'
 import type { StreamChunk, ChatOptions } from '../ports/outbound/llm.gateway'
@@ -10,7 +11,7 @@ import type { SettingsRepository } from '../ports/outbound/settings.repository'
 import type { ProjectRepository } from '../ports/outbound/project.repository'
 import { generateId } from './id'
 
-export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase, GenerateTitleUseCase {
+export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase, GenerateTitleUseCase, ManageMessagesUseCase {
   constructor(
     private readonly messageRepo: MessageRepository,
     private readonly sessionRepo: SessionRepository,
@@ -187,6 +188,14 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
     await this.sessionRepo.save(session)
 
     return title
+  }
+
+  async getMessagesBySession(sessionId: string): Promise<Message[]> {
+    return this.messageRepo.findBySessionId(sessionId)
+  }
+
+  async updateMessageContent(messageId: string, content: string): Promise<void> {
+    await this.messageRepo.updateContent(messageId, content)
   }
 
   private async buildSystemPrompt(projectId: string | null): Promise<string> {

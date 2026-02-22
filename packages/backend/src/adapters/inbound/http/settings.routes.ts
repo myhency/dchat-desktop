@@ -1,6 +1,6 @@
 import { Router, type Request, type Response, type NextFunction } from 'express'
 import type { ManageSettingsUseCase } from '../../../domain/ports/inbound/manage-settings.usecase'
-import type { LLMAdapterFactory } from '../../outbound/llm/llm-adapter.factory'
+import type { LLMGatewayResolver } from '../../../domain/ports/outbound/llm-gateway.resolver'
 import type { SetSettingRequest } from '@dchat/shared'
 
 const asyncHandler = (fn: Function) =>
@@ -9,7 +9,7 @@ const asyncHandler = (fn: Function) =>
 
 export function createSettingsRoutes(
   settingsService: ManageSettingsUseCase,
-  llmFactory: LLMAdapterFactory
+  llmResolver: LLMGatewayResolver
 ): Router {
   const router = Router()
 
@@ -30,16 +30,16 @@ export function createSettingsRoutes(
     // API 키 또는 Base URL 변경 시 LLM 어댑터 갱신
     if (req.params.key === 'anthropic_api_key') {
       const baseUrl = await settingsService.get('anthropic_base_url')
-      llmFactory.setAnthropicKey(value, baseUrl || undefined)
+      llmResolver.configureProvider('anthropic', value, baseUrl || undefined)
     } else if (req.params.key === 'anthropic_base_url') {
       const apiKey = await settingsService.get('anthropic_api_key')
-      if (apiKey) llmFactory.setAnthropicKey(apiKey, value || undefined)
+      if (apiKey) llmResolver.configureProvider('anthropic', apiKey, value || undefined)
     } else if (req.params.key === 'openai_api_key') {
       const baseUrl = await settingsService.get('openai_base_url')
-      llmFactory.setOpenAIKey(value, baseUrl || undefined)
+      llmResolver.configureProvider('openai', value, baseUrl || undefined)
     } else if (req.params.key === 'openai_base_url') {
       const apiKey = await settingsService.get('openai_api_key')
-      if (apiKey) llmFactory.setOpenAIKey(apiKey, value || undefined)
+      if (apiKey) llmResolver.configureProvider('openai', apiKey, value || undefined)
     }
 
     res.json({ ok: true })
@@ -47,7 +47,7 @@ export function createSettingsRoutes(
 
   router.post('/connection-test', asyncHandler(async (req: Request, res: Response) => {
     const { provider } = req.body as { provider: 'anthropic' | 'openai' }
-    await llmFactory.testConnection(provider)
+    await llmResolver.testConnection(provider)
     res.json({ ok: true })
   }))
 

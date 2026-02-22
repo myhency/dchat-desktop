@@ -96,7 +96,9 @@ describe('ChatService', () => {
 
     llmResolver = {
       getGateway: () => mockGateway,
-      listAllModels: () => []
+      listAllModels: () => [],
+      configureProvider: () => {},
+      testConnection: async () => {}
     }
 
     chatService = new ChatService(messageRepo, sessionRepo, llmResolver, settingsRepo, projectRepo)
@@ -138,7 +140,7 @@ describe('ChatService', () => {
 
   it('빈 응답: LLM이 done만 반환하면 assistant 메시지 저장 안 함', async () => {
     mockGateway = createMockGateway([{ type: 'done', content: '' }])
-    llmResolver = { getGateway: () => mockGateway, listAllModels: () => [] }
+    llmResolver = { getGateway: () => mockGateway, listAllModels: () => [], configureProvider: () => {}, testConnection: async () => {} }
     chatService = new ChatService(messageRepo, sessionRepo, llmResolver, settingsRepo, projectRepo)
 
     const onChunk = vi.fn()

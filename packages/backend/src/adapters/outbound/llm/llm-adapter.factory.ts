@@ -9,14 +9,14 @@ export class LLMAdapterFactory implements LLMGatewayResolver {
   private anthropicAdapter: AnthropicAdapter | null = null
   private openaiAdapter: OpenAIAdapter | null = null
 
-  setAnthropicKey(apiKey: string, baseURL?: string): void {
-    this.anthropicAdapter = new AnthropicAdapter(apiKey, baseURL)
-    logger.info('Anthropic adapter configured')
-  }
-
-  setOpenAIKey(apiKey: string, baseURL?: string): void {
-    this.openaiAdapter = new OpenAIAdapter(apiKey, baseURL)
-    logger.info('OpenAI adapter configured')
+  configureProvider(provider: 'anthropic' | 'openai', apiKey: string, baseURL?: string): void {
+    if (provider === 'anthropic') {
+      this.anthropicAdapter = new AnthropicAdapter(apiKey, baseURL)
+      logger.info('Anthropic adapter configured')
+    } else {
+      this.openaiAdapter = new OpenAIAdapter(apiKey, baseURL)
+      logger.info('OpenAI adapter configured')
+    }
   }
 
   async testConnection(provider: 'anthropic' | 'openai'): Promise<void> {

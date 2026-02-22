@@ -61,8 +61,8 @@ beforeAll(async () => {
   const llmFactory = {
     getGateway: () => mockGateway,
     listAllModels: () => [],
-    setAnthropicKey: () => {},
-    setOpenAIKey: () => {}
+    configureProvider: () => {},
+    testConnection: async () => {}
   }
 
   // Domain services
@@ -78,7 +78,6 @@ beforeAll(async () => {
     settingsService,
     projectService,
     llmFactory,
-    messageRepo,
     async restoreApiKeys() {}
   } as any
 

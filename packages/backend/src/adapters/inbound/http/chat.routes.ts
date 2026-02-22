@@ -3,7 +3,7 @@ import type { Request, Response, NextFunction } from 'express'
 import type { SendMessageUseCase } from '../../../domain/ports/inbound/send-message.usecase'
 import type { RegenerateMessageUseCase } from '../../../domain/ports/inbound/regenerate-message.usecase'
 import type { GenerateTitleUseCase } from '../../../domain/ports/inbound/generate-title.usecase'
-import type { MessageRepository } from '../../../domain/ports/outbound/message.repository'
+import type { ManageMessagesUseCase } from '../../../domain/ports/inbound/manage-messages.usecase'
 import type { SendMessageRequest, StopStreamRequest } from '@dchat/shared'
 import logger from '../../../logger'
 
@@ -20,7 +20,7 @@ export function createChatRoutes(
   sendMessage: SendMessageUseCase,
   regenerateMessage: RegenerateMessageUseCase,
   generateTitle: GenerateTitleUseCase,
-  messageRepo: MessageRepository
+  manageMessages: ManageMessagesUseCase
 ): Router {
   const router = Router()
 
@@ -30,7 +30,7 @@ export function createChatRoutes(
 
   // GET /api/chat/:sessionId/messages
   router.get('/:sessionId/messages', asyncHandler(async (req, res) => {
-    const messages = await messageRepo.findBySessionId(req.params.sessionId)
+    const messages = await manageMessages.getMessagesBySession(req.params.sessionId)
     res.json(messages)
   }))
 
@@ -88,7 +88,7 @@ export function createChatRoutes(
       // Handle stopped content if stop was called during streaming
       const stopped = stoppedContents.get(sessionId)
       if (stopped && message.content) {
-        await messageRepo.updateContent(message.id, stopped)
+        await manageMessages.updateMessageContent(message.id, stopped)
         stoppedContents.delete(sessionId)
         lastAssistantMessageIds.delete(sessionId)
       }
@@ -146,7 +146,7 @@ export function createChatRoutes(
 
       const stopped = stoppedContents.get(sessionId)
       if (stopped && message.content) {
-        await messageRepo.updateContent(message.id, stopped)
+        await manageMessages.updateMessageContent(message.id, stopped)
         stoppedContents.delete(sessionId)
         lastAssistantMessageIds.delete(sessionId)
       }
@@ -181,7 +181,7 @@ export function createChatRoutes(
 
       const lastId = lastAssistantMessageIds.get(sessionId)
       if (lastId) {
-        await messageRepo.updateContent(lastId, content)
+        await manageMessages.updateMessageContent(lastId, content)
         stoppedContents.delete(sessionId)
         lastAssistantMessageIds.delete(sessionId)
       }
