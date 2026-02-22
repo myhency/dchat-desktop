@@ -164,3 +164,16 @@ const keepCount = target.role === 'user' ? targetIndex + 1 : targetIndex
 - **`sendMessage` 수정 시**: 낙관적 ID가 `onEnd` re-fetch 전까지만 유효함을 인지할 것
 - **`onEnd` 수정 시**: re-fetch 로직 제거 금지. 제거 시 user 재생성이 깨짐
 - **assistant 메시지**: SSE `end` 이벤트로 백엔드 ID가 직접 전달되므로 불일치 없음
+
+## 백업 가져오기 후 스토어 갱신
+
+`SettingsScreen`의 `PrivacyContent`에서 백업 가져오기(import) 성공 후 반드시 `loadSettings()` + `loadSessions()`를 순서대로 호출해야 함.
+
+```typescript
+await backupApi.importBackup(data)
+await loadSettings()   // 복원된 설정 반영
+await loadSessions()   // 복원된 세션을 사이드바에 표시
+```
+
+- `loadSettings()`만 호출하면 복원된 세션이 사이드바에 표시되지 않음
+- `loadSessions()`만 호출하면 복원된 설정(테마, 프로필 등)이 UI에 반영되지 않음

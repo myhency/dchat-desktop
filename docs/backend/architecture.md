@@ -43,6 +43,12 @@ CREATE TABLE projects (
 );
 ```
 
+### Repository `deleteAll()` 패턴
+
+모든 리포지토리 포트(Message, Session, Project, Settings)에 `deleteAll()` 메서드가 존재. 백업 가져오기(`BackupService.importBackup`) 시 기존 데이터를 전체 삭제한 뒤 복원 데이터를 삽입하는 용도.
+
+FK 제약 조건에 따른 삭제 순서: **messages → sessions → projects → settings**
+
 ### 마이그레이션
 
 `schema.ts`에서 `ALTER TABLE ... ADD COLUMN`을 try-catch로 감싸서 기존 DB 호환성 유지. 컬럼이 이미 있으면 무시.

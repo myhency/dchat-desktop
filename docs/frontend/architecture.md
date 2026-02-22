@@ -84,6 +84,7 @@ src/
 | `entities/session/api/session.api.ts` | `create`, `list`, `listByProject`, `get`, `delete`, `updateModel`, `updateTitle`, `updateProjectId`, `toggleFavorite` |
 | `entities/project/api/project.api.ts` | `create`, `list`, `delete`, `update`, `updateInstructions`, `toggleFavorite` |
 | `entities/settings/api/settings.api.ts` | `getAll`, `get`, `set`, `testConnection` |
+| `entities/settings/api/backup.api.ts` | `exportBackup`, `importBackup` |
 | `shared/api/models.api.ts` | `list` |
 
 ### Electron/웹 이중 지원 (`shared/lib/native.ts`)
