@@ -17,7 +17,7 @@ extraResources:
     to: backend/dist
     filter:
       - "**/*"
-  - from: ../../build/backend-node_modules
+  - from: ../../build/backend-node_modules/node_modules
     to: backend/node_modules
     filter:
       - "**/*"
