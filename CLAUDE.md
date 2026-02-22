@@ -82,3 +82,10 @@ packages/
 - 테스트 파일 위치: `packages/backend/src/__tests__/` (기존 패턴 따름)
 - 테스트 실행 명령: `npm run test -w packages/backend`
 - 변경 완료 후 테스트가 모두 통과하는 것을 확인하고 마무리할 것
+
+### 프론트엔드 E2E 테스트
+
+- 프론트엔드(`packages/frontend`) UI 변경 시 E2E 테스트를 작성/수정할 것
+- 테스트 파일 위치: `e2e/` (vibium 브라우저 자동화)
+- 테스트 실행 명령: `npm run test:e2e` (dev 서버 자동 시작/종료)
+- 변경 완료 후 E2E 테스트가 모두 통과하는 것을 확인하고 마무리할 것
