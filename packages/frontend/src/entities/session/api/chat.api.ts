@@ -1,4 +1,5 @@
 import { apiFetch, apiSSE } from '@/shared/api/client'
+import type { SSEToolUseData, SSEToolResultData } from '@/shared/api/client'
 import type { Message, ImageAttachment } from '@dchat/shared'
 
 export interface StreamCallbacks {
@@ -6,6 +7,23 @@ export interface StreamCallbacks {
   onTitle: (sessionId: string, title: string) => void
   onEnd: (message: Message) => void
   onError: (error: string) => void
+  onToolUse?: (data: SSEToolUseData) => void
+  onToolResult?: (data: SSEToolResultData) => void
+}
+
+function buildSSECallbacks(callbacks: StreamCallbacks) {
+  return {
+    onChunk: (data: { type: string; content: string }) => {
+      if (data.type === 'text') {
+        callbacks.onChunk(data.content)
+      }
+    },
+    onTitle: (data: { sessionId: string; title: string }) => callbacks.onTitle(data.sessionId, data.title),
+    onEnd: (data: any) => callbacks.onEnd(data as Message),
+    onError: (data: { message: string }) => callbacks.onError(data.message),
+    onToolUse: callbacks.onToolUse,
+    onToolResult: callbacks.onToolResult
+  }
 }
 
 export const chatApi = {
@@ -18,32 +36,14 @@ export const chatApi = {
     attachments: ImageAttachment[],
     callbacks: StreamCallbacks
   ): AbortController =>
-    apiSSE(`/api/chat/${sessionId}/messages`, { content, attachments }, {
-      onChunk: (data) => {
-        if (data.type === 'text') {
-          callbacks.onChunk(data.content)
-        }
-      },
-      onTitle: (data) => callbacks.onTitle(data.sessionId, data.title),
-      onEnd: (data) => callbacks.onEnd(data as Message),
-      onError: (data) => callbacks.onError(data.message)
-    }),
+    apiSSE(`/api/chat/${sessionId}/messages`, { content, attachments }, buildSSECallbacks(callbacks)),
 
   regenerate: (
     sessionId: string,
     messageId: string,
     callbacks: StreamCallbacks
   ): AbortController =>
-    apiSSE(`/api/chat/${sessionId}/messages/${messageId}/regenerate`, {}, {
-      onChunk: (data) => {
-        if (data.type === 'text') {
-          callbacks.onChunk(data.content)
-        }
-      },
-      onTitle: (data) => callbacks.onTitle(data.sessionId, data.title),
-      onEnd: (data) => callbacks.onEnd(data as Message),
-      onError: (data) => callbacks.onError(data.message)
-    }),
+    apiSSE(`/api/chat/${sessionId}/messages/${messageId}/regenerate`, {}, buildSSECallbacks(callbacks)),
 
   editMessage: (
     sessionId: string,
@@ -51,16 +51,7 @@ export const chatApi = {
     content: string,
     callbacks: StreamCallbacks
   ): AbortController =>
-    apiSSE(`/api/chat/${sessionId}/messages/${messageId}/edit`, { content }, {
-      onChunk: (data) => {
-        if (data.type === 'text') {
-          callbacks.onChunk(data.content)
-        }
-      },
-      onTitle: (data) => callbacks.onTitle(data.sessionId, data.title),
-      onEnd: (data) => callbacks.onEnd(data as Message),
-      onError: (data) => callbacks.onError(data.message)
-    }),
+    apiSSE(`/api/chat/${sessionId}/messages/${messageId}/edit`, { content }, buildSSECallbacks(callbacks)),
 
   stopStream: (sessionId: string, content: string) =>
     apiFetch(`/api/chat/${sessionId}/stop`, {

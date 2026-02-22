@@ -97,6 +97,64 @@ export interface BackupData {
   }
 }
 
+// ── MCP ──
+
+export interface McpServerConfigDTO {
+  id: string
+  name: string
+  command: string
+  args: string[]
+  env: Record<string, string>
+  enabled: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface McpToolDefinitionDTO {
+  name: string
+  description: string
+  inputSchema: Record<string, unknown>
+  serverId: string
+}
+
+export interface McpServerStatusDTO {
+  config: McpServerConfigDTO
+  status: 'stopped' | 'running' | 'error'
+  tools: McpToolDefinitionDTO[]
+}
+
+export interface CreateMcpServerRequest {
+  name: string
+  command: string
+  args: string[]
+  env?: Record<string, string>
+}
+
+export interface UpdateMcpServerRequest {
+  name?: string
+  command?: string
+  args?: string[]
+  env?: Record<string, string>
+  enabled?: boolean
+}
+
+// ── SSE Tool Events ──
+
+export interface SSEToolUseEvent {
+  type: 'tool_use'
+  toolUseId: string
+  toolName: string
+  toolInput: Record<string, unknown>
+}
+
+export interface SSEToolResultEvent {
+  type: 'tool_result'
+  toolUseId: string
+  toolName: string
+  content: string
+  isError: boolean
+}
+
 // ── Health ──
 
 export interface HealthResponse {

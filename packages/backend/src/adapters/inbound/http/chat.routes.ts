@@ -5,6 +5,7 @@ import type { RegenerateMessageUseCase } from '../../../domain/ports/inbound/reg
 import type { GenerateTitleUseCase } from '../../../domain/ports/inbound/generate-title.usecase'
 import type { ManageMessagesUseCase } from '../../../domain/ports/inbound/manage-messages.usecase'
 import type { SendMessageRequest, StopStreamRequest, EditMessageRequest } from '@dchat/shared'
+import type { ExtendedStreamChunk } from '../../../domain/ports/outbound/llm.gateway'
 import logger from '../../../logger'
 
 // Per-session stream management
@@ -14,6 +15,27 @@ const lastAssistantMessageIds = new Map<string, string>()
 
 function sendSSE(res: Response, event: string, data: unknown): void {
   res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+}
+
+function sendChunkSSE(res: Response, chunk: ExtendedStreamChunk): void {
+  if (chunk.type === 'tool_use') {
+    sendSSE(res, 'tool_use', {
+      type: 'tool_use',
+      toolUseId: chunk.toolUseId,
+      toolName: chunk.toolName,
+      toolInput: chunk.toolInput
+    })
+  } else if (chunk.type === 'tool_result') {
+    sendSSE(res, 'tool_result', {
+      type: 'tool_result',
+      toolUseId: chunk.toolUseId,
+      toolName: chunk.toolName,
+      content: chunk.content,
+      isError: chunk.isError
+    })
+  } else {
+    sendSSE(res, 'chunk', chunk)
+  }
 }
 
 export function createChatRoutes(
@@ -65,7 +87,7 @@ export function createChatRoutes(
         content,
         attachments ?? [],
         (chunk) => {
-          sendSSE(res, 'chunk', chunk)
+          sendChunkSSE(res, chunk)
 
           if (!titlePromise) {
             titlePromise = generateTitle
@@ -137,7 +159,7 @@ export function createChatRoutes(
         sessionId,
         messageId,
         (chunk) => {
-          sendSSE(res, 'chunk', chunk)
+          sendChunkSSE(res, chunk)
         },
         abortController.signal
       )
@@ -198,7 +220,7 @@ export function createChatRoutes(
         sessionId,
         messageId,
         (chunk) => {
-          sendSSE(res, 'chunk', chunk)
+          sendChunkSSE(res, chunk)
         },
         abortController.signal
       )

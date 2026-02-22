@@ -17,12 +17,22 @@ export interface Session {
   updatedAt: string
 }
 
+export interface ToolCallInfo {
+  toolUseId: string
+  toolName: string
+  toolInput: Record<string, unknown>
+  status: 'calling' | 'done' | 'error'
+  result?: string
+  isError?: boolean
+}
+
 interface ChatState {
   sessions: Session[]
   currentSessionId: string | null
   messages: Message[]
   streamingSessionIds: Set<string>
   streamingContents: Record<string, string>
+  activeToolCalls: ToolCallInfo[]
   error: string | null
   searchOpen: boolean
   allChatsOpen: boolean
@@ -62,6 +72,7 @@ export const useSessionStore = create<ChatState>((set, get) => ({
   messages: [],
   streamingSessionIds: new Set(),
   streamingContents: {},
+  activeToolCalls: [],
   error: null,
   searchOpen: false,
   allChatsOpen: false,
@@ -124,6 +135,7 @@ export const useSessionStore = create<ChatState>((set, get) => ({
       messages: [...state.messages, userMessage],
       streamingSessionIds: new Set([...state.streamingSessionIds, currentSessionId]),
       streamingContents: { ...state.streamingContents, [currentSessionId]: '' },
+      activeToolCalls: [],
       error: null
     }))
 
@@ -141,6 +153,29 @@ export const useSessionStore = create<ChatState>((set, get) => ({
       onTitle: (sid, title) => {
         get().setSessionTitleLocal(sid, title)
       },
+      onToolUse: (data) => {
+        if (sessionId !== get().currentSessionId) return
+        set((s) => ({
+          activeToolCalls: [...s.activeToolCalls, {
+            toolUseId: data.toolUseId,
+            toolName: data.toolName,
+            toolInput: data.toolInput,
+            status: 'calling'
+          }],
+          // Reset streaming content for next LLM turn
+          streamingContents: { ...s.streamingContents, [sessionId]: '' }
+        }))
+      },
+      onToolResult: (data) => {
+        if (sessionId !== get().currentSessionId) return
+        set((s) => ({
+          activeToolCalls: s.activeToolCalls.map((tc) =>
+            tc.toolUseId === data.toolUseId
+              ? { ...tc, status: data.isError ? 'error' as const : 'done' as const, result: data.content, isError: data.isError }
+              : tc
+          )
+        }))
+      },
       onEnd: (message) => {
         const state = get()
         if (!state.streamingSessionIds.has(sessionId)) return
@@ -155,7 +190,8 @@ export const useSessionStore = create<ChatState>((set, get) => ({
               ? { messages: [...s.messages, message] }
               : {}),
             streamingSessionIds: newIds,
-            streamingContents: rest
+            streamingContents: rest,
+            activeToolCalls: []
           }
         })
 
@@ -182,7 +218,8 @@ export const useSessionStore = create<ChatState>((set, get) => ({
           return {
             ...(isCurrentSession ? { error } : {}),
             streamingSessionIds: newIds,
-            streamingContents: rest
+            streamingContents: rest,
+            activeToolCalls: []
           }
         })
 

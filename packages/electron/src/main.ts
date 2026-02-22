@@ -198,6 +198,9 @@ function registerNativeIpc(): void {
     event.returnValue = `http://localhost:${backendPort}`
   })
 
+  // Open a file with the system default application
+  ipcMain.handle('native:open-file', (_event, filePath: string) => shell.openPath(filePath))
+
   // Open log folder in system file manager
   ipcMain.handle('native:open-log-folder', () => shell.openPath(app.getPath('logs')))
 }
