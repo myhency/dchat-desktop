@@ -14,6 +14,7 @@
 - 세션 선택: `closeSettings()` + `selectSession(id)` → `allChatsOpen = false`, `projectsOpen = false` (자동 복귀)
 - "모든 채팅" 버튼: `openAllChats()` → `allChatsOpen = true`, `projectsOpen = false`, `currentSessionId = null`
 - "프로젝트" 버튼: `openProjects()` → `projectsOpen = true`, `allChatsOpen = false`, `currentSessionId = null`, `selectedProjectId = null`
+- 특정 프로젝트 상세로 직접 이동: `openProjects()` → `selectProject(id)` 순서로 호출 (Sidebar 프로젝트 항목 클릭, ChatHeader 프로젝트명 클릭에서 동일 패턴 사용)
 - HomeScreen에서 메시지 전송 시: `createSession` → `sendMessage` 순서로 호출
 
 사이드바 네비게이션 시 `closeSettings()` 호출 필수. 누락 시 설정 화면이 닫히지 않음.
