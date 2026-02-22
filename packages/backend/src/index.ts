@@ -26,6 +26,22 @@ async function main(): Promise<void> {
 
   process.on('SIGTERM', shutdown)
   process.on('SIGINT', shutdown)
+
+  process.on('unhandledRejection', (reason) => {
+    logger.fatal({ err: reason }, 'Unhandled rejection')
+    server.close(() => {
+      closeDatabase()
+      process.exit(1)
+    })
+  })
+
+  process.on('uncaughtException', (err) => {
+    logger.fatal({ err }, 'Uncaught exception')
+    server.close(() => {
+      closeDatabase()
+      process.exit(1)
+    })
+  })
 }
 
 main().catch((err) => {

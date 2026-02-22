@@ -61,3 +61,13 @@ export function openInBrowser(htmlContent: string): void {
   window.open(url, '_blank')
   setTimeout(() => URL.revokeObjectURL(url), 30000)
 }
+
+/**
+ * Open log folder — Electron only, no web fallback
+ */
+export function openLogFolder(): Promise<string> | undefined {
+  if (isElectron) {
+    return (window as any).electron.openLogFolder()
+  }
+  return undefined
+}

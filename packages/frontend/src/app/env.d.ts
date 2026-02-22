@@ -8,6 +8,7 @@ declare global {
       pickImage: () => Promise<ImageAttachment[]>
       openInBrowser: (htmlContent: string) => void
       getApiUrl: () => string
+      openLogFolder: () => Promise<string>
     }
   }
 }
