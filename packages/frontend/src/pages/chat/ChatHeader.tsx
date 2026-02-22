@@ -10,7 +10,9 @@ export function ChatHeader(): React.JSX.Element | null {
   const updateSessionProjectId = useSessionStore((s) => s.updateSessionProjectId)
   const toggleSessionFavorite = useSessionStore((s) => s.toggleSessionFavorite)
   const deleteSession = useSessionStore((s) => s.deleteSession)
+  const openProjects = useSessionStore((s) => s.openProjects)
   const projects = useProjectStore((s) => s.projects)
+  const selectProject = useProjectStore((s) => s.selectProject)
 
   const session = sessions.find((s) => s.id === currentSessionId)
 
@@ -52,6 +54,12 @@ export function ChatHeader(): React.JSX.Element | null {
     [saveTitle]
   )
 
+  const handleProjectClick = useCallback(() => {
+    if (!session?.projectId) return
+    openProjects()
+    selectProject(session.projectId)
+  }, [session?.projectId, openProjects, selectProject])
+
   if (!session || !session.projectId) return null
 
   const project = projects.find((p) => p.id === session.projectId)
@@ -77,20 +85,23 @@ export function ChatHeader(): React.JSX.Element | null {
             />
           </div>
         ) : (
-          <button
-            ref={triggerRef}
-            onClick={() => setMenuOpen((o) => !o)}
-            className="flex items-center gap-1.5 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-lg px-2 py-1 transition-colors"
-          >
-            <span className="text-neutral-500 dark:text-neutral-400">
+          <div className="flex items-center gap-1.5 text-sm">
+            <button
+              onClick={handleProjectClick}
+              className="text-neutral-500 dark:text-neutral-400 hover:underline transition-colors"
+            >
               {project.name}
-            </span>
+            </button>
             <span className="text-neutral-300 dark:text-neutral-600">/</span>
-            <span className="text-neutral-800 dark:text-neutral-100">
+            <button
+              ref={triggerRef}
+              onClick={() => setMenuOpen((o) => !o)}
+              className="flex items-center gap-1 text-neutral-800 dark:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-700 rounded-lg px-2 py-1 transition-colors"
+            >
               {session.title}
-            </span>
-            <ChevronDown size={14} className="text-neutral-400" />
-          </button>
+              <ChevronDown size={14} className="text-neutral-400" />
+            </button>
+          </div>
         )}
 
         {menuOpen && (
