@@ -22,6 +22,11 @@ export function Sidebar(): React.JSX.Element {
   const selectProject = useProjectStore((s) => s.selectProject)
   const openSettings = useSettingsStore((s) => s.openSettings)
   const closeSettings = useSettingsStore((s) => s.closeSettings)
+  const fullName = useSettingsStore((s) => s.fullName)
+
+  const initials = fullName.trim()
+    ? fullName.trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase()
+    : 'DC'
 
   const [menuSessionId, setMenuSessionId] = useState<string | null>(null)
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null)
@@ -234,12 +239,11 @@ export function Sidebar(): React.JSX.Element {
         }
       >
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#8B9A6B] text-white text-xs font-semibold">
-          DC
+          {initials}
         </div>
-        <div className="flex flex-col min-w-0 flex-1">
-          <span className="text-sm font-semibold truncate">D Chat User</span>
-          <span className="text-xs text-neutral-500 dark:text-neutral-400">Free 요금제</span>
-        </div>
+        <span className="text-sm font-semibold truncate min-w-0 flex-1">
+          {fullName || 'D Chat User'}
+        </span>
         <ChevronsUpDown size={16} className="text-neutral-400 shrink-0" />
       </div>
     </div>
