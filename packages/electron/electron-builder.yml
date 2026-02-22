@@ -43,5 +43,6 @@ dmg:
       type: link
       path: /Applications
 
+electronVersion: "33.4.11"
 npmRebuild: false
 publish: null
