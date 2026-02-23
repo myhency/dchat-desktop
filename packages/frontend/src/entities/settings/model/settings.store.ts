@@ -67,7 +67,6 @@ interface SettingsState {
   openaiVerified: boolean
   launchAtStartup: boolean
   quickAccessShortcut: string
-  voiceShortcut: string
   showInMenuBar: boolean
 
   loadSettings: () => Promise<void>
@@ -84,7 +83,6 @@ interface SettingsState {
   setCodeEmailNotif: (v: boolean) => void
   setLaunchAtStartup: (v: boolean) => void
   setQuickAccessShortcut: (v: string) => void
-  setVoiceShortcut: (v: string) => void
   setShowInMenuBar: (v: boolean) => void
   setProviderVerified: (provider: 'anthropic' | 'openai', verified: boolean) => void
   openSettings: () => void
@@ -113,7 +111,6 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   openaiVerified: false,
   launchAtStartup: false,
   quickAccessShortcut: 'double-option',
-  voiceShortcut: 'none',
   showInMenuBar: true,
 
   loadSettings: async () => {
@@ -154,7 +151,6 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       openaiVerified: all['openai_verified'] === 'true',
       launchAtStartup: all['launch_at_startup'] === 'true',
       quickAccessShortcut: all['quick_access_shortcut'] ?? 'double-option',
-      voiceShortcut: all['voice_shortcut'] ?? 'none',
       showInMenuBar: all['show_in_menu_bar'] !== 'false'
     })
   },
@@ -242,11 +238,6 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setQuickAccessShortcut: (v) => {
     set({ quickAccessShortcut: v })
     settingsApi.set('quick_access_shortcut', v)
-  },
-
-  setVoiceShortcut: (v) => {
-    set({ voiceShortcut: v })
-    settingsApi.set('voice_shortcut', v)
   },
 
   setShowInMenuBar: (v) => {

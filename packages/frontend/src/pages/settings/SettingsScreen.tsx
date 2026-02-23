@@ -189,19 +189,12 @@ const QUICK_ACCESS_OPTIONS = [
   { value: 'double-option', label: 'Option 키 두 번 누르기' }
 ]
 
-const VOICE_SHORTCUT_OPTIONS = [
-  { value: 'none', label: '단축키 없음' },
-  { value: 'double-option', label: 'Option 키 두 번 누르기' }
-]
-
 function GeneralContent(): React.JSX.Element {
   const launchAtStartup = useSettingsStore((s) => s.launchAtStartup)
   const quickAccessShortcut = useSettingsStore((s) => s.quickAccessShortcut)
-  const voiceShortcut = useSettingsStore((s) => s.voiceShortcut)
   const showInMenuBar = useSettingsStore((s) => s.showInMenuBar)
   const setLaunchAtStartup = useSettingsStore((s) => s.setLaunchAtStartup)
   const setQuickAccessShortcut = useSettingsStore((s) => s.setQuickAccessShortcut)
-  const setVoiceShortcut = useSettingsStore((s) => s.setVoiceShortcut)
   const setShowInMenuBar = useSettingsStore((s) => s.setShowInMenuBar)
 
   return (
@@ -222,14 +215,6 @@ function GeneralContent(): React.JSX.Element {
           <div className="text-sm text-neutral-500 dark:text-neutral-400">데스크톱 어디서나 D Chat에게 메시지 보내기</div>
         </div>
         <ShortcutSelect value={quickAccessShortcut} onChange={setQuickAccessShortcut} options={QUICK_ACCESS_OPTIONS} />
-      </div>
-
-      <div className="flex items-center justify-between py-4">
-        <div>
-          <div className="text-sm font-medium">음성 바로가기</div>
-          <div className="text-sm text-neutral-500 dark:text-neutral-400">데스크톱 어디서나 D Chat과 음성으로 대화하기</div>
-        </div>
-        <ShortcutSelect value={voiceShortcut} onChange={setVoiceShortcut} options={VOICE_SHORTCUT_OPTIONS} />
       </div>
 
       <div className="flex items-center justify-between py-4">
