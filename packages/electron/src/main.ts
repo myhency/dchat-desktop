@@ -5,6 +5,7 @@ import { createServer } from 'net'
 import { readFile } from 'fs/promises'
 import { basename } from 'path'
 import { randomUUID } from 'crypto'
+import { createTray, destroyTray, hideQuickChatPopup } from './tray'
 
 let mainWindow: BrowserWindow | null = null
 let backendProcess: ChildProcess | null = null
@@ -203,6 +204,48 @@ function registerNativeIpc(): void {
 
   // Open log folder in system file manager
   ipcMain.handle('native:open-log-folder', () => shell.openPath(app.getPath('logs')))
+
+  // Toggle menu bar tray icon
+  ipcMain.handle('native:set-show-in-menu-bar', (_event, visible: boolean) => {
+    if (visible) {
+      createTray(backendPort, () => mainWindow, createWindow)
+    } else {
+      destroyTray()
+    }
+  })
+
+  // Quick Chat: create session from tray popup → open main window
+  ipcMain.handle('native:quick-chat-send', async (_event, text: string, model: string) => {
+    // 1. Create session via backend API
+    const res = await fetch(`http://localhost:${backendPort}/api/sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'New Chat', model })
+    })
+    if (!res.ok) throw new Error(`Failed to create session: ${res.status}`)
+    const session = (await res.json()) as { id: string }
+
+    // 2. Hide popup
+    hideQuickChatPopup()
+
+    // 3. Ensure main window exists
+    if (!mainWindow) {
+      createWindow()
+      // Wait for the window to finish loading
+      await new Promise<void>((resolve) => {
+        mainWindow!.webContents.on('did-finish-load', () => resolve())
+      })
+    }
+
+    // 4. Show and focus main window
+    mainWindow!.show()
+    mainWindow!.focus()
+
+    // 5. Tell renderer to navigate to the new session and send the message
+    mainWindow!.webContents.send('native:navigate-to-session', session.id, text)
+
+    return session.id
+  })
 }
 
 // ── App Lifecycle ──
@@ -222,6 +265,20 @@ app.whenReady().then(async () => {
 
   registerNativeIpc()
   createWindow()
+
+  // Initialize tray based on saved setting
+  try {
+    const settingsRes = await fetch(`http://localhost:${backendPort}/api/settings`)
+    if (settingsRes.ok) {
+      const settings = (await settingsRes.json()) as Record<string, string>
+      if (settings['show_in_menu_bar'] !== 'false') {
+        createTray(backendPort, () => mainWindow, createWindow)
+      }
+    }
+  } catch {
+    // Settings fetch failed — default to showing tray
+    createTray(backendPort, () => mainWindow, createWindow)
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

@@ -243,6 +243,9 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setShowInMenuBar: (v) => {
     set({ showInMenuBar: v })
     settingsApi.set('show_in_menu_bar', String(v))
+    if (typeof window !== 'undefined' && (window as any).electron?.setShowInMenuBar) {
+      (window as any).electron.setShowInMenuBar(v)
+    }
   },
 
   setProviderVerified: (provider, verified) => {
