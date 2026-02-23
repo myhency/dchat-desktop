@@ -129,6 +129,120 @@ function RoleDropdown({
   )
 }
 
+function ShortcutSelect({
+  value,
+  onChange,
+  options
+}: {
+  value: string
+  onChange: (v: string) => void
+  options: { value: string; label: string }[]
+}): React.JSX.Element {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: MouseEvent): void => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  const display = options.find((o) => o.value === value)?.label ?? value
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="min-w-[180px] flex items-center justify-between rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary-500"
+      >
+        <span>{display}</span>
+        <ChevronDown size={12} className={`shrink-0 ml-2 text-neutral-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className="absolute right-0 z-20 mt-1 min-w-[180px] rounded-lg border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-700 shadow-lg overflow-hidden">
+          {options.map((o) => (
+            <button
+              key={o.value}
+              type="button"
+              onClick={() => { onChange(o.value); setOpen(false) }}
+              className={`w-full text-left px-3 py-2 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-600 ${
+                value === o.value ? 'bg-neutral-100 dark:bg-neutral-600' : ''
+              }`}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+const QUICK_ACCESS_OPTIONS = [
+  { value: 'none', label: '단축키 없음' },
+  { value: 'double-option', label: 'Option 키 두 번 누르기' }
+]
+
+const VOICE_SHORTCUT_OPTIONS = [
+  { value: 'none', label: '단축키 없음' },
+  { value: 'double-option', label: 'Option 키 두 번 누르기' }
+]
+
+function GeneralContent(): React.JSX.Element {
+  const launchAtStartup = useSettingsStore((s) => s.launchAtStartup)
+  const quickAccessShortcut = useSettingsStore((s) => s.quickAccessShortcut)
+  const voiceShortcut = useSettingsStore((s) => s.voiceShortcut)
+  const showInMenuBar = useSettingsStore((s) => s.showInMenuBar)
+  const setLaunchAtStartup = useSettingsStore((s) => s.setLaunchAtStartup)
+  const setQuickAccessShortcut = useSettingsStore((s) => s.setQuickAccessShortcut)
+  const setVoiceShortcut = useSettingsStore((s) => s.setVoiceShortcut)
+  const setShowInMenuBar = useSettingsStore((s) => s.setShowInMenuBar)
+
+  return (
+    <div>
+      <h3 className="text-base font-semibold mb-6">일반 데스크톱 설정</h3>
+
+      <div className="flex items-center justify-between py-4">
+        <div>
+          <div className="text-sm font-medium">시작 시 실행</div>
+          <div className="text-sm text-neutral-500 dark:text-neutral-400">컴퓨터에 로그인할 때 D Chat을 자동으로 시작합니다</div>
+        </div>
+        <Toggle checked={launchAtStartup} onChange={setLaunchAtStartup} />
+      </div>
+
+      <div className="flex items-center justify-between py-4">
+        <div>
+          <div className="text-sm font-medium">빠른 액세스 바로가기</div>
+          <div className="text-sm text-neutral-500 dark:text-neutral-400">데스크톱 어디서나 D Chat에게 메시지 보내기</div>
+        </div>
+        <ShortcutSelect value={quickAccessShortcut} onChange={setQuickAccessShortcut} options={QUICK_ACCESS_OPTIONS} />
+      </div>
+
+      <div className="flex items-center justify-between py-4">
+        <div>
+          <div className="text-sm font-medium">음성 바로가기</div>
+          <div className="text-sm text-neutral-500 dark:text-neutral-400">데스크톱 어디서나 D Chat과 음성으로 대화하기</div>
+        </div>
+        <ShortcutSelect value={voiceShortcut} onChange={setVoiceShortcut} options={VOICE_SHORTCUT_OPTIONS} />
+      </div>
+
+      <div className="flex items-center justify-between py-4">
+        <div>
+          <div className="text-sm font-medium">메뉴 바</div>
+          <div className="text-sm text-neutral-500 dark:text-neutral-400">메뉴 막대에 D Chat 표시</div>
+        </div>
+        <Toggle checked={showInMenuBar} onChange={setShowInMenuBar} />
+      </div>
+    </div>
+  )
+}
+
 function GeneralTopContent(): React.JSX.Element {
   const fullName = useSettingsStore((s) => s.fullName)
   const nickname = useSettingsStore((s) => s.nickname)
@@ -1087,6 +1201,8 @@ export function SettingsScreen(): React.JSX.Element {
             <ConnectorsContent />
           ) : activeTab === 'developer' ? (
             <DeveloperContent />
+          ) : activeTab === 'general' ? (
+            <GeneralContent />
           ) : (
             <div className="text-sm text-neutral-500 dark:text-neutral-400">
               {activeLabel} 설정

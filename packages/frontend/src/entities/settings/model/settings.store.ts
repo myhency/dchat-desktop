@@ -65,6 +65,10 @@ interface SettingsState {
   codeEmailNotif: boolean
   anthropicVerified: boolean
   openaiVerified: boolean
+  launchAtStartup: boolean
+  quickAccessShortcut: string
+  voiceShortcut: string
+  showInMenuBar: boolean
 
   loadSettings: () => Promise<void>
   setApiKey: (provider: 'anthropic' | 'openai', key: string) => Promise<void>
@@ -78,6 +82,10 @@ interface SettingsState {
   setCustomInstructions: (v: string) => void
   setResponseNotif: (v: boolean) => void
   setCodeEmailNotif: (v: boolean) => void
+  setLaunchAtStartup: (v: boolean) => void
+  setQuickAccessShortcut: (v: string) => void
+  setVoiceShortcut: (v: string) => void
+  setShowInMenuBar: (v: boolean) => void
   setProviderVerified: (provider: 'anthropic' | 'openai', verified: boolean) => void
   openSettings: () => void
   closeSettings: () => void
@@ -103,6 +111,10 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   codeEmailNotif: true,
   anthropicVerified: false,
   openaiVerified: false,
+  launchAtStartup: false,
+  quickAccessShortcut: 'double-option',
+  voiceShortcut: 'none',
+  showInMenuBar: true,
 
   loadSettings: async () => {
     const all = await settingsApi.getAll()
@@ -139,7 +151,11 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       responseNotif: all['response_notif'] !== 'false',
       codeEmailNotif: all['code_email_notif'] !== 'false',
       anthropicVerified: all['anthropic_verified'] === 'true',
-      openaiVerified: all['openai_verified'] === 'true'
+      openaiVerified: all['openai_verified'] === 'true',
+      launchAtStartup: all['launch_at_startup'] === 'true',
+      quickAccessShortcut: all['quick_access_shortcut'] ?? 'double-option',
+      voiceShortcut: all['voice_shortcut'] ?? 'none',
+      showInMenuBar: all['show_in_menu_bar'] !== 'false'
     })
   },
 
@@ -216,6 +232,26 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setCodeEmailNotif: (v) => {
     set({ codeEmailNotif: v })
     settingsApi.set('code_email_notif', String(v))
+  },
+
+  setLaunchAtStartup: (v) => {
+    set({ launchAtStartup: v })
+    settingsApi.set('launch_at_startup', String(v))
+  },
+
+  setQuickAccessShortcut: (v) => {
+    set({ quickAccessShortcut: v })
+    settingsApi.set('quick_access_shortcut', v)
+  },
+
+  setVoiceShortcut: (v) => {
+    set({ voiceShortcut: v })
+    settingsApi.set('voice_shortcut', v)
+  },
+
+  setShowInMenuBar: (v) => {
+    set({ showInMenuBar: v })
+    settingsApi.set('show_in_menu_bar', String(v))
   },
 
   setProviderVerified: (provider, verified) => {
