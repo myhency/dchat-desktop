@@ -1,5 +1,27 @@
 # 프론트엔드 동작 패턴
 
+## Quick Chat 모드 (`App.tsx`)
+
+`App.tsx`에서 URL 쿼리 `?mode=quick-chat` 감지 시 `QuickChatPage`를 렌더링 (트레이 팝업 전용):
+
+- **모듈 스코프에서 판별**: `const isQuickChatMode = new URLSearchParams(window.location.search).get('mode') === 'quick-chat'` — 렌더링 시점이 아닌 모듈 로드 시 결정
+- **초기 로드 최소화**: 퀵챗 모드에서는 `loadSettings()`만 호출 (세션/프로젝트 로드 불필요)
+- **navigate-to-session 리스너**: 퀵챗이 아닌 메인 윈도우에서만 `onNavigateToSession` 콜백 등록. 퀵챗에서 전송 → 메인 윈도우가 세션 이동 + 메시지 전송 수행
+
+### 데스크톱 설정 → Electron IPC 즉시 반영 패턴
+
+`setQuickAccessShortcut`, `setShowInMenuBar` 등 데스크톱 전용 설정은 백엔드 persist와 동시에 `window.electron` IPC를 호출하여 Electron main process에 즉시 반영:
+
+```typescript
+setQuickAccessShortcut: (v) => {
+  set({ quickAccessShortcut: v })
+  settingsApi.set('quick_access_shortcut', v)       // 백엔드 persist
+  window.electron?.setQuickAccessShortcut(v)         // Electron main에 즉시 반영
+}
+```
+
+웹 모드에서는 `window.electron`이 없으므로 optional chaining으로 안전하게 무시.
+
 ## 화면 전환 흐름
 
 `MainLayout.tsx` (`widgets/main-layout/`)에서 뷰 디스패치 (우선순위 순서):

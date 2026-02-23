@@ -46,6 +46,7 @@ src/
 │   ├── all-chats/AllChatsScreen.tsx
 │   ├── projects/ProjectsScreen.tsx
 │   ├── project-detail/ProjectDetailScreen.tsx
+│   ├── quick-chat/QuickChatPage.tsx             # 트레이 팝업 전용 경량 입력 페이지
 │   └── settings/SettingsScreen.tsx
 ├── widgets/                             # 독립 UI 블록
 │   ├── main-layout/                     # MainLayout (뷰 디스패치 포함)
@@ -161,6 +162,12 @@ src/
 | `setColorMode(mode)` | action | 테마 모드 변경 (즉시 적용, `auto` 시 시스템 리스너 등록) |
 | `setFullName(v)` / `setNickname(v)` / `setRole(v)` / `setCustomInstructions(v)` | action | 프로필/지침 변경 (500ms 디바운스 persist) |
 | `setResponseNotif(v)` / `setCodeEmailNotif(v)` | action | 알림 설정 변경 |
+| `launchAtStartup` | `boolean` | 시작 시 자동 실행 |
+| `quickAccessShortcut` | `string` | 퀵챗 단축키 (`double-option`, `option-space`, `custom:{accelerator}`, `none`) |
+| `showInMenuBar` | `boolean` | 메뉴 바 트레이 아이콘 표시 |
+| `setLaunchAtStartup(v)` | action | 자동 실행 설정 변경 |
+| `setQuickAccessShortcut(v)` | action | 단축키 변경 + Electron IPC로 즉시 반영 |
+| `setShowInMenuBar(v)` | action | 트레이 표시 변경 + Electron IPC로 즉시 반영 |
 | `setProviderVerified(provider, verified)` | action | 연결 테스트 결과 반영 |
 | `openSettings()` / `closeSettings()` / `toggleSettings()` | action | 설정 화면 열기/닫기/토글 |
 | `toggleSidebar()` | action | 사이드바 토글 + persist |

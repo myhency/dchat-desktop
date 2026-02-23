@@ -139,7 +139,9 @@ packages/
     ├── electron.vite.config.ts
     └── src/
         ├── main.ts                              # 백엔드 spawn + BrowserWindow + native IPC
-        └── preload.ts                           # contextBridge → window.electron API
+        ├── preload.ts                           # contextBridge → window.electron API
+        ├── shortcut.ts                          # 글로벌 단축키 (uiohook-napi + globalShortcut)
+        └── tray.ts                              # 트레이 아이콘 + 퀵챗 팝업 BrowserWindow
 ```
 
 ## 데이터 흐름
@@ -282,6 +284,53 @@ Electron의 `ipcMain.handle()`로 등록, preload의 `contextBridge`를 통해 `
 | `native:open-in-browser` | `htmlContent: string` | `void` | HTML을 temp 파일로 쓰고 시스템 브라우저에서 열기 |
 | `native:open-file` | `filePath: string` | `void` | 파일을 시스템 기본 앱으로 열기 (MCP 설정 파일 편집용) |
 | `native:get-api-url` / `native:get-api-url-sync` | — | `string` | `http://localhost:${backendPort}` 반환 |
+| `native:open-log-folder` | — | `void` | 로그 폴더를 시스템 파일 관리자로 열기 |
+| `native:set-show-in-menu-bar` | `visible: boolean` | `void` | 트레이 아이콘 생성/제거 |
+| `native:set-quick-access-shortcut` | `shortcut: string` | `void` | 글로벌 단축키 활성화/비활성화 |
+| `native:quick-chat-send` | `text: string, model: string` | `string` (sessionId) | 퀵챗에서 세션 생성 → 메인 윈도우에 전달 |
+| `native:navigate-to-session` | `sessionId, message` | — | main→renderer 단방향. 퀵챗 전송 후 메인 윈도우에 세션 이동 + 메시지 전송 지시 |
+
+### 글로벌 단축키 시스템 (`packages/electron/src/shortcut.ts`)
+
+퀵챗 팝업을 여는 글로벌 단축키. settings 키 `quick_access_shortcut` 값에 따라 두 가지 방식:
+
+| 값 | 방식 | 라이브러리 |
+|---|---|---|
+| `double-option` | Option 키 두 번 탭 감지 | `uiohook-napi` (OS-level 키보드 훅) |
+| `option-space` | Alt+Space | Electron `globalShortcut` |
+| `custom:{accelerator}` | 사용자 지정 (예: `custom:Shift+Command+Space`) | Electron `globalShortcut` |
+| `none` | 비활성화 | — |
+
+- **`double-option` 제약**: macOS에서 `uiohook-napi`는 접근성 권한 필요. `systemPreferences.isTrustedAccessibilityClient(true)`로 권한 요청 다이얼로그 트리거
+- **수정 시 주의**: `activateShortcut()`은 이전 리스너를 `deactivateShortcut()`으로 정리한 뒤 새로 등록. uiohook과 globalShortcut은 동시에 하나만 활성화됨
+
+### 퀵챗 트레이 팝업 (`packages/electron/src/tray.ts`)
+
+메뉴 바 트레이 아이콘 클릭 또는 글로벌 단축키로 열리는 경량 입력 팝업.
+
+- **BrowserWindow**: `480x160`, `frame: false`, `transparent: true`, `alwaysOnTop: true`, macOS `vibrancy: 'popover'`
+- **URL**: 프론트엔드와 동일한 SPA를 `?mode=quick-chat` 쿼리로 로드
+- **위치**: 커서가 있는 디스플레이의 작업 영역 가로 중앙, 세로 3/4 지점
+- **숨기기**: blur 이벤트 시 자동 숨김
+- **트레이 아이콘**: 22×22 PNG를 런타임에 생성 (외부 이미지 파일 없음). `setTemplateImage(true)`로 macOS 다크/라이트 메뉴바 자동 대응
+- **전송 흐름**: `native:quick-chat-send` IPC → 백엔드 API로 세션 생성 → 팝업 숨김 → 메인 윈도우 표시 → `native:navigate-to-session`으로 렌더러에 세션 이동 + 메시지 전송 지시
+
+### Preload Navigate 이벤트 패턴 (`packages/electron/src/preload.ts`)
+
+`native:navigate-to-session` main→renderer 이벤트는 레이스 컨디션 방지를 위해 preload 모듈 스코프에서 리스너를 즉시 등록:
+
+```ts
+// preload.ts (모듈 스코프)
+let navigateCallback: ((sessionId, message) => void) | null = null
+let pendingNavigate: { sessionId, message } | null = null
+
+ipcRenderer.on('native:navigate-to-session', (_event, sessionId, message) => {
+  if (navigateCallback) navigateCallback(sessionId, message)  // 콜백 있으면 즉시 실행
+  else pendingNavigate = { sessionId, message }                // 없으면 보관
+})
+```
+
+렌더러가 `onNavigateToSession(callback)`으로 콜백을 등록하면 보관된 이벤트를 즉시 전달. 메인 윈도우가 아직 로드 중일 때 이벤트가 유실되는 것을 방지.
 
 ### BrowserWindow
 

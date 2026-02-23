@@ -35,7 +35,7 @@ packages/
 
 ## 상세 문서
 
-- 전체 구조/데이터 흐름: [docs/overview.md](docs/overview.md)
+- 전체 구조/데이터 흐름/Electron(트레이, 단축키, IPC): [docs/overview.md](docs/overview.md)
 - 변경 가이드 + 패키징 + E2E 테스트: [docs/guides.md](docs/guides.md)
 - 백엔드 아키텍처/DB/MCP 설정: [docs/backend/architecture.md](docs/backend/architecture.md)
 - REST API 레퍼런스 (MCP 포함): [docs/backend/api-reference.md](docs/backend/api-reference.md)
