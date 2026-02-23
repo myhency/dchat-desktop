@@ -57,7 +57,7 @@ export function MessageBubble({
   if (role === 'user') {
     if (editing) {
       return (
-        <div className="flex justify-end">
+        <div className="w-full flex justify-end">
           <div className="max-w-[80%] flex flex-col items-end gap-2">
             {attachments && attachments.length > 0 && (
               <div className="flex flex-wrap gap-2">
@@ -101,8 +101,8 @@ export function MessageBubble({
     }
 
     return (
-      <div className="flex justify-end">
-        <div className="group max-w-[80%] flex flex-col items-end">
+      <div className="w-full flex justify-end">
+        <div className="group max-w-[80%] min-w-0 flex flex-col items-end">
           {attachments && attachments.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-2">
               {attachments.map((a) => (
@@ -117,8 +117,8 @@ export function MessageBubble({
             </div>
           )}
           {content && (
-            <div className="rounded-2xl px-4 py-3 bg-primary text-white text-sm leading-relaxed">
-              <p className="whitespace-pre-wrap">{content}</p>
+            <div className="max-w-full rounded-2xl px-4 py-3 bg-primary text-white text-sm leading-relaxed">
+              <p className="whitespace-pre-wrap break-words">{content}</p>
             </div>
           )}
           <div
