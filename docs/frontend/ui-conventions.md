@@ -88,6 +88,16 @@ max-w-[90%] md:max-w-[80%] lg:max-w-[70%] mx-auto w-full
 - **User (이미지 첨부)**: 이미지는 파란 버블 **바깥 위쪽**에 별도 컨테이너로 렌더링 (`rounded-2xl overflow-hidden border border-neutral-200 dark:border-neutral-700`). 텍스트가 있으면 그 아래에 파란 버블. 이미지만 있고 텍스트 없으면 파란 버블 렌더링 안 함.
 - **Assistant**: 배경/테두리 없음 (Claude 앱 스타일) — `max-w-none py-1 text-neutral-900 dark:text-neutral-100`
 
+#### User 버블 긴 텍스트 overflow 방지
+
+`items-end` flex 컨테이너 안에서 bubble div는 shrink-to-fit(콘텐츠 기반) 폭을 가지므로, 공백 없는 긴 문자열(URL 등)이 `max-w-[80%]`를 초과할 수 있음. 3가지 클래스가 함께 동작해야 정상 줄바꿈:
+
+1. **`min-w-0`** (80% 컨테이너): flex item의 기본 `min-width: auto`가 `max-width`를 무시하는 것을 방지
+2. **`max-w-full`** (bubble div): bubble 폭을 부모(80%) 이내로 제한 → `overflow-wrap`의 containing block 확정
+3. **`break-words`** (`<p>` 태그): containing block 폭이 확정되어야 `overflow-wrap: break-word`가 동작
+
+셋 중 하나라도 빠지면 긴 URL에서 버블이 좌측으로 넘침.
+
 ### User 메시지 Hover 액션 바
 
 User 버블 아래에 hover 시 나타나는 액션 바 (시간, 재시도, 편집, 복사):

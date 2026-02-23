@@ -4,6 +4,9 @@ import { getApiBase } from '@/shared/api/client'
 import { useSessionStore } from '@/entities/session'
 import { useProjectStore } from '@/entities/project'
 import { useSettingsStore } from '@/entities/settings'
+import { QuickChatPage } from '@/pages/quick-chat'
+
+const isQuickChatMode = new URLSearchParams(window.location.search).get('mode') === 'quick-chat'
 
 function App(): React.JSX.Element | null {
   const loadSessions = useSessionStore((s) => s.loadSessions)
@@ -33,11 +36,34 @@ function App(): React.JSX.Element | null {
 
   useEffect(() => {
     if (!ready) return
-    Promise.all([loadSettings(), loadSessions(), loadProjects()])
-      .catch((err) => console.error('[dchat] init failed:', err))
+    if (isQuickChatMode) {
+      // Quick chat popup only needs settings (for selected model)
+      loadSettings().catch((err) => console.error('[dchat] settings load failed:', err))
+    } else {
+      Promise.all([loadSettings(), loadSessions(), loadProjects()])
+        .catch((err) => console.error('[dchat] init failed:', err))
+    }
   }, [ready, loadSettings, loadSessions, loadProjects])
 
+  // Register navigate-to-session listener for main window
+  useEffect(() => {
+    if (!ready || isQuickChatMode) return
+    const electron = (window as any).electron
+    if (!electron?.onNavigateToSession) return
+
+    electron.onNavigateToSession(async (sessionId: string, message: string) => {
+      const store = useSessionStore.getState()
+      const settingsStore = useSettingsStore.getState()
+      settingsStore.closeSettings()
+      await store.loadSessions()
+      await store.selectSession(sessionId)
+      store.sendMessage(message)
+    })
+  }, [ready])
+
   if (!ready) return null
+
+  if (isQuickChatMode) return <QuickChatPage />
 
   return <MainLayout />
 }

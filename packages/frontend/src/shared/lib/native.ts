@@ -81,3 +81,32 @@ export function openLogFolder(): Promise<string> | undefined {
   }
   return undefined
 }
+
+/**
+ * Send quick chat message — Electron tray popup only
+ */
+export function sendQuickChat(text: string, model: string): Promise<string> | undefined {
+  if (isElectron) {
+    return (window as any).electron.sendQuickChat(text, model)
+  }
+  return undefined
+}
+
+/**
+ * Toggle menu bar tray visibility — Electron only
+ */
+export function setShowInMenuBar(visible: boolean): Promise<void> | undefined {
+  if (isElectron) {
+    return (window as any).electron.setShowInMenuBar(visible)
+  }
+  return undefined
+}
+
+/**
+ * Listen for navigate-to-session events from main process — Electron only
+ */
+export function onNavigateToSession(callback: (sessionId: string, message: string) => void): void {
+  if (isElectron && (window as any).electron.onNavigateToSession) {
+    (window as any).electron.onNavigateToSession(callback)
+  }
+}

@@ -8,6 +8,22 @@ import type { SendMessageRequest, StopStreamRequest, EditMessageRequest } from '
 import type { ExtendedStreamChunk } from '../../../domain/ports/outbound/llm.gateway'
 import logger from '../../../logger'
 
+export function formatErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    // Anthropic SDK APIError has .status and .error properties
+    const apiError = error as any
+    if (apiError.status && apiError.error?.error?.message) {
+      return apiError.error.error.message
+    }
+    // Fallback: strip JSON from message if present
+    const msg = error.message
+    const jsonIdx = msg.indexOf('{')
+    if (jsonIdx > 0) return msg.slice(0, jsonIdx).trim()
+    return msg
+  }
+  return 'Unknown error'
+}
+
 // Per-session stream management
 const activeStreams = new Map<string, AbortController>()
 const stoppedContents = new Map<string, string>()
@@ -123,7 +139,7 @@ export function createChatRoutes(
         sendSSE(res, 'end', { content: '' })
       } else {
         logger.error({ err: error, sessionId }, 'SSE stream error')
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        const errorMessage = formatErrorMessage(error)
         sendSSE(res, 'error', { message: errorMessage })
       }
     } finally {
@@ -181,7 +197,7 @@ export function createChatRoutes(
         sendSSE(res, 'end', { content: '' })
       } else {
         logger.error({ err: error, sessionId }, 'SSE regenerate stream error')
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        const errorMessage = formatErrorMessage(error)
         sendSSE(res, 'error', { message: errorMessage })
       }
     } finally {
@@ -242,7 +258,7 @@ export function createChatRoutes(
         sendSSE(res, 'end', { content: '' })
       } else {
         logger.error({ err: error, sessionId }, 'SSE edit stream error')
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        const errorMessage = formatErrorMessage(error)
         sendSSE(res, 'error', { message: errorMessage })
       }
     } finally {

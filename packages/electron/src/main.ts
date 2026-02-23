@@ -1,10 +1,12 @@
-import { app, BrowserWindow, shell, ipcMain, dialog } from 'electron'
+import { app, BrowserWindow, shell, ipcMain, dialog, systemPreferences } from 'electron'
 import { join } from 'path'
 import { spawn, type ChildProcess } from 'child_process'
 import { createServer } from 'net'
 import { readFile } from 'fs/promises'
 import { basename } from 'path'
 import { randomUUID } from 'crypto'
+import { initQuickChatDeps, createTray, destroyTray, hideQuickChatPopup, toggleQuickChatPopup, destroyQuickChatPopup } from './tray'
+import { activateShortcut, deactivateShortcut } from './shortcut'
 
 let mainWindow: BrowserWindow | null = null
 let backendProcess: ChildProcess | null = null
@@ -203,6 +205,60 @@ function registerNativeIpc(): void {
 
   // Open log folder in system file manager
   ipcMain.handle('native:open-log-folder', () => shell.openPath(app.getPath('logs')))
+
+  // Toggle menu bar tray icon
+  ipcMain.handle('native:set-show-in-menu-bar', (_event, visible: boolean) => {
+    if (visible) {
+      createTray()
+    } else {
+      destroyTray()
+    }
+  })
+
+  // Toggle quick access shortcut
+  ipcMain.handle('native:set-quick-access-shortcut', (_event, shortcut: string) => {
+    if (shortcut === 'none' || shortcut === 'custom') {
+      deactivateShortcut()
+    } else {
+      if (shortcut === 'double-option' && process.platform === 'darwin') {
+        systemPreferences.isTrustedAccessibilityClient(true)
+      }
+      activateShortcut(shortcut, toggleQuickChatPopup)
+    }
+  })
+
+  // Quick Chat: create session from tray popup → open main window
+  ipcMain.handle('native:quick-chat-send', async (_event, text: string, model: string) => {
+    // 1. Create session via backend API
+    const res = await fetch(`http://localhost:${backendPort}/api/sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'New Chat', model })
+    })
+    if (!res.ok) throw new Error(`Failed to create session: ${res.status}`)
+    const session = (await res.json()) as { id: string }
+
+    // 2. Hide popup
+    hideQuickChatPopup()
+
+    // 3. Ensure main window exists
+    if (!mainWindow) {
+      createWindow()
+      // Wait for the window to finish loading
+      await new Promise<void>((resolve) => {
+        mainWindow!.webContents.on('did-finish-load', () => resolve())
+      })
+    }
+
+    // 4. Show and focus main window
+    mainWindow!.show()
+    mainWindow!.focus()
+
+    // 5. Tell renderer to navigate to the new session and send the message
+    mainWindow!.webContents.send('native:navigate-to-session', session.id, text)
+
+    return session.id
+  })
 }
 
 // ── App Lifecycle ──
@@ -223,6 +279,31 @@ app.whenReady().then(async () => {
   registerNativeIpc()
   createWindow()
 
+  // Initialize quick chat deps (shared by tray and shortcut)
+  initQuickChatDeps(backendPort, () => mainWindow, createWindow)
+
+  // Initialize tray and shortcut based on saved settings
+  try {
+    const settingsRes = await fetch(`http://localhost:${backendPort}/api/settings`)
+    if (settingsRes.ok) {
+      const settings = (await settingsRes.json()) as Record<string, string>
+      if (settings['show_in_menu_bar'] !== 'false') {
+        createTray()
+      }
+      const savedShortcut = settings['quick_access_shortcut'] ?? 'double-option'
+      if (savedShortcut !== 'none' && savedShortcut !== 'custom') {
+        if (savedShortcut === 'double-option' && process.platform === 'darwin') {
+          systemPreferences.isTrustedAccessibilityClient(true)
+        }
+        activateShortcut(savedShortcut, toggleQuickChatPopup)
+      }
+    }
+  } catch {
+    // Settings fetch failed — default to showing tray and enabling shortcut
+    createTray()
+    activateShortcut('double-option', toggleQuickChatPopup)
+  }
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow()
@@ -237,6 +318,8 @@ app.on('window-all-closed', () => {
 })
 
 app.on('will-quit', () => {
+  deactivateShortcut()
+  destroyQuickChatPopup()
   if (backendProcess) {
     backendProcess.kill()
     backendProcess = null
