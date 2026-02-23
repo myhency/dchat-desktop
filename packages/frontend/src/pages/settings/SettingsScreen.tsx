@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { X, ChevronDown, Shield, ExternalLink, RefreshCw, Eye, EyeOff, Loader2, Check, Upload, Download, Trash2, Play, Square, RotateCw, FileText, FolderOpen } from 'lucide-react'
 import { useSettingsStore, settingsApi } from '@/entities/settings'
 import { useSessionStore } from '@/entities/session'
@@ -152,7 +152,9 @@ function ShortcutSelect({
     return () => document.removeEventListener('mousedown', handler)
   }, [open])
 
-  const display = options.find((o) => o.value === value)?.label ?? value
+  // Map custom:... values to the 'custom' option for display
+  const matchValue = value.startsWith('custom') ? 'custom' : value
+  const display = options.find((o) => o.value === matchValue)?.label ?? value
 
   return (
     <div ref={ref} className="relative">
@@ -172,7 +174,7 @@ function ShortcutSelect({
               type="button"
               onClick={() => { onChange(o.value); setOpen(false) }}
               className={`w-full text-left px-3 py-2 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-600 ${
-                value === o.value ? 'bg-neutral-100 dark:bg-neutral-600' : ''
+                matchValue === o.value ? 'bg-neutral-100 dark:bg-neutral-600' : ''
               }`}
             >
               {o.label}
@@ -185,9 +187,177 @@ function ShortcutSelect({
 }
 
 const QUICK_ACCESS_OPTIONS = [
-  { value: 'none', label: '단축키 없음' },
-  { value: 'double-option', label: 'Option 키 두 번 누르기' }
+  { value: 'double-option', label: 'Option 키 두 번 누르기' },
+  { value: 'option-space', label: 'Option+Space' },
+  { value: 'custom', label: '사용자 설정...' },
+  { value: 'none', label: '단축키 없음' }
 ]
+
+/** Convert browser KeyboardEvent key/code to Electron accelerator key name */
+function normalizeKeyName(key: string, code: string): string | null {
+  // Ignore standalone modifier keys
+  if (['Control', 'Shift', 'Alt', 'Meta'].includes(key)) return null
+
+  const codeMap: Record<string, string> = {
+    Space: 'Space', Backspace: 'Backspace', Delete: 'Delete',
+    Enter: 'Return', Tab: 'Tab', Escape: 'Escape',
+    ArrowUp: 'Up', ArrowDown: 'Down', ArrowLeft: 'Left', ArrowRight: 'Right',
+    Home: 'Home', End: 'End', PageUp: 'PageUp', PageDown: 'PageDown'
+  }
+  if (codeMap[code]) return codeMap[code]
+
+  // F-keys
+  const fMatch = code.match(/^F(\d+)$/)
+  if (fMatch) return code
+
+  // Letter keys (use code to get the physical key regardless of layout)
+  const letterMatch = code.match(/^Key([A-Z])$/)
+  if (letterMatch) return letterMatch[1]
+
+  // Digit keys
+  const digitMatch = code.match(/^Digit(\d)$/)
+  if (digitMatch) return digitMatch[1]
+
+  // Numpad
+  if (code.startsWith('Numpad')) {
+    const num = code.replace('Numpad', 'num')
+    return num
+  }
+
+  // Symbols — use the key directly if printable
+  if (key.length === 1) return key.toUpperCase()
+
+  return null
+}
+
+/** Convert Electron accelerator string to Mac symbol display */
+function acceleratorToDisplay(accelerator: string): string {
+  const modMap: Record<string, string> = {
+    Command: '\u2318',
+    Cmd: '\u2318',
+    Control: '\u2303',
+    Ctrl: '\u2303',
+    Alt: '\u2325',
+    Option: '\u2325',
+    Shift: '\u21E7'
+  }
+  const parts = accelerator.split('+')
+  return parts
+    .map((p) => modMap[p] ?? p)
+    .join('')
+}
+
+function ShortcutRecorder({
+  value,
+  onChange
+}: {
+  value: string // full store value like 'custom:Shift+Command+Space' or 'custom'
+  onChange: (v: string) => void
+}): React.JSX.Element {
+  const [recording, setRecording] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  const accelerator = value.startsWith('custom:') ? value.slice('custom:'.length) : ''
+  const display = accelerator ? acceleratorToDisplay(accelerator) : ''
+
+  // Auto-start recording when mounted without an accelerator
+  useEffect(() => {
+    if (!accelerator) {
+      setRecording(true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Focus container when recording starts
+  useEffect(() => {
+    if (recording) {
+      ref.current?.focus()
+    }
+  }, [recording])
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      e.preventDefault()
+      e.stopPropagation()
+
+      if (e.key === 'Escape') {
+        setRecording(false)
+        return
+      }
+
+      const keyName = normalizeKeyName(e.key, e.code)
+      if (!keyName) return // modifier-only press, wait for full combo
+
+      // Require at least one modifier
+      if (!e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) return
+
+      const parts: string[] = []
+      if (e.ctrlKey) parts.push('Control')
+      if (e.altKey) parts.push('Alt')
+      if (e.shiftKey) parts.push('Shift')
+      if (e.metaKey) parts.push('Command')
+      parts.push(keyName)
+
+      const acc = parts.join('+')
+      onChange(`custom:${acc}`)
+      setRecording(false)
+    },
+    [onChange]
+  )
+
+  // Close recording on outside click
+  useEffect(() => {
+    if (!recording) return
+    const handler = (e: MouseEvent): void => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setRecording(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [recording])
+
+  const handleClear = (): void => {
+    onChange('custom')
+    setRecording(false)
+  }
+
+  return (
+    <div
+      ref={ref}
+      className="flex items-center gap-2 outline-none"
+      tabIndex={-1}
+      onKeyDown={recording ? handleKeyDown : undefined}
+    >
+      <button
+        type="button"
+        onClick={() => setRecording(true)}
+        className={`flex items-center gap-2 min-w-[180px] rounded-lg border px-3 py-1.5 text-sm outline-none transition-colors ${
+          recording
+            ? 'border-primary-500 ring-2 ring-primary-500/30 bg-white dark:bg-neutral-700'
+            : 'border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700'
+        }`}
+      >
+        {recording ? (
+          <span className="text-neutral-400 dark:text-neutral-500 animate-pulse">키 조합을 누르세요...</span>
+        ) : display ? (
+          <span className="font-mono tracking-wider">{display}</span>
+        ) : (
+          <span className="text-neutral-400 dark:text-neutral-500">단축키 기록</span>
+        )}
+      </button>
+      {accelerator && (
+        <button
+          type="button"
+          onClick={handleClear}
+          className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
+        >
+          <X size={14} />
+        </button>
+      )}
+    </div>
+  )
+}
 
 function GeneralContent(): React.JSX.Element {
   const launchAtStartup = useSettingsStore((s) => s.launchAtStartup)
@@ -196,6 +366,8 @@ function GeneralContent(): React.JSX.Element {
   const setLaunchAtStartup = useSettingsStore((s) => s.setLaunchAtStartup)
   const setQuickAccessShortcut = useSettingsStore((s) => s.setQuickAccessShortcut)
   const setShowInMenuBar = useSettingsStore((s) => s.setShowInMenuBar)
+
+  const isCustom = quickAccessShortcut === 'custom' || quickAccessShortcut.startsWith('custom:')
 
   return (
     <div>
@@ -209,12 +381,19 @@ function GeneralContent(): React.JSX.Element {
         <Toggle checked={launchAtStartup} onChange={setLaunchAtStartup} />
       </div>
 
-      <div className="flex items-center justify-between py-4">
-        <div>
-          <div className="text-sm font-medium">빠른 액세스 바로가기</div>
-          <div className="text-sm text-neutral-500 dark:text-neutral-400">데스크톱 어디서나 D Chat에게 메시지 보내기</div>
+      <div className="py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-sm font-medium">빠른 액세스 바로가기</div>
+            <div className="text-sm text-neutral-500 dark:text-neutral-400">데스크톱 어디서나 D Chat에게 메시지 보내기</div>
+          </div>
+          <ShortcutSelect value={quickAccessShortcut} onChange={setQuickAccessShortcut} options={QUICK_ACCESS_OPTIONS} />
         </div>
-        <ShortcutSelect value={quickAccessShortcut} onChange={setQuickAccessShortcut} options={QUICK_ACCESS_OPTIONS} />
+        {isCustom && (
+          <div className="mt-3 flex justify-end">
+            <ShortcutRecorder value={quickAccessShortcut} onChange={setQuickAccessShortcut} />
+          </div>
+        )}
       </div>
 
       <div className="flex items-center justify-between py-4">

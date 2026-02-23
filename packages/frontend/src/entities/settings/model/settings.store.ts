@@ -238,6 +238,9 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setQuickAccessShortcut: (v) => {
     set({ quickAccessShortcut: v })
     settingsApi.set('quick_access_shortcut', v)
+    if (typeof window !== 'undefined' && (window as any).electron?.setQuickAccessShortcut) {
+      (window as any).electron.setQuickAccessShortcut(v)
+    }
   },
 
   setShowInMenuBar: (v) => {

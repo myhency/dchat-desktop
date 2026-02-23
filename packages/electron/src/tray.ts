@@ -1,4 +1,4 @@
-import { Tray, BrowserWindow, nativeImage } from 'electron'
+import { Tray, BrowserWindow, nativeImage, screen } from 'electron'
 import { join } from 'path'
 import { deflateSync } from 'zlib'
 
@@ -137,14 +137,17 @@ function createQuickChatPopup(port: number): BrowserWindow {
   return popup
 }
 
-function positionPopup(popup: BrowserWindow, trayBounds: Electron.Rectangle): void {
-  const popupBounds = popup.getBounds()
-  const x = Math.round(trayBounds.x + trayBounds.width / 2 - popupBounds.width / 2)
-  const y = trayBounds.y + trayBounds.height
-  popup.setPosition(x, y)
+function positionPopupCenter(popup: BrowserWindow): void {
+  const cursor = screen.getCursorScreenPoint()
+  const display = screen.getDisplayNearestPoint(cursor)
+  const { x, y, width, height } = display.workArea
+  const bounds = popup.getBounds()
+  const px = Math.round(x + (width - bounds.width) / 2)
+  const py = Math.round(y + height * 3 / 4 - bounds.height / 2)
+  popup.setPosition(px, py)
 }
 
-function toggleQuickChatPopup(): void {
+export function toggleQuickChatPopup(): void {
   if (!deps) return
 
   if (!quickChatPopup) {
@@ -154,17 +157,22 @@ function toggleQuickChatPopup(): void {
   if (quickChatPopup.isVisible()) {
     quickChatPopup.hide()
   } else {
-    const bounds = tray!.getBounds()
-    positionPopup(quickChatPopup, bounds)
+    positionPopupCenter(quickChatPopup)
     quickChatPopup.show()
     quickChatPopup.focus()
   }
 }
 
-export function createTray(backendPort: number, getMainWindow: () => BrowserWindow | null, createWindowFn: () => void): void {
-  if (tray) return
-
+export function initQuickChatDeps(
+  backendPort: number,
+  getMainWindow: () => BrowserWindow | null,
+  createWindowFn: () => void
+): void {
   deps = { backendPort, getMainWindow, createWindowFn }
+}
+
+export function createTray(): void {
+  if (tray || !deps) return
   tray = new Tray(createTrayIcon())
   tray.setToolTip('D Chat')
   tray.on('click', () => {
@@ -173,15 +181,17 @@ export function createTray(backendPort: number, getMainWindow: () => BrowserWind
 }
 
 export function destroyTray(): void {
-  if (quickChatPopup) {
-    quickChatPopup.destroy()
-    quickChatPopup = null
-  }
   if (tray) {
     tray.destroy()
     tray = null
   }
-  deps = null
+}
+
+export function destroyQuickChatPopup(): void {
+  if (quickChatPopup) {
+    quickChatPopup.destroy()
+    quickChatPopup = null
+  }
 }
 
 export function hideQuickChatPopup(): void {

@@ -1,11 +1,12 @@
-import { app, BrowserWindow, shell, ipcMain, dialog } from 'electron'
+import { app, BrowserWindow, shell, ipcMain, dialog, systemPreferences } from 'electron'
 import { join } from 'path'
 import { spawn, type ChildProcess } from 'child_process'
 import { createServer } from 'net'
 import { readFile } from 'fs/promises'
 import { basename } from 'path'
 import { randomUUID } from 'crypto'
-import { createTray, destroyTray, hideQuickChatPopup } from './tray'
+import { initQuickChatDeps, createTray, destroyTray, hideQuickChatPopup, toggleQuickChatPopup, destroyQuickChatPopup } from './tray'
+import { activateShortcut, deactivateShortcut } from './shortcut'
 
 let mainWindow: BrowserWindow | null = null
 let backendProcess: ChildProcess | null = null
@@ -208,9 +209,21 @@ function registerNativeIpc(): void {
   // Toggle menu bar tray icon
   ipcMain.handle('native:set-show-in-menu-bar', (_event, visible: boolean) => {
     if (visible) {
-      createTray(backendPort, () => mainWindow, createWindow)
+      createTray()
     } else {
       destroyTray()
+    }
+  })
+
+  // Toggle quick access shortcut
+  ipcMain.handle('native:set-quick-access-shortcut', (_event, shortcut: string) => {
+    if (shortcut === 'none' || shortcut === 'custom') {
+      deactivateShortcut()
+    } else {
+      if (shortcut === 'double-option' && process.platform === 'darwin') {
+        systemPreferences.isTrustedAccessibilityClient(true)
+      }
+      activateShortcut(shortcut, toggleQuickChatPopup)
     }
   })
 
@@ -266,18 +279,29 @@ app.whenReady().then(async () => {
   registerNativeIpc()
   createWindow()
 
-  // Initialize tray based on saved setting
+  // Initialize quick chat deps (shared by tray and shortcut)
+  initQuickChatDeps(backendPort, () => mainWindow, createWindow)
+
+  // Initialize tray and shortcut based on saved settings
   try {
     const settingsRes = await fetch(`http://localhost:${backendPort}/api/settings`)
     if (settingsRes.ok) {
       const settings = (await settingsRes.json()) as Record<string, string>
       if (settings['show_in_menu_bar'] !== 'false') {
-        createTray(backendPort, () => mainWindow, createWindow)
+        createTray()
+      }
+      const savedShortcut = settings['quick_access_shortcut'] ?? 'double-option'
+      if (savedShortcut !== 'none' && savedShortcut !== 'custom') {
+        if (savedShortcut === 'double-option' && process.platform === 'darwin') {
+          systemPreferences.isTrustedAccessibilityClient(true)
+        }
+        activateShortcut(savedShortcut, toggleQuickChatPopup)
       }
     }
   } catch {
-    // Settings fetch failed — default to showing tray
-    createTray(backendPort, () => mainWindow, createWindow)
+    // Settings fetch failed — default to showing tray and enabling shortcut
+    createTray()
+    activateShortcut('double-option', toggleQuickChatPopup)
   }
 
   app.on('activate', () => {
@@ -294,6 +318,8 @@ app.on('window-all-closed', () => {
 })
 
 app.on('will-quit', () => {
+  deactivateShortcut()
+  destroyQuickChatPopup()
   if (backendProcess) {
     backendProcess.kill()
     backendProcess = null

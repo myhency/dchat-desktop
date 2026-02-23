@@ -27,6 +27,8 @@ const electronApi = {
     ipcRenderer.invoke('native:quick-chat-send', text, model),
   setShowInMenuBar: (visible: boolean) =>
     ipcRenderer.invoke('native:set-show-in-menu-bar', visible),
+  setQuickAccessShortcut: (shortcut: string) =>
+    ipcRenderer.invoke('native:set-quick-access-shortcut', shortcut),
   onNavigateToSession: (callback: (sessionId: string, message: string) => void) => {
     navigateCallback = callback
     if (pendingNavigate) {

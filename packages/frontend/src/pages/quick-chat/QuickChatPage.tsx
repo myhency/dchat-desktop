@@ -18,8 +18,10 @@ export function QuickChatPage(): React.JSX.Element {
     setSending(true)
     try {
       await (window as any).electron.sendQuickChat(trimmed, selectedModel)
+      setValue('')
     } catch (err) {
       console.error('Quick chat send failed:', err)
+    } finally {
       setSending(false)
     }
   }, [value, sending, selectedModel])
