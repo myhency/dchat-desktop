@@ -210,8 +210,28 @@ const stream = await this.client.chat.completions.create(
 - `searchByKeywords(keywords, excludeSessionId, limit)` — 현재 세션을 제외하고 키워드와 매칭되는 메시지를 LIKE 검색
 - SQL: `content LIKE ?` OR 조합, `session_id != ?`, `ORDER BY created_at DESC LIMIT ?`
 
+### 메모리 삭제 (deleteMemory)
+
+- `memory_content`, `memory_short_term`, `memory_long_term`, `memory_updated_at` 4개 키 모두 삭제
+- 이전 포맷 키도 함께 삭제하여 마이그레이션 재실행 방지
+
+### 메모리 편집 (editMemory)
+
+- 사용자의 자연어 지시사항 + 현재 메모리를 LLM에 전달 → 수정된 4-section 문서 반환
+- `EDIT_PROMPT` 사용 (추출과 별도 프롬프트)
+- 파싱 실패 시 에러 throw (추출과 달리 사용자 요청이므로 에러 반환)
+
+### 이전 포맷 자동 마이그레이션
+
+`getMemory()`에서 `memory_content`가 null일 때 이전 `memory_short_term`/`memory_long_term` 키를 읽어 4-section 포맷으로 변환 후 `memory_content`에 저장. 마이그레이션 매핑:
+- `memory_long_term` → `## Work context` 본문
+- `memory_short_term` → `## Top of mind` 본문
+- `## Personal context`, `## Brief history`는 빈 섹션으로 생성
+
 ### 수정 시 주의
 
 - `MemoryService`는 도메인 서비스이나 `LLMGatewayResolver`에 의존 (LLM 호출 필요). `domain/` 내 다른 서비스와 달리 외부 게이트웨이를 직접 사용
 - `extractMemory`는 비동기 fire-and-forget. 실패해도 채팅 응답에 영향 없음
+- `editMemory`는 동기적 — 실패 시 에러를 라우트로 전파 (사용자 대면 기능)
 - `parseExtractionResult`: LLM 응답에서 `## ` 헤더 이전 텍스트를 제거하고 최대 8000자로 자름. 파싱 실패 시 null 반환 → 기존 메모리 유지
+- `memory_short_term`/`memory_long_term` 키는 더 이상 쓰기에 사용하지 않음. 마이그레이션 읽기 + 삭제 시에만 참조

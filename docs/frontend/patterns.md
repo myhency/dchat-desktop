@@ -238,6 +238,31 @@ const keepCount = target.role === 'user' ? targetIndex + 1 : targetIndex
 - `needsConfig`/저장 버튼 disabled 판별도 동일하게 빈 문자열 필터 후 체크
 - **수정 시 주의**: `directories.length === 0` 대신 `directories.filter(d => d.trim()).length === 0`으로 유효 디렉토리 존재 여부 확인 (빈 행이 있을 수 있으므로)
 
+## 메모리 관리 UI (FeaturesContent)
+
+`SettingsScreen.tsx`의 `FeaturesContent` — 메모리 카드 + 2개 모달:
+
+### 메모리 카드
+
+- `memoryData` 상태: `{ content: string; updatedAt: string | null } | null`
+- `hasMemory` 조건: `memoryData && memoryData.content` (빈 문자열이면 falsy)
+- 카드 클릭 → `MemoryManageModal` 열림
+- 휴지통 아이콘: 카드 내부 중첩 `<button>` + `e.stopPropagation()`으로 카드 클릭 이벤트 전파 방지 → `DeleteMemoryModal` 열림
+- **수정 시 주의**: 중첩 버튼 구조에서 `stopPropagation` 제거 시 삭제 클릭이 모달 열기로 전파됨
+
+### DeleteMemoryModal
+
+- 확인 모달 패턴: 오버레이 클릭/Escape → 닫기
+- 확인 시 `memoryApi.delete()` → `memoryData`를 `{ content: '', updatedAt: null }`로 리셋 (카드 숨김)
+
+### MemoryManageModal
+
+- `memoryContent`를 `## ` 기준으로 split하여 섹션별 렌더링 (헤더 bold + 본문)
+- 하단 입력바: 자연어 지시사항 입력 → `memoryApi.edit({ instruction, model })` 호출 (30초 타임아웃)
+- `model`: `useSettingsStore((s) => s.selectedModel)`에서 가져옴
+- 응답으로 `onMemoryChange(content)` 콜백 → 부모의 `memoryData` 갱신
+- 로딩 중 Escape/오버레이 닫기 비활성화
+
 ## 백업 가져오기 후 스토어 갱신
 
 `SettingsScreen`의 `PrivacyContent`에서 백업 가져오기(import) 성공 후 반드시 `loadSettings()` + `loadSessions()`를 순서대로 호출해야 함.
