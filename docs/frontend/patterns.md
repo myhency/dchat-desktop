@@ -1,5 +1,27 @@
 # 프론트엔드 동작 패턴
 
+## Quick Chat 모드 (`App.tsx`)
+
+`App.tsx`에서 URL 쿼리 `?mode=quick-chat` 감지 시 `QuickChatPage`를 렌더링 (트레이 팝업 전용):
+
+- **모듈 스코프에서 판별**: `const isQuickChatMode = new URLSearchParams(window.location.search).get('mode') === 'quick-chat'` — 렌더링 시점이 아닌 모듈 로드 시 결정
+- **초기 로드 최소화**: 퀵챗 모드에서는 `loadSettings()`만 호출 (세션/프로젝트 로드 불필요)
+- **navigate-to-session 리스너**: 퀵챗이 아닌 메인 윈도우에서만 `onNavigateToSession` 콜백 등록. 퀵챗에서 전송 → 메인 윈도우가 세션 이동 + 메시지 전송 수행
+
+### 데스크톱 설정 → Electron IPC 즉시 반영 패턴
+
+`setQuickAccessShortcut`, `setShowInMenuBar` 등 데스크톱 전용 설정은 백엔드 persist와 동시에 `window.electron` IPC를 호출하여 Electron main process에 즉시 반영:
+
+```typescript
+setQuickAccessShortcut: (v) => {
+  set({ quickAccessShortcut: v })
+  settingsApi.set('quick_access_shortcut', v)       // 백엔드 persist
+  window.electron?.setQuickAccessShortcut(v)         // Electron main에 즉시 반영
+}
+```
+
+웹 모드에서는 `window.electron`이 없으므로 optional chaining으로 안전하게 무시.
+
 ## 화면 전환 흐름
 
 `MainLayout.tsx` (`widgets/main-layout/`)에서 뷰 디스패치 (우선순위 순서):
@@ -54,6 +76,45 @@ onKeyDown={(e) => {
 - **마우스 연동**: `onMouseEnter`로 호버 시 `selectedIndex` 갱신
 - **query 변경 시**: `selectedIndex`를 0으로 리셋 (`handleQueryChange` 래퍼)
 - **React hooks 순서**: 모든 `useEffect`/`useCallback`은 early return (`if (!searchOpen) return null`) 위에 배치
+
+## 컨텍스트 메뉴 → 모달 브릿지 패턴
+
+사이드바 컨텍스트 메뉴에서 모달을 열어야 할 때, 중간 상태(`moveToProjectSessionId`)를 사용하여 메뉴 닫기 → 모달 열기를 분리:
+
+```tsx
+// Sidebar.tsx
+const [moveToProjectSessionId, setMoveToProjectSessionId] = useState<string | null>(null)
+
+// 컨텍스트 메뉴 콜백: 메뉴 닫기 + 대상 ID 설정
+onMoveToProject={() => {
+  setMoveToProjectSessionId(menuSessionId)
+  setMenuSessionId(null)      // 메뉴 닫기
+  setMenuAnchor(null)
+}}
+
+// 모달: 대상 ID 존재 여부로 open 제어
+<MoveToProjectModal
+  open={moveToProjectSessionId !== null}
+  onSelect={(projectId) => {
+    updateSessionProjectId(moveToProjectSessionId!, projectId)
+    setMoveToProjectSessionId(null)  // 모달 닫기
+  }}
+/>
+```
+
+- 컨텍스트 메뉴와 모달이 동시에 열리지 않도록 메뉴를 먼저 닫고 모달 대상 ID를 설정
+- `SessionContextMenu`의 `projectId` prop에 따라 메뉴 항목이 조건부 렌더링됨 (`null` → "프로젝트에 추가", 非null → "프로젝트 변경" + "프로젝트에서 제거")
+
+## MoveToProjectModal
+
+`packages/frontend/src/features/manage-project/ui/MoveToProjectModal.tsx`
+
+SearchModal과 동일한 UI 패턴을 따르는 프로젝트 선택 모달:
+
+- **키보드 네비게이션**: `selectedIndex` + ArrowUp/Down/Enter/Escape (SearchModal과 동일)
+- **필터링**: `useProjectStore.projects`를 query로 클라이언트 사이드 필터링
+- **현재 프로젝트 제외**: `currentProjectId`와 일치하는 프로젝트는 리스트에서 제외
+- **props 기반 open/close**: SearchModal과 달리 스토어가 아닌 부모 컴포넌트의 상태로 제어 (`open`, `onClose`, `onSelect`)
 
 ## HomeScreen
 
@@ -164,6 +225,43 @@ const keepCount = target.role === 'user' ? targetIndex + 1 : targetIndex
 - **`sendMessage` 수정 시**: 낙관적 ID가 `onEnd` re-fetch 전까지만 유효함을 인지할 것
 - **`onEnd` 수정 시**: re-fetch 로직 제거 금지. 제거 시 user 재생성이 깨짐
 - **assistant 메시지**: SSE `end` 이벤트로 백엔드 ID가 직접 전달되므로 불일치 없음
+
+## Filesystem Config — 디렉토리 인라인 편집 패턴
+
+`SettingsScreen.tsx`의 `ExtensionsContent` — Filesystem MCP 서버 디렉토리 설정 UI:
+
+- `directories` 상태 배열에 빈 문자열 `''`이 포함될 수 있음 = 아직 경로 미입력 행
+- "+ directory 추가" → `setDirectories([...directories, ''])` (빈 행 추가)
+- 각 행: 텍스트 input + `FolderOpen` 아이콘 버튼(picker) + `X` 버튼(삭제)
+- `handlePickDirectory(index)`: `pickDirectory()` 호출 → 결과를 해당 인덱스에 설정
+- `handleSave`: `directories.filter(d => d.trim())`로 빈 행 제거 후 서버에 저장
+- `needsConfig`/저장 버튼 disabled 판별도 동일하게 빈 문자열 필터 후 체크
+- **수정 시 주의**: `directories.length === 0` 대신 `directories.filter(d => d.trim()).length === 0`으로 유효 디렉토리 존재 여부 확인 (빈 행이 있을 수 있으므로)
+
+## 메모리 관리 UI (FeaturesContent)
+
+`SettingsScreen.tsx`의 `FeaturesContent` — 메모리 카드 + 2개 모달:
+
+### 메모리 카드
+
+- `memoryData` 상태: `{ content: string; updatedAt: string | null } | null`
+- `hasMemory` 조건: `memoryData && memoryData.content` (빈 문자열이면 falsy)
+- 카드 클릭 → `MemoryManageModal` 열림
+- 휴지통 아이콘: 카드 내부 중첩 `<button>` + `e.stopPropagation()`으로 카드 클릭 이벤트 전파 방지 → `DeleteMemoryModal` 열림
+- **수정 시 주의**: 중첩 버튼 구조에서 `stopPropagation` 제거 시 삭제 클릭이 모달 열기로 전파됨
+
+### DeleteMemoryModal
+
+- 확인 모달 패턴: 오버레이 클릭/Escape → 닫기
+- 확인 시 `memoryApi.delete()` → `memoryData`를 `{ content: '', updatedAt: null }`로 리셋 (카드 숨김)
+
+### MemoryManageModal
+
+- `memoryContent`를 `## ` 기준으로 split하여 섹션별 렌더링 (헤더 bold + 본문)
+- 하단 입력바: 자연어 지시사항 입력 → `memoryApi.edit({ instruction, model })` 호출 (30초 타임아웃)
+- `model`: `useSettingsStore((s) => s.selectedModel)`에서 가져옴
+- 응답으로 `onMemoryChange(content)` 콜백 → 부모의 `memoryData` 갱신
+- 로딩 중 Escape/오버레이 닫기 비활성화
 
 ## 백업 가져오기 후 스토어 갱신
 

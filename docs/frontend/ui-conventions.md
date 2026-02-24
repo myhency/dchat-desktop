@@ -119,6 +119,27 @@ Assistant 버블 하단에 항상 표시되는 액션 바 (복사, 재생성):
 
 `py-4`만 사용 (좌우 패딩 없음). 좌우 여백은 내부 콘텐츠 div의 `mx-auto` + max-width로 제어. 외부에 `px-*`를 넣으면 MessageList와 너비 불일치 발생.
 
+## Assistant 메시지 마크다운 렌더링
+
+`MessageBubble.tsx`의 `ReactMarkdown`은 remark(파싱) → rehype(렌더링) 플러그인 체인으로 동작:
+
+```tsx
+<ReactMarkdown
+  remarkPlugins={[remarkGfm, remarkMath]}
+  rehypePlugins={[rehypeKatex]}
+  components={{...}}
+>
+```
+
+| 플러그인 | 역할 |
+|----------|------|
+| `remark-gfm` | 테이블, 취소선, 자동링크 등 GFM 확장 파싱 |
+| `remark-math` | `$...$` (인라인) / `$$...$$` (블록) 수식 구문을 AST 노드로 파싱 |
+| `rehype-katex` | math AST 노드를 KaTeX HTML로 렌더링 |
+
+- KaTeX CSS는 `MessageBubble.tsx`에서 `import 'katex/dist/katex.min.css'`로 로드. 다크 모드에서 수식 색상은 `currentColor` 상속으로 자동 적용됨.
+- 마크다운 확장 추가 시 동일한 remark(파싱)/rehype(렌더링) 패턴을 따를 것.
+
 ## 코드 블록 (CodeBlock)
 
 `packages/frontend/src/widgets/message-list/ui/CodeBlock.tsx`

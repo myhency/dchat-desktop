@@ -65,6 +65,8 @@ interface SettingsState {
   codeEmailNotif: boolean
   anthropicVerified: boolean
   openaiVerified: boolean
+  memoryEnabled: boolean
+  chatSearchEnabled: boolean
   launchAtStartup: boolean
   quickAccessShortcut: string
   showInMenuBar: boolean
@@ -83,6 +85,8 @@ interface SettingsState {
   setCodeEmailNotif: (v: boolean) => void
   setLaunchAtStartup: (v: boolean) => void
   setQuickAccessShortcut: (v: string) => void
+  setMemoryEnabled: (v: boolean) => void
+  setChatSearchEnabled: (v: boolean) => void
   setShowInMenuBar: (v: boolean) => void
   setProviderVerified: (provider: 'anthropic' | 'openai', verified: boolean) => void
   openSettings: () => void
@@ -109,6 +113,8 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   codeEmailNotif: true,
   anthropicVerified: false,
   openaiVerified: false,
+  memoryEnabled: false,
+  chatSearchEnabled: false,
   launchAtStartup: false,
   quickAccessShortcut: 'double-option',
   showInMenuBar: true,
@@ -149,6 +155,8 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       codeEmailNotif: all['code_email_notif'] !== 'false',
       anthropicVerified: all['anthropic_verified'] === 'true',
       openaiVerified: all['openai_verified'] === 'true',
+      memoryEnabled: all['memory_enabled'] === 'true',
+      chatSearchEnabled: all['chat_search_enabled'] === 'true',
       launchAtStartup: all['launch_at_startup'] === 'true',
       quickAccessShortcut: all['quick_access_shortcut'] ?? 'double-option',
       showInMenuBar: all['show_in_menu_bar'] !== 'false'
@@ -241,6 +249,16 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     if (typeof window !== 'undefined' && (window as any).electron?.setQuickAccessShortcut) {
       (window as any).electron.setQuickAccessShortcut(v)
     }
+  },
+
+  setMemoryEnabled: (v) => {
+    set({ memoryEnabled: v })
+    settingsApi.set('memory_enabled', String(v))
+  },
+
+  setChatSearchEnabled: (v) => {
+    set({ chatSearchEnabled: v })
+    settingsApi.set('chat_search_enabled', String(v))
   },
 
   setShowInMenuBar: (v) => {

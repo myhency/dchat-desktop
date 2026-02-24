@@ -67,6 +67,7 @@ describe('BackupService', () => {
   beforeEach(() => {
     messageRepo = {
       findBySessionId: vi.fn(async () => []),
+      searchByKeywords: vi.fn(async () => []),
       save: vi.fn(async () => {}),
       updateContent: vi.fn(async () => {}),
       deleteById: vi.fn(async () => {}),

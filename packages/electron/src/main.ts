@@ -200,6 +200,17 @@ function registerNativeIpc(): void {
     event.returnValue = `http://localhost:${backendPort}`
   })
 
+  // Pick a directory from file system
+  ipcMain.handle('native:pick-directory', async () => {
+    const win = mainWindow
+    if (!win) return null
+    const result = await dialog.showOpenDialog(win, {
+      properties: ['openDirectory']
+    })
+    if (result.canceled || result.filePaths.length === 0) return null
+    return result.filePaths[0]
+  })
+
   // Open a file with the system default application
   ipcMain.handle('native:open-file', (_event, filePath: string) => shell.openPath(filePath))
 

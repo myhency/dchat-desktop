@@ -79,6 +79,14 @@ Base URL: `/api` (기본 포트 3131)
 | GET | `/api/mcp/config-path` | — | `{ path: string }` | 설정 파일 경로 |
 | POST | `/api/mcp/reload` | — | `{ ok: true }` | 전체 종료 후 설정 파일에서 재로드 |
 
+## Memory
+
+| 메서드 | 경로 | Body | 응답 | 설명 |
+|--------|------|------|------|------|
+| GET | `/api/memory` | — | `MemoryResponse` | 메모리 조회 (`{ content, updatedAt }`) |
+| DELETE | `/api/memory` | — | `{ ok: true }` | 메모리 삭제 |
+| POST | `/api/memory/edit` | `EditMemoryRequest` | `MemoryResponse` | LLM으로 메모리 수정 (`{ instruction, model }`) |
+
 ## SSE 스트리밍 이벤트
 
 `POST /api/chat/:sessionId/messages` 및 `POST /api/chat/:sessionId/messages/:messageId/regenerate`는 SSE(Server-Sent Events)로 응답.

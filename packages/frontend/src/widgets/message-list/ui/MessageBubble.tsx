@@ -1,6 +1,9 @@
 import { isValidElement, useState, useCallback } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import remarkMath from 'remark-math'
+import rehypeKatex from 'rehype-katex'
+import 'katex/dist/katex.min.css'
 import { RefreshCw, Pencil, Copy, Check } from 'lucide-react'
 import { CodeBlock } from './CodeBlock'
 import { HtmlArtifactCard } from './HtmlArtifactCard'
@@ -162,7 +165,8 @@ export function MessageBubble({
       <div className="max-w-none py-1 text-sm leading-relaxed text-neutral-900 dark:text-neutral-100">
         <div className="prose prose-sm dark:prose-invert max-w-none prose-code:text-pink-500 dark:prose-code:text-pink-400 prose-code:before:content-[''] prose-code:after:content-['']">
           <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
+            remarkPlugins={[remarkGfm, remarkMath]}
+            rehypePlugins={[rehypeKatex]}
             components={{
               pre({ children }) {
                 if (isValidElement(children)) {

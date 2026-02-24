@@ -10,6 +10,7 @@ import type { LLMGatewayResolver } from '../ports/outbound/llm-gateway.resolver'
 import type { SettingsRepository } from '../ports/outbound/settings.repository'
 import type { ProjectRepository } from '../ports/outbound/project.repository'
 import type { McpClientGateway } from '../ports/outbound/mcp-client.gateway'
+import type { MemoryService } from './memory.service'
 import { generateId } from './id'
 
 const MAX_TOOL_ITERATIONS = 25
@@ -21,7 +22,8 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
     private readonly llmResolver: LLMGatewayResolver,
     private readonly settingsRepo: SettingsRepository,
     private readonly projectRepo: ProjectRepository,
-    private readonly mcpClient?: McpClientGateway
+    private readonly mcpClient?: McpClientGateway,
+    private readonly memoryService?: MemoryService
   ) {}
 
   async execute(
@@ -53,7 +55,7 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
     // Check for available MCP tools
     const allTools = this.mcpClient?.getAllTools() ?? []
     const gateway = this.llmResolver.getGateway(session.model)
-    const systemPrompt = await this.buildSystemPrompt(session.projectId ?? null)
+    const systemPrompt = await this.buildSystemPrompt(session.projectId ?? null, content, sessionId)
     const options: ChatOptions = { model: session.model, systemPrompt: systemPrompt || undefined }
 
     // If tools available and gateway supports raw streaming, use agentic loop
@@ -94,6 +96,7 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
         await this.messageRepo.save(assistantMessage)
       }
 
+      this.memoryService?.extractMemory(sessionId, session.model).catch(() => {})
       return assistantMessage
     }
 
@@ -126,6 +129,7 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
       await this.messageRepo.save(assistantMessage)
     }
 
+    this.memoryService?.extractMemory(sessionId, session.model).catch(() => {})
     return assistantMessage
   }
 
@@ -317,6 +321,7 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
       await this.messageRepo.save(assistantMessage)
     }
 
+    this.memoryService?.extractMemory(sessionId, session.model).catch(() => {})
     return assistantMessage
   }
 
@@ -373,7 +378,7 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
     await this.messageRepo.updateContent(messageId, content)
   }
 
-  private async buildSystemPrompt(projectId: string | null): Promise<string> {
+  private async buildSystemPrompt(projectId: string | null, userQuery?: string, excludeSessionId?: string): Promise<string> {
     const parts: string[] = []
 
     if (projectId) {
@@ -386,6 +391,13 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
     const ci = await this.settingsRepo.get('custom_instructions')
     if (ci) {
       parts.push(ci)
+    }
+
+    if (this.memoryService && userQuery && excludeSessionId) {
+      const memoryContext = await this.memoryService.buildMemoryContext(userQuery, excludeSessionId)
+      if (memoryContext) {
+        parts.push(memoryContext)
+      }
     }
 
     return parts.join('\n\n')

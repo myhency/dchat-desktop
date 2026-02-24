@@ -47,6 +47,16 @@ export async function pickImage(): Promise<ImageAttachment[]> {
 }
 
 /**
+ * Pick a directory — uses Electron native dialog, returns null on web
+ */
+export async function pickDirectory(): Promise<string | null> {
+  if (isElectron) {
+    return (window as any).electron.pickDirectory()
+  }
+  return null
+}
+
+/**
  * Open HTML content in browser — uses Electron shell or window.open
  */
 export function openInBrowser(htmlContent: string): void {
