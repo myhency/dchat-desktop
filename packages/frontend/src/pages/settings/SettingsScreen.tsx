@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { X, ChevronDown, Shield, ExternalLink, RefreshCw, Eye, EyeOff, Loader2, Check, Upload, Download, Trash2, Play, Square, RotateCw, FileText, FolderOpen } from 'lucide-react'
-import { useSettingsStore, settingsApi } from '@/entities/settings'
+import { X, ChevronDown, Shield, ExternalLink, RefreshCw, Eye, EyeOff, Loader2, Check, Upload, Download, Trash2, Play, Square, RotateCw, FileText, FolderOpen, Search, Brain, Plus, Monitor, MoreHorizontal, ChevronLeft, AlertTriangle } from 'lucide-react'
+import { useSettingsStore, settingsApi, memoryApi } from '@/entities/settings'
 import { useSessionStore } from '@/entities/session'
-import { useMcpStore } from '@/entities/mcp'
+import { useMcpStore, mcpApi } from '@/entities/mcp'
 import { backupApi } from '@/entities/settings/api/backup.api'
-import { openFile } from '@/shared/lib/native'
+import { openFile, pickDirectory } from '@/shared/lib/native'
+import { formatRelativeTime } from '@/shared/lib/time'
 
 type Tab =
   | 'general-top'
@@ -971,6 +972,157 @@ function ProviderCard({
   )
 }
 
+function FeaturesContent(): React.JSX.Element {
+  const memoryEnabled = useSettingsStore((s) => s.memoryEnabled)
+  const chatSearchEnabled = useSettingsStore((s) => s.chatSearchEnabled)
+  const setMemoryEnabled = useSettingsStore((s) => s.setMemoryEnabled)
+  const setChatSearchEnabled = useSettingsStore((s) => s.setChatSearchEnabled)
+
+  const [memoryData, setMemoryData] = useState<{ shortTerm: string; longTerm: string; updatedAt: string | null } | null>(null)
+  const [memoryExpanded, setMemoryExpanded] = useState(false)
+  const [skillTab, setSkillTab] = useState<'mine' | 'examples'>('mine')
+
+  useEffect(() => {
+    memoryApi.get().then(setMemoryData).catch(() => {})
+  }, [])
+
+  const hasMemory = memoryData && (memoryData.shortTerm || memoryData.longTerm)
+
+  return (
+    <div className="space-y-6">
+      {/* 메모리 섹션 */}
+      <div>
+        <div className="flex items-center gap-2 mb-1">
+          <Brain size={20} className="text-neutral-700 dark:text-neutral-300" />
+          <h3 className="text-base font-semibold">메모리</h3>
+        </div>
+      </div>
+
+      {/* 채팅 검색 토글 */}
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-medium">채팅 검색 및 참조</p>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+            이전 대화에서 관련 세부 정보를 검색하여 더 나은 응답을 제공합니다
+          </p>
+        </div>
+        <Toggle checked={chatSearchEnabled} onChange={setChatSearchEnabled} />
+      </div>
+
+      {/* 메모리 토글 */}
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-medium">채팅 기록에서 기억 생성</p>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+            채팅에서 관련 컨텍스트를 기억하여 향후 대화에 활용합니다
+          </p>
+        </div>
+        <Toggle checked={memoryEnabled} onChange={setMemoryEnabled} />
+      </div>
+
+      {/* 메모리 카드 */}
+      {hasMemory && (
+        <button
+          type="button"
+          onClick={() => setMemoryExpanded(!memoryExpanded)}
+          className="w-full text-left rounded-lg border border-neutral-200 dark:border-neutral-700 p-4 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">채팅에서 얻은 메모리</p>
+              {memoryData.updatedAt && (
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+                  {formatRelativeTime(memoryData.updatedAt)}에 업데이트됨
+                </p>
+              )}
+            </div>
+            <ChevronDown
+              size={16}
+              className={`text-neutral-400 transition-transform ${memoryExpanded ? 'rotate-180' : ''}`}
+            />
+          </div>
+
+          {memoryExpanded && (
+            <div className="mt-3 space-y-3" onClick={(e) => e.stopPropagation()}>
+              {memoryData.longTerm && (
+                <div>
+                  <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-1">장기 기억</p>
+                  <p className="text-sm text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap">{memoryData.longTerm}</p>
+                </div>
+              )}
+              {memoryData.shortTerm && (
+                <div>
+                  <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-1">단기 기억</p>
+                  <p className="text-sm text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap">{memoryData.shortTerm}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </button>
+      )}
+
+      <hr className="border-neutral-200 dark:border-neutral-700" />
+
+      {/* 스킬 섹션 */}
+      <div>
+        <h3 className="text-base font-semibold mb-1">스킬</h3>
+        <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">
+          모든 채팅에서 따를 수 있는 지시사항을 추가합니다
+        </p>
+
+        <div className="flex items-center gap-2 mb-3">
+          <div className="flex-1 relative">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+            <input
+              type="text"
+              placeholder="검색"
+              className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 outline-none focus:ring-2 focus:ring-primary-500"
+              disabled
+            />
+          </div>
+          <button
+            type="button"
+            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-neutral-300 dark:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+            disabled
+          >
+            <Plus size={16} />
+            추가
+          </button>
+        </div>
+
+        <div className="flex gap-1 mb-4">
+          <button
+            type="button"
+            onClick={() => setSkillTab('mine')}
+            className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+              skillTab === 'mine'
+                ? 'bg-neutral-200 dark:bg-neutral-600 font-medium'
+                : 'text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-700'
+            }`}
+          >
+            내 스킬
+          </button>
+          <button
+            type="button"
+            onClick={() => setSkillTab('examples')}
+            className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+              skillTab === 'examples'
+                ? 'bg-neutral-200 dark:bg-neutral-600 font-medium'
+                : 'text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-700'
+            }`}
+          >
+            예시 스킬
+          </button>
+        </div>
+
+        <div className="text-center py-8 text-sm text-neutral-400 dark:text-neutral-500">
+          아직 추가한 스킬이 없습니다
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function ConnectorsContent(): React.JSX.Element {
   const anthropicApiKey = useSettingsStore((s) => s.anthropicApiKey)
   const openaiApiKey = useSettingsStore((s) => s.openaiApiKey)
@@ -1309,6 +1461,352 @@ function DeveloperContent(): React.JSX.Element {
   )
 }
 
+const isElectron = typeof window !== 'undefined' && !!(window as any).electron
+
+type ExtensionView = 'list' | 'filesystem-config'
+
+function ExtensionsContent({ onNavigate }: { onNavigate: (tab: Tab) => void }): React.JSX.Element {
+  const servers = useMcpStore((s) => s.servers)
+  const loadServers = useMcpStore((s) => s.loadServers)
+
+  const [view, setView] = useState<ExtensionView>('list')
+  const [directories, setDirectories] = useState<string[]>([])
+  const [enabled, setEnabled] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [webInput, setWebInput] = useState('')
+  const [showWebInput, setShowWebInput] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  // Find filesystem server from loaded servers
+  const fsServer = servers.find((s) => s.config.name === 'filesystem')
+
+  // Load servers on mount & sync local state from server data
+  useEffect(() => {
+    loadServers()
+  }, [loadServers])
+
+  useEffect(() => {
+    if (fsServer) {
+      // Extract directories from args: ['-y', '@modelcontextprotocol/server-filesystem', ...dirs]
+      const args = fsServer.config.args
+      const dirs = args.length > 2 ? args.slice(2) : []
+      setDirectories(dirs)
+      setEnabled(fsServer.config.enabled)
+    } else {
+      setDirectories([])
+      setEnabled(false)
+    }
+  }, [fsServer])
+
+  // Close menu on outside click
+  useEffect(() => {
+    if (!menuOpen) return
+    const handler = (e: MouseEvent): void => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [menuOpen])
+
+  const handleAddDirectory = async (): Promise<void> => {
+    if (isElectron) {
+      const dir = await pickDirectory()
+      if (dir && !directories.includes(dir)) {
+        setDirectories([...directories, dir])
+      }
+    } else {
+      setShowWebInput(true)
+    }
+  }
+
+  const handleWebInputConfirm = (): void => {
+    const trimmed = webInput.trim()
+    if (trimmed && !directories.includes(trimmed)) {
+      setDirectories([...directories, trimmed])
+    }
+    setWebInput('')
+    setShowWebInput(false)
+  }
+
+  const handleRemoveDirectory = (dir: string): void => {
+    setDirectories(directories.filter((d) => d !== dir))
+  }
+
+  const handleSave = async (): Promise<void> => {
+    if (directories.length === 0) return
+    setSaving(true)
+    try {
+      const args = ['-y', '@modelcontextprotocol/server-filesystem', ...directories]
+      if (fsServer) {
+        await mcpApi.updateServer(fsServer.config.id, { args, enabled })
+      } else {
+        await mcpApi.createServer({ name: 'filesystem', command: 'npx', args })
+      }
+      await loadServers()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDelete = async (): Promise<void> => {
+    if (!fsServer) return
+    await mcpApi.deleteServer(fsServer.config.id)
+    await loadServers()
+    setMenuOpen(false)
+    setView('list')
+  }
+
+  const handleToggle = async (value: boolean): Promise<void> => {
+    if (!fsServer) return
+    if (value) {
+      if (directories.length === 0) return
+      await mcpApi.updateServer(fsServer.config.id, { enabled: true })
+      await mcpApi.startServer(fsServer.config.id)
+    } else {
+      await mcpApi.stopServer(fsServer.config.id)
+      await mcpApi.updateServer(fsServer.config.id, { enabled: false })
+    }
+    await loadServers()
+  }
+
+  // ── List View ──
+  if (view === 'list') {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h3 className="text-base font-semibold mb-1">확장 프로그램</h3>
+          <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">
+            확장 프로그램을 사용하여 D Chat의 기능을 확장할 수 있습니다
+          </p>
+          <button
+            type="button"
+            disabled
+            className="flex items-center gap-1.5 rounded-lg border border-neutral-300 dark:border-neutral-600 px-3 py-1.5 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors disabled:opacity-50"
+          >
+            <Search size={14} />
+            확장 프로그램 찾아보기
+          </button>
+        </div>
+
+        <div>
+          <h4 className="text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-3">컴퓨터에 설치됨</h4>
+          <div className="rounded-lg border border-neutral-200 dark:border-neutral-700">
+            <div className="flex items-center justify-between px-4 py-3">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">
+                  <Monitor size={16} className="text-neutral-600 dark:text-neutral-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Filesystem</p>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                    {fsServer
+                      ? fsServer.config.enabled
+                        ? fsServer.status === 'running' ? '실행 중' : '활성화됨'
+                        : '비활성화됨'
+                      : '구성 필요'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setView('filesystem-config')}
+                  className="rounded-lg border border-neutral-300 dark:border-neutral-600 px-3 py-1 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+                >
+                  구성
+                </button>
+                <div ref={menuRef} className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setMenuOpen(!menuOpen)}
+                    className="p-1 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                  >
+                    <MoreHorizontal size={16} className="text-neutral-500" />
+                  </button>
+                  {menuOpen && (
+                    <div className="absolute right-0 z-20 mt-1 w-36 rounded-lg border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-700 shadow-lg overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => { setMenuOpen(false); setView('filesystem-config') }}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-600"
+                      >
+                        세부 정보
+                      </button>
+                      {fsServer && (
+                        <button
+                          type="button"
+                          onClick={handleDelete}
+                          className="w-full text-left px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-neutral-100 dark:hover:bg-neutral-600"
+                        >
+                          제거
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <button
+            type="button"
+            onClick={() => onNavigate('developer')}
+            className="text-sm text-primary dark:text-primary-400 hover:underline"
+          >
+            고급 설정
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Filesystem Config View ──
+  const needsConfig = directories.length === 0
+
+  return (
+    <div className="space-y-6">
+      {/* Back button */}
+      <button
+        type="button"
+        onClick={() => setView('list')}
+        className="flex items-center gap-1 text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors"
+      >
+        <ChevronLeft size={16} />
+        모든 확장 프로그램
+      </button>
+
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">
+            <Monitor size={20} className="text-neutral-600 dark:text-neutral-400" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-base font-semibold">Filesystem</h3>
+              <ExternalLink size={14} className="text-neutral-400" />
+            </div>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400">MCP 서버</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Toggle + Delete */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Toggle checked={enabled} onChange={handleToggle} />
+          <span className="text-sm">{enabled ? '활성화됨' : '비활성화됨'}</span>
+        </div>
+        {fsServer && (
+          <button
+            type="button"
+            onClick={handleDelete}
+            className="flex items-center gap-1.5 rounded-lg border border-red-300 dark:border-red-800 px-3 py-1.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+          >
+            <Trash2 size={12} />
+            제거
+          </button>
+        )}
+      </div>
+
+      {/* Warning banner */}
+      {needsConfig && (
+        <div className="flex items-start gap-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-4 py-3">
+          <AlertTriangle size={16} className="text-amber-500 shrink-0 mt-0.5" />
+          <p className="text-sm text-amber-700 dark:text-amber-400">
+            이 확장 프로그램을 활성화하려면 아래 필수 필드를 완성하세요.
+          </p>
+        </div>
+      )}
+
+      {/* Allowed Directories */}
+      <div>
+        <h4 className="text-sm font-medium mb-1">Allowed Directories <span className="text-red-500">*</span></h4>
+        <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-3">
+          Filesystem 서버가 접근할 수 있는 디렉토리를 지정합니다
+        </p>
+
+        {directories.length > 0 && (
+          <div className="space-y-2 mb-3">
+            {directories.map((dir) => (
+              <div
+                key={dir}
+                className="flex items-center justify-between rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2"
+              >
+                <span className="text-sm font-mono truncate">{dir}</span>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveDirectory(dir)}
+                  className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 shrink-0 ml-2"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {showWebInput && (
+          <div className="flex items-center gap-2 mb-3">
+            <input
+              type="text"
+              value={webInput}
+              onChange={(e) => setWebInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleWebInputConfirm() }}
+              placeholder="/path/to/directory"
+              autoFocus
+              className="flex-1 rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 px-3 py-2 text-sm font-mono outline-none focus:ring-2 focus:ring-primary-500"
+            />
+            <button
+              type="button"
+              onClick={handleWebInputConfirm}
+              className="rounded-lg bg-primary px-3 py-2 text-sm text-white hover:bg-primary-600 transition-colors"
+            >
+              추가
+            </button>
+            <button
+              type="button"
+              onClick={() => { setShowWebInput(false); setWebInput('') }}
+              className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={handleAddDirectory}
+          className="flex items-center gap-1.5 text-sm text-primary dark:text-primary-400 hover:underline"
+        >
+          <Plus size={14} />
+          directory 추가
+        </button>
+      </div>
+
+      {/* Save button */}
+      <button
+        type="button"
+        disabled={saving || directories.length === 0}
+        onClick={handleSave}
+        className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-600 transition-colors disabled:opacity-50"
+      >
+        {saving ? (
+          <span className="flex items-center gap-1.5">
+            <Loader2 size={14} className="animate-spin" />
+            저장 중...
+          </span>
+        ) : '저장'}
+      </button>
+    </div>
+  )
+}
+
 export function SettingsScreen(): React.JSX.Element {
   const closeSettings = useSettingsStore((s) => s.closeSettings)
   const [activeTab, setActiveTab] = useState<Tab>('general-top')
@@ -1361,8 +1859,12 @@ export function SettingsScreen(): React.JSX.Element {
             <UsageContent />
           ) : activeTab === 'privacy' ? (
             <PrivacyContent />
+          ) : activeTab === 'features' ? (
+            <FeaturesContent />
           ) : activeTab === 'connectors' ? (
             <ConnectorsContent />
+          ) : activeTab === 'extensions' ? (
+            <ExtensionsContent onNavigate={setActiveTab} />
           ) : activeTab === 'developer' ? (
             <DeveloperContent />
           ) : activeTab === 'general' ? (

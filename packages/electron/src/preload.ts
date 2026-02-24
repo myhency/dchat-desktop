@@ -14,6 +14,7 @@ ipcRenderer.on('native:navigate-to-session', (_event, sessionId, message) => {
 
 const electronApi = {
   pickImage: () => ipcRenderer.invoke('native:pick-image'),
+  pickDirectory: () => ipcRenderer.invoke('native:pick-directory'),
   openInBrowser: (htmlContent: string) =>
     ipcRenderer.invoke('native:open-in-browser', htmlContent),
   getApiUrl: (): string => {
