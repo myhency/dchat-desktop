@@ -38,6 +38,8 @@ CREATE TABLE projects (
   description TEXT NOT NULL DEFAULT '',
   instructions TEXT NOT NULL DEFAULT '',
   is_favorite INTEGER NOT NULL DEFAULT 0,
+  memory_content TEXT NOT NULL DEFAULT '',
+  memory_updated_at TEXT DEFAULT NULL,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -179,7 +181,8 @@ const stream = await this.client.chat.completions.create(
 1. `projectId`가 있으면 → `projectRepo.findById` → `project.instructions` (비어있지 않으면 추가)
 2. `settingsRepo.get('custom_instructions')` → 글로벌 커스텀 지침 (비어있지 않으면 추가)
 3. `memoryService.buildMemoryContext(userQuery, excludeSessionId)` → 메모리 + 과거 대화 검색 결과 (활성화 시)
-4. 모든 파트를 `"\n\n"`으로 결합 (프로젝트 지침 → 글로벌 지침 → 메모리 컨텍스트 순서)
+4. `memoryService.buildProjectMemoryContext(projectId)` → 프로젝트 메모리 (`<project_memory>` 태그, 비어있으면 생략)
+5. 모든 파트를 `"\n\n"`으로 결합 (프로젝트 지침 → 프로젝트 메모리 → 글로벌 지침 → 메모리 컨텍스트 순서)
 
 - **적용 범위**: `execute()`, `regenerate()` — 사용자 채팅에만 적용
 - **미적용**: `generateTitle()` — 자체 하드코딩된 프롬프트 사용, `buildSystemPrompt` 호출하지 않음
@@ -231,7 +234,20 @@ const stream = await this.client.chat.completions.create(
 ### 수정 시 주의
 
 - `MemoryService`는 도메인 서비스이나 `LLMGatewayResolver`에 의존 (LLM 호출 필요). `domain/` 내 다른 서비스와 달리 외부 게이트웨이를 직접 사용
+- **생성자**: `(messageRepo, settingsRepo, llmResolver, projectRepo?)` — 4번째 인자 `ProjectRepository`는 optional (프로젝트 메모리 기능에 필요)
 - `extractMemory`는 비동기 fire-and-forget. 실패해도 채팅 응답에 영향 없음
 - `editMemory`는 동기적 — 실패 시 에러를 라우트로 전파 (사용자 대면 기능)
 - `parseExtractionResult`: LLM 응답에서 `## ` 헤더 이전 텍스트를 제거하고 최대 8000자로 자름. 파싱 실패 시 null 반환 → 기존 메모리 유지
 - `memory_short_term`/`memory_long_term` 키는 더 이상 쓰기에 사용하지 않음. 마이그레이션 읽기 + 삭제 시에만 참조
+
+### 프로젝트 메모리
+
+프로젝트별 메모리. `Project` 엔티티의 `memoryContent`/`memoryUpdatedAt` 필드에 저장 (글로벌 메모리와 달리 settings 키가 아닌 projects 테이블).
+
+- **추출 (`extractProjectMemory`)**: `ChatService.execute()`/`regenerate()` 완료 후 `session.projectId`가 있으면 fire-and-forget 호출
+  - 4 sections: `## Project goals`, `## Key decisions`, `## Current status`, `## History`
+  - 글로벌 메모리를 참조하여 중복 방지 (프롬프트에 `{global_content}` 포함)
+- **편집 (`editProjectMemory`)**: `POST /api/projects/:id/memory/edit` 라우트에서 호출. 결과를 `{ content, updatedAt }` 형태로 반환
+- **빌드 (`buildProjectMemoryContext`)**: `ChatService.buildSystemPrompt`에서 호출 → `<project_memory>` 태그로 감싸서 system prompt에 포함
+- **라우트**: `project.routes.ts`에서 `memoryService`를 직접 주입받음 (`createProjectRoutes(projectService, memoryService)`)
+- **수정 시 주의**: 글로벌 메모리(`settings` 키)와 프로젝트 메모리(`projects` 테이블) 저장 위치가 다름. `getProjectMemory`/`deleteProjectMemory`는 `ProjectRepository`를 통해 직접 읽기/쓰기

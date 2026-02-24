@@ -40,6 +40,9 @@ Base URL: `/api` (기본 포트 3131)
 | PUT | `/api/projects/:id` | `{ name, description }` | `Project` | 프로젝트 수정 |
 | PUT | `/api/projects/:id/instructions` | `{ instructions }` | `Project` | 프로젝트 지침 수정 |
 | PATCH | `/api/projects/:id/favorite` | — | `Project` | 프로젝트 즐겨찾기 토글 |
+| GET | `/api/projects/:id/memory` | — | `ProjectMemoryResponse` | 프로젝트 메모리 조회 (`{ content, updatedAt }`) |
+| DELETE | `/api/projects/:id/memory` | — | `{ ok: true }` | 프로젝트 메모리 삭제 |
+| POST | `/api/projects/:id/memory/edit` | `EditProjectMemoryRequest` | `ProjectMemoryResponse` | LLM으로 프로젝트 메모리 수정 (`{ instruction, model }`) |
 
 ## Settings
 
