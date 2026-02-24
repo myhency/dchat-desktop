@@ -68,6 +68,18 @@ export function initSchema(db: Database.Database): void {
     // column already exists
   }
 
+  try {
+    db.exec(`ALTER TABLE projects ADD COLUMN memory_content TEXT NOT NULL DEFAULT ''`)
+  } catch {
+    // column already exists
+  }
+
+  try {
+    db.exec(`ALTER TABLE projects ADD COLUMN memory_updated_at TEXT DEFAULT NULL`)
+  } catch {
+    // column already exists
+  }
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS mcp_servers (
       id TEXT PRIMARY KEY,

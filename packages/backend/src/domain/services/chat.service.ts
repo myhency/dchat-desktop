@@ -97,6 +97,9 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
       }
 
       this.memoryService?.extractMemory(sessionId, session.model).catch(() => {})
+      if (session.projectId) {
+        this.memoryService?.extractProjectMemory(session.projectId, sessionId, session.model).catch(() => {})
+      }
       return assistantMessage
     }
 
@@ -130,6 +133,9 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
     }
 
     this.memoryService?.extractMemory(sessionId, session.model).catch(() => {})
+    if (session.projectId) {
+      this.memoryService?.extractProjectMemory(session.projectId, sessionId, session.model).catch(() => {})
+    }
     return assistantMessage
   }
 
@@ -322,6 +328,9 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
     }
 
     this.memoryService?.extractMemory(sessionId, session.model).catch(() => {})
+    if (session.projectId) {
+      this.memoryService?.extractProjectMemory(session.projectId, sessionId, session.model).catch(() => {})
+    }
     return assistantMessage
   }
 
@@ -385,6 +394,13 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
       const project = await this.projectRepo.findById(projectId)
       if (project?.instructions) {
         parts.push(project.instructions)
+      }
+    }
+
+    if (this.memoryService && projectId) {
+      const projectMemoryContext = await this.memoryService.buildProjectMemoryContext(projectId)
+      if (projectMemoryContext) {
+        parts.push(projectMemoryContext)
       }
     }
 

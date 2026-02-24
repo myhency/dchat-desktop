@@ -53,7 +53,7 @@ export function createContainer(): AppContainer {
   const mcpClient = new StdioMcpClientManager()
 
   // Domain Services
-  const memoryService = new MemoryService(messageRepo, settingsRepo, llmFactory)
+  const memoryService = new MemoryService(messageRepo, settingsRepo, llmFactory, projectRepo)
   const chatService = new ChatService(messageRepo, sessionRepo, llmFactory, settingsRepo, projectRepo, mcpClient, memoryService)
   const sessionService = new SessionService(sessionRepo, messageRepo)
   const settingsService = new SettingsService(settingsRepo)

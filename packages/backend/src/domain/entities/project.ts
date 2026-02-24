@@ -4,6 +4,8 @@ export interface Project {
   description: string
   instructions: string
   isFavorite: boolean
+  memoryContent: string
+  memoryUpdatedAt: Date | null
   createdAt: Date
   updatedAt: Date
 }

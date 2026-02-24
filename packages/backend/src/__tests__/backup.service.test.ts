@@ -24,6 +24,8 @@ function createMockProject(overrides?: Partial<Project>): Project {
     description: 'desc',
     instructions: 'inst',
     isFavorite: false,
+    memoryContent: '',
+    memoryUpdatedAt: null,
     createdAt: new Date('2026-01-01'),
     updatedAt: new Date('2026-01-02'),
     ...overrides

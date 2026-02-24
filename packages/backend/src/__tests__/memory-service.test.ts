@@ -7,8 +7,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MemoryService } from '../domain/services/memory.service'
 import type { Message } from '../domain/entities/message'
+import type { Project } from '../domain/entities/project'
 import type { MessageRepository } from '../domain/ports/outbound/message.repository'
 import type { SettingsRepository } from '../domain/ports/outbound/settings.repository'
+import type { ProjectRepository } from '../domain/ports/outbound/project.repository'
 import type { LLMGatewayResolver } from '../domain/ports/outbound/llm-gateway.resolver'
 import type { LLMGateway, StreamChunk, ChatOptions } from '../domain/ports/outbound/llm.gateway'
 
@@ -35,17 +37,35 @@ function createMockGateway(response: string): LLMGateway {
   }
 }
 
+function createMockProject(overrides?: Partial<Project>): Project {
+  return {
+    id: 'p1',
+    name: 'Test Project',
+    description: 'desc',
+    instructions: '',
+    isFavorite: false,
+    memoryContent: '',
+    memoryUpdatedAt: null,
+    createdAt: new Date('2026-01-01'),
+    updatedAt: new Date('2026-01-02'),
+    ...overrides
+  }
+}
+
 // ── Tests ──
 
 describe('MemoryService', () => {
   let messageRepo: MessageRepository
   let settingsRepo: SettingsRepository
+  let projectRepo: ProjectRepository
   let llmResolver: LLMGatewayResolver
   let memoryService: MemoryService
   let settingsStore: Record<string, string>
+  let projectStore: Record<string, Project>
 
   beforeEach(() => {
     settingsStore = {}
+    projectStore = {}
 
     messageRepo = {
       findBySessionId: vi.fn(async () => []),
@@ -65,6 +85,14 @@ describe('MemoryService', () => {
       deleteAll: vi.fn(async () => {})
     }
 
+    projectRepo = {
+      findAll: vi.fn(async () => Object.values(projectStore)),
+      findById: vi.fn(async (id: string) => projectStore[id] ?? null),
+      save: vi.fn(async (project: Project) => { projectStore[project.id] = project }),
+      delete: vi.fn(async (id: string) => { delete projectStore[id] }),
+      deleteAll: vi.fn(async () => { Object.keys(projectStore).forEach((k) => delete projectStore[k]) })
+    }
+
     llmResolver = {
       getGateway: () => createMockGateway(''),
       listAllModels: () => [],
@@ -72,7 +100,7 @@ describe('MemoryService', () => {
       testConnection: async () => {}
     }
 
-    memoryService = new MemoryService(messageRepo, settingsRepo, llmResolver)
+    memoryService = new MemoryService(messageRepo, settingsRepo, llmResolver, projectRepo)
   })
 
   // ── extractMemory ──
@@ -118,7 +146,7 @@ describe('MemoryService', () => {
 이전에 채팅 검색 기능 구현`
 
     llmResolver.getGateway = () => createMockGateway(llmResponse)
-    memoryService = new MemoryService(messageRepo, settingsRepo, llmResolver)
+    memoryService = new MemoryService(messageRepo, settingsRepo, llmResolver, projectRepo)
 
     await memoryService.extractMemory('s1', 'claude-haiku-4-5')
 
@@ -142,7 +170,7 @@ ${longContent}
 ## Brief history`
 
     llmResolver.getGateway = () => createMockGateway(llmResponse)
-    memoryService = new MemoryService(messageRepo, settingsRepo, llmResolver)
+    memoryService = new MemoryService(messageRepo, settingsRepo, llmResolver, projectRepo)
 
     await memoryService.extractMemory('s1', 'claude-haiku-4-5')
 
@@ -156,7 +184,7 @@ ${longContent}
 
     // Invalid format response
     llmResolver.getGateway = () => createMockGateway('잘못된 포맷 응답')
-    memoryService = new MemoryService(messageRepo, settingsRepo, llmResolver)
+    memoryService = new MemoryService(messageRepo, settingsRepo, llmResolver, projectRepo)
 
     await memoryService.extractMemory('s1', 'claude-haiku-4-5')
 
@@ -371,7 +399,7 @@ ${longContent}
 ## Brief history`
 
     llmResolver.getGateway = () => createMockGateway(editResponse)
-    memoryService = new MemoryService(messageRepo, settingsRepo, llmResolver)
+    memoryService = new MemoryService(messageRepo, settingsRepo, llmResolver, projectRepo)
 
     const result = await memoryService.editMemory('나는 프론트엔드 개발자야', 'claude-haiku-4-5')
 
@@ -382,8 +410,129 @@ ${longContent}
 
   it('editMemory: 파싱 실패 시 에러 throw', async () => {
     llmResolver.getGateway = () => createMockGateway('잘못된 응답')
-    memoryService = new MemoryService(messageRepo, settingsRepo, llmResolver)
+    memoryService = new MemoryService(messageRepo, settingsRepo, llmResolver, projectRepo)
 
     await expect(memoryService.editMemory('테스트', 'claude-haiku-4-5')).rejects.toThrow('Failed to parse memory edit result')
+  })
+
+  // ── Project Memory ──
+
+  describe('Project Memory', () => {
+    beforeEach(() => {
+      projectStore['p1'] = createMockProject()
+    })
+
+    it('getProjectMemory: 정상 반환', async () => {
+      projectStore['p1'] = createMockProject({
+        memoryContent: '## Project goals\n목표',
+        memoryUpdatedAt: new Date('2026-01-15')
+      })
+
+      const result = await memoryService.getProjectMemory('p1')
+
+      expect(result.content).toBe('## Project goals\n목표')
+      expect(result.updatedAt).toBe('2026-01-15T00:00:00.000Z')
+    })
+
+    it('getProjectMemory: 프로젝트 미존재 시 에러', async () => {
+      await expect(memoryService.getProjectMemory('nonexistent'))
+        .rejects.toThrow('Project not found: nonexistent')
+    })
+
+    it('deleteProjectMemory: memoryContent 초기화 확인', async () => {
+      projectStore['p1'] = createMockProject({
+        memoryContent: '## Project goals\n목표',
+        memoryUpdatedAt: new Date('2026-01-15')
+      })
+
+      await memoryService.deleteProjectMemory('p1')
+
+      expect(projectStore['p1'].memoryContent).toBe('')
+      expect(projectStore['p1'].memoryUpdatedAt).toBeNull()
+    })
+
+    it('extractProjectMemory: disabled 시 skip', async () => {
+      settingsStore['memory_enabled'] = 'false'
+      messageRepo.findBySessionId = vi.fn(async () => createMockMessages(10))
+
+      await memoryService.extractProjectMemory('p1', 's1', 'claude-haiku-4-5')
+
+      expect(messageRepo.findBySessionId).not.toHaveBeenCalled()
+    })
+
+    it('extractProjectMemory: 정상 추출 + save', async () => {
+      settingsStore['memory_enabled'] = 'true'
+      messageRepo.findBySessionId = vi.fn(async () => createMockMessages(6))
+
+      const llmResponse = `## Project goals
+React 기반 채팅 앱 개발
+
+## Key decisions
+TypeScript + Zustand 사용
+
+## Current status
+메모리 기능 구현 중
+
+## History
+초기 설정 완료`
+
+      llmResolver.getGateway = () => createMockGateway(llmResponse)
+      memoryService = new MemoryService(messageRepo, settingsRepo, llmResolver, projectRepo)
+
+      await memoryService.extractProjectMemory('p1', 's1', 'claude-haiku-4-5')
+
+      expect(projectStore['p1'].memoryContent).toContain('## Project goals')
+      expect(projectStore['p1'].memoryContent).toContain('React 기반 채팅 앱 개발')
+      expect(projectStore['p1'].memoryUpdatedAt).toBeTruthy()
+    })
+
+    it('editProjectMemory: LLM 호출 → 저장 확인', async () => {
+      projectStore['p1'] = createMockProject({
+        memoryContent: '## Project goals\n기존 목표\n\n## Key decisions\n\n## Current status\n\n## History'
+      })
+
+      const editResponse = `## Project goals
+기존 목표
+
+## Key decisions
+React + TypeScript
+
+## Current status
+
+## History`
+
+      llmResolver.getGateway = () => createMockGateway(editResponse)
+      memoryService = new MemoryService(messageRepo, settingsRepo, llmResolver, projectRepo)
+
+      const result = await memoryService.editProjectMemory('p1', 'React + TypeScript 사용', 'claude-haiku-4-5')
+
+      expect(result.content).toContain('React + TypeScript')
+      expect(result.updatedAt).toBeTruthy()
+      expect(projectStore['p1'].memoryContent).toContain('React + TypeScript')
+    })
+
+    it('editProjectMemory: 파싱 실패 시 에러', async () => {
+      llmResolver.getGateway = () => createMockGateway('잘못된 응답')
+      memoryService = new MemoryService(messageRepo, settingsRepo, llmResolver, projectRepo)
+
+      await expect(memoryService.editProjectMemory('p1', '테스트', 'claude-haiku-4-5'))
+        .rejects.toThrow('Failed to parse project memory edit result')
+    })
+
+    it('buildProjectMemoryContext: <project_memory> 태그 래핑', async () => {
+      projectStore['p1'] = createMockProject({
+        memoryContent: '## Project goals\n목표\n\n## Key decisions\n결정'
+      })
+
+      const result = await memoryService.buildProjectMemoryContext('p1')
+
+      expect(result).toBe('<project_memory>\n## Project goals\n목표\n\n## Key decisions\n결정\n</project_memory>')
+    })
+
+    it('buildProjectMemoryContext: 빈 메모리 시 빈 문자열', async () => {
+      const result = await memoryService.buildProjectMemoryContext('p1')
+
+      expect(result).toBe('')
+    })
   })
 })

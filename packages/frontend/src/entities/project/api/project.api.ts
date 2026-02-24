@@ -1,5 +1,5 @@
 import { apiFetch } from '@/shared/api/client'
-import type { Project } from '@dchat/shared'
+import type { Project, ProjectMemoryResponse, EditProjectMemoryRequest } from '@dchat/shared'
 
 export const projectApi = {
   create: (name: string, description: string) =>
@@ -28,5 +28,21 @@ export const projectApi = {
   toggleFavorite: (id: string) =>
     apiFetch<Project>(`/api/projects/${id}/favorite`, {
       method: 'PATCH'
+    }),
+
+  getMemory: (projectId: string) =>
+    apiFetch<ProjectMemoryResponse>(`/api/projects/${projectId}/memory`),
+
+  deleteMemory: (projectId: string) =>
+    apiFetch<{ ok: boolean }>(`/api/projects/${projectId}/memory`, { method: 'DELETE' }),
+
+  editMemory: (projectId: string, body: EditProjectMemoryRequest) => {
+    const controller = new AbortController()
+    setTimeout(() => controller.abort(), 30_000)
+    return apiFetch<ProjectMemoryResponse>(`/api/projects/${projectId}/memory/edit`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+      signal: controller.signal
     })
+  }
 }
