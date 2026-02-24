@@ -20,6 +20,7 @@ import { SettingsService } from './domain/services/settings.service'
 import { ProjectService } from './domain/services/project.service'
 import { BackupService } from './domain/services/backup.service'
 import { McpServerService } from './domain/services/mcp-server.service'
+import { MemoryService } from './domain/services/memory.service'
 
 // Domain Ports
 import type { LLMGatewayResolver } from './domain/ports/outbound/llm-gateway.resolver'
@@ -32,6 +33,7 @@ export interface AppContainer {
   projectService: ProjectService
   backupService: BackupService
   mcpServerService: McpServerService
+  memoryService: MemoryService
   mcpClient: McpClientGateway
   llmFactory: LLMGatewayResolver
   restoreApiKeys(): Promise<void>
@@ -51,7 +53,8 @@ export function createContainer(): AppContainer {
   const mcpClient = new StdioMcpClientManager()
 
   // Domain Services
-  const chatService = new ChatService(messageRepo, sessionRepo, llmFactory, settingsRepo, projectRepo, mcpClient)
+  const memoryService = new MemoryService(messageRepo, settingsRepo, llmFactory)
+  const chatService = new ChatService(messageRepo, sessionRepo, llmFactory, settingsRepo, projectRepo, mcpClient, memoryService)
   const sessionService = new SessionService(sessionRepo, messageRepo)
   const settingsService = new SettingsService(settingsRepo)
   const projectService = new ProjectService(projectRepo)
@@ -65,6 +68,7 @@ export function createContainer(): AppContainer {
     projectService,
     backupService,
     mcpServerService,
+    memoryService,
     mcpClient,
     llmFactory,
 

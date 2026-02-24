@@ -61,6 +61,7 @@ describe('ChatService', () => {
 
     messageRepo = {
       findBySessionId: vi.fn(async () => savedMessages),
+      searchByKeywords: vi.fn(async () => []),
       save: vi.fn(async (msg: Message) => { savedMessages.push(msg) }),
       updateContent: vi.fn(async () => {}),
       deleteById: vi.fn(async () => {}),

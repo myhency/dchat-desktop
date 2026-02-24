@@ -155,6 +155,18 @@ export interface SSEToolResultEvent {
   isError: boolean
 }
 
+// ── Memory ──
+
+export interface MemoryResponse {
+  content: string
+  updatedAt: string | null
+}
+
+export interface EditMemoryRequest {
+  instruction: string
+  model: string
+}
+
 // ── Health ──
 
 export interface HealthResponse {

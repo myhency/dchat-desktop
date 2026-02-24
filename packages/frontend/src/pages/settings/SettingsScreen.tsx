@@ -1474,8 +1474,6 @@ function ExtensionsContent({ onNavigate }: { onNavigate: (tab: Tab) => void }): 
   const [enabled, setEnabled] = useState(false)
   const [saving, setSaving] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
-  const [webInput, setWebInput] = useState('')
-  const [showWebInput, setShowWebInput] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
   // Find filesystem server from loaded servers
@@ -1511,35 +1509,31 @@ function ExtensionsContent({ onNavigate }: { onNavigate: (tab: Tab) => void }): 
     return () => document.removeEventListener('mousedown', handler)
   }, [menuOpen])
 
-  const handleAddDirectory = async (): Promise<void> => {
-    if (isElectron) {
-      const dir = await pickDirectory()
-      if (dir && !directories.includes(dir)) {
-        setDirectories([...directories, dir])
-      }
-    } else {
-      setShowWebInput(true)
+  const handleAddDirectory = (): void => {
+    setDirectories([...directories, ''])
+  }
+
+  const handleDirectoryChange = (index: number, value: string): void => {
+    setDirectories(directories.map((d, i) => (i === index ? value : d)))
+  }
+
+  const handlePickDirectory = async (index: number): Promise<void> => {
+    const dir = await pickDirectory()
+    if (dir) {
+      setDirectories(directories.map((d, i) => (i === index ? dir : d)))
     }
   }
 
-  const handleWebInputConfirm = (): void => {
-    const trimmed = webInput.trim()
-    if (trimmed && !directories.includes(trimmed)) {
-      setDirectories([...directories, trimmed])
-    }
-    setWebInput('')
-    setShowWebInput(false)
-  }
-
-  const handleRemoveDirectory = (dir: string): void => {
-    setDirectories(directories.filter((d) => d !== dir))
+  const handleRemoveDirectory = (index: number): void => {
+    setDirectories(directories.filter((_, i) => i !== index))
   }
 
   const handleSave = async (): Promise<void> => {
-    if (directories.length === 0) return
+    const validDirs = directories.filter((d) => d.trim())
+    if (validDirs.length === 0) return
     setSaving(true)
     try {
-      const args = ['-y', '@modelcontextprotocol/server-filesystem', ...directories]
+      const args = ['-y', '@modelcontextprotocol/server-filesystem', ...validDirs]
       if (fsServer) {
         await mcpApi.updateServer(fsServer.config.id, { args, enabled })
       } else {
@@ -1562,7 +1556,7 @@ function ExtensionsContent({ onNavigate }: { onNavigate: (tab: Tab) => void }): 
   const handleToggle = async (value: boolean): Promise<void> => {
     if (!fsServer) return
     if (value) {
-      if (directories.length === 0) return
+      if (directories.filter((d) => d.trim()).length === 0) return
       await mcpApi.updateServer(fsServer.config.id, { enabled: true })
       await mcpApi.startServer(fsServer.config.id)
     } else {
@@ -1666,7 +1660,7 @@ function ExtensionsContent({ onNavigate }: { onNavigate: (tab: Tab) => void }): 
   }
 
   // ── Filesystem Config View ──
-  const needsConfig = directories.length === 0
+  const needsConfig = directories.filter((d) => d.trim()).length === 0
 
   return (
     <div className="space-y-6">
@@ -1725,57 +1719,40 @@ function ExtensionsContent({ onNavigate }: { onNavigate: (tab: Tab) => void }): 
       )}
 
       {/* Allowed Directories */}
-      <div>
-        <h4 className="text-sm font-medium mb-1">Allowed Directories <span className="text-red-500">*</span></h4>
-        <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-3">
-          Filesystem 서버가 접근할 수 있는 디렉토리를 지정합니다
+      <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 p-5">
+        <h4 className="text-sm font-semibold mb-1">Allowed Directories (필수)</h4>
+        <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-4">
+          Select directories the filesystem server can access
         </p>
 
         {directories.length > 0 && (
-          <div className="space-y-2 mb-3">
-            {directories.map((dir) => (
-              <div
-                key={dir}
-                className="flex items-center justify-between rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2"
-              >
-                <span className="text-sm font-mono truncate">{dir}</span>
+          <div className="space-y-3 mb-4">
+            {directories.map((dir, index) => (
+              <div key={index} className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={dir}
+                  onChange={(e) => handleDirectoryChange(index, e.target.value)}
+                  placeholder="Directory 경로"
+                  autoFocus={dir === ''}
+                  className="flex-1 rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary-500"
+                />
                 <button
                   type="button"
-                  onClick={() => handleRemoveDirectory(dir)}
-                  className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 shrink-0 ml-2"
+                  onClick={() => handlePickDirectory(index)}
+                  className="p-2 rounded-lg text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
                 >
-                  <X size={14} />
+                  <FolderOpen size={18} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveDirectory(index)}
+                  className="p-2 rounded-lg text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                >
+                  <X size={18} />
                 </button>
               </div>
             ))}
-          </div>
-        )}
-
-        {showWebInput && (
-          <div className="flex items-center gap-2 mb-3">
-            <input
-              type="text"
-              value={webInput}
-              onChange={(e) => setWebInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleWebInputConfirm() }}
-              placeholder="/path/to/directory"
-              autoFocus
-              className="flex-1 rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 px-3 py-2 text-sm font-mono outline-none focus:ring-2 focus:ring-primary-500"
-            />
-            <button
-              type="button"
-              onClick={handleWebInputConfirm}
-              className="rounded-lg bg-primary px-3 py-2 text-sm text-white hover:bg-primary-600 transition-colors"
-            >
-              추가
-            </button>
-            <button
-              type="button"
-              onClick={() => { setShowWebInput(false); setWebInput('') }}
-              className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
-            >
-              <X size={16} />
-            </button>
           </div>
         )}
 
@@ -1790,19 +1767,21 @@ function ExtensionsContent({ onNavigate }: { onNavigate: (tab: Tab) => void }): 
       </div>
 
       {/* Save button */}
-      <button
-        type="button"
-        disabled={saving || directories.length === 0}
-        onClick={handleSave}
-        className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-600 transition-colors disabled:opacity-50"
-      >
-        {saving ? (
-          <span className="flex items-center gap-1.5">
-            <Loader2 size={14} className="animate-spin" />
-            저장 중...
-          </span>
-        ) : '저장'}
-      </button>
+      <div className="flex justify-end">
+        <button
+          type="button"
+          disabled={saving || directories.filter((d) => d.trim()).length === 0}
+          onClick={handleSave}
+          className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-600 transition-colors disabled:opacity-50"
+        >
+          {saving ? (
+            <span className="flex items-center gap-1.5">
+              <Loader2 size={14} className="animate-spin" />
+              저장 중...
+            </span>
+          ) : '저장'}
+        </button>
+      </div>
     </div>
   )
 }

@@ -22,6 +22,25 @@ export class SqliteMessageRepository implements MessageRepository {
     return rows.map(this.toDomain)
   }
 
+  async searchByKeywords(keywords: string[], excludeSessionId: string, limit: number): Promise<Message[]> {
+    if (keywords.length === 0) return []
+
+    const conditions = keywords.map(() => 'content LIKE ?').join(' OR ')
+    const params = [
+      ...keywords.map((k) => `%${k}%`),
+      excludeSessionId,
+      limit
+    ]
+
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM messages WHERE (${conditions}) AND session_id != ? ORDER BY created_at DESC LIMIT ?`
+      )
+      .all(...params) as MessageRow[]
+
+    return rows.map(this.toDomain)
+  }
+
   async save(message: Message): Promise<void> {
     this.db
       .prepare(
