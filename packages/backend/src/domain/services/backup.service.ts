@@ -51,6 +51,8 @@ export class BackupService implements BackupRestoreUseCase {
           description: p.description,
           instructions: p.instructions,
           isFavorite: p.isFavorite,
+          memoryContent: p.memoryContent,
+          memoryUpdatedAt: p.memoryUpdatedAt?.toISOString() ?? null,
           createdAt: p.createdAt.toISOString(),
           updatedAt: p.updatedAt.toISOString()
         })),
@@ -97,6 +99,8 @@ export class BackupService implements BackupRestoreUseCase {
         description: p.description,
         instructions: p.instructions,
         isFavorite: p.isFavorite,
+        memoryContent: p.memoryContent ?? '',
+        memoryUpdatedAt: p.memoryUpdatedAt ? new Date(p.memoryUpdatedAt) : null,
         createdAt: new Date(p.createdAt),
         updatedAt: new Date(p.updatedAt)
       })

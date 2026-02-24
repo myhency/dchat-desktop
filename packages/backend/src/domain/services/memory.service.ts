@@ -1,6 +1,7 @@
 import type { ManageMemoryUseCase } from '../ports/inbound/manage-memory.usecase'
 import type { MessageRepository } from '../ports/outbound/message.repository'
 import type { SettingsRepository } from '../ports/outbound/settings.repository'
+import type { ProjectRepository } from '../ports/outbound/project.repository'
 import type { LLMGatewayResolver } from '../ports/outbound/llm-gateway.resolver'
 import type { Message } from '../entities/message'
 
@@ -80,11 +81,75 @@ Respond EXACTLY starting with ## Work context (no extra text before it):
 ## Brief history
 (brief history here)`
 
+const PROJECT_EXTRACTION_PROMPT = `You are a project memory manager. Analyze the conversation and extract project-specific information worth remembering.
+
+Current project memory:
+{project_content}
+
+Global memory (reference only — do NOT duplicate):
+{global_content}
+
+Recent conversation:
+{conversation}
+
+Instructions:
+- Organize into exactly 4 sections: Project goals, Key decisions, Current status, History
+- Project goals: Project objectives, requirements, success criteria
+- Key decisions: Technical/design decisions, chosen approaches
+- Current status: What's being worked on, blockers, next steps
+- History: Major milestones, completed features, resolved issues
+- Merge new information with existing project memories, remove outdated info
+- Do NOT duplicate information already in global memory
+- If nothing noteworthy, return existing project memories unchanged
+- Write memories in the same language as the conversation
+- Maximum ${CONTENT_MAX} characters total
+
+Respond EXACTLY starting with ## Project goals (no extra text before it):
+## Project goals
+(project goals here)
+
+## Key decisions
+(key decisions here)
+
+## Current status
+(current status here)
+
+## History
+(history here)`
+
+const PROJECT_EDIT_PROMPT = `You are a project memory editor. Modify the project memory according to the user's instruction.
+
+Current project memory:
+{project_content}
+
+User instruction:
+{instruction}
+
+Instructions:
+- Apply the user's instruction to add, modify, or remove information
+- Maintain the 4-section structure: Project goals, Key decisions, Current status, History
+- Write in the same language as the instruction
+- Maximum ${CONTENT_MAX} characters total
+
+Respond EXACTLY starting with ## Project goals (no extra text before it):
+## Project goals
+(project goals here)
+
+## Key decisions
+(key decisions here)
+
+## Current status
+(current status here)
+
+## History
+(history here)`
+
 export class MemoryService implements ManageMemoryUseCase {
   constructor(
     private readonly messageRepo: MessageRepository,
     private readonly settingsRepo: SettingsRepository,
-    private readonly llmResolver: LLMGatewayResolver
+    private readonly llmResolver: LLMGatewayResolver,
+    private readonly projectRepo?: ProjectRepository
   ) {}
 
   async getMemory(): Promise<{ content: string; updatedAt: string | null }> {
@@ -244,6 +309,139 @@ export class MemoryService implements ManageMemoryUseCase {
     }
 
     return parts.join('\n\n')
+  }
+
+  // ── Project Memory ──
+
+  async getProjectMemory(projectId: string): Promise<{ content: string; updatedAt: string | null }> {
+    if (!this.projectRepo) throw new Error('ProjectRepository not configured')
+    const project = await this.projectRepo.findById(projectId)
+    if (!project) throw new Error(`Project not found: ${projectId}`)
+    return {
+      content: project.memoryContent,
+      updatedAt: project.memoryUpdatedAt?.toISOString() ?? null
+    }
+  }
+
+  async deleteProjectMemory(projectId: string): Promise<void> {
+    if (!this.projectRepo) throw new Error('ProjectRepository not configured')
+    const project = await this.projectRepo.findById(projectId)
+    if (!project) throw new Error(`Project not found: ${projectId}`)
+    project.memoryContent = ''
+    project.memoryUpdatedAt = null
+    await this.projectRepo.save(project)
+  }
+
+  async editProjectMemory(projectId: string, instruction: string, model: string): Promise<{ content: string; updatedAt: string }> {
+    if (!this.projectRepo) throw new Error('ProjectRepository not configured')
+    const project = await this.projectRepo.findById(projectId)
+    if (!project) throw new Error(`Project not found: ${projectId}`)
+
+    const prompt = PROJECT_EDIT_PROMPT
+      .replace('{project_content}', project.memoryContent || '(empty)')
+      .replace('{instruction}', instruction)
+
+    const gateway = this.llmResolver.getGateway(model)
+    let result = ''
+
+    const fakeMessages: Message[] = [
+      {
+        id: 'project-memory-edit',
+        sessionId: 'system',
+        role: 'user',
+        content: prompt,
+        attachments: [],
+        createdAt: new Date()
+      }
+    ]
+
+    for await (const chunk of gateway.streamChat(fakeMessages, {
+      model,
+      maxTokens: 2000,
+      temperature: 0
+    })) {
+      if (chunk.type === 'text') {
+        result += chunk.content
+      }
+    }
+
+    const parsed = this.parseExtractionResult(result)
+    if (!parsed) {
+      throw new Error('Failed to parse project memory edit result')
+    }
+
+    const updatedAt = new Date().toISOString()
+    project.memoryContent = parsed
+    project.memoryUpdatedAt = new Date(updatedAt)
+    await this.projectRepo.save(project)
+
+    return { content: parsed, updatedAt }
+  }
+
+  async extractProjectMemory(projectId: string, sessionId: string, model: string): Promise<void> {
+    if (!this.projectRepo) return
+    const enabled = await this.settingsRepo.get('memory_enabled')
+    if (enabled !== 'true') return
+
+    const project = await this.projectRepo.findById(projectId)
+    if (!project) return
+
+    const messages = await this.messageRepo.findBySessionId(sessionId)
+    if (messages.length < MIN_MESSAGES_FOR_EXTRACTION) return
+
+    const recent = messages.slice(-RECENT_MESSAGES_COUNT)
+    const { content: globalContent } = await this.getMemory()
+
+    const conversation = recent
+      .map((m) => `${m.role}: ${m.content}`)
+      .join('\n')
+
+    const prompt = PROJECT_EXTRACTION_PROMPT
+      .replace('{project_content}', project.memoryContent || '(empty)')
+      .replace('{global_content}', globalContent || '(empty)')
+      .replace('{conversation}', conversation)
+
+    try {
+      const gateway = this.llmResolver.getGateway(model)
+      let result = ''
+
+      const fakeMessages: Message[] = [
+        {
+          id: 'project-memory-extract',
+          sessionId: 'system',
+          role: 'user',
+          content: prompt,
+          attachments: [],
+          createdAt: new Date()
+        }
+      ]
+
+      for await (const chunk of gateway.streamChat(fakeMessages, {
+        model,
+        maxTokens: 2000,
+        temperature: 0
+      })) {
+        if (chunk.type === 'text') {
+          result += chunk.content
+        }
+      }
+
+      const parsed = this.parseExtractionResult(result)
+      if (!parsed) return
+
+      project.memoryContent = parsed
+      project.memoryUpdatedAt = new Date()
+      await this.projectRepo.save(project)
+    } catch {
+      // Fire-and-forget: silently ignore extraction failures
+    }
+  }
+
+  async buildProjectMemoryContext(projectId: string): Promise<string> {
+    if (!this.projectRepo) return ''
+    const project = await this.projectRepo.findById(projectId)
+    if (!project || !project.memoryContent) return ''
+    return `<project_memory>\n${project.memoryContent}\n</project_memory>`
   }
 
   parseExtractionResult(raw: string): string | null {

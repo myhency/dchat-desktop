@@ -43,7 +43,7 @@ export function createApp(container: AppContainer): express.Express {
     )
   )
   app.use('/api/settings', createSettingsRoutes(container.settingsService, container.llmFactory))
-  app.use('/api/projects', createProjectRoutes(container.projectService))
+  app.use('/api/projects', createProjectRoutes(container.projectService, container.memoryService))
   app.use('/api/models', createModelsRoutes(container.llmFactory))
   app.use('/api/backup', createBackupRoutes(container.backupService))
   app.use('/api/mcp', createMcpServerRoutes(container.mcpServerService))

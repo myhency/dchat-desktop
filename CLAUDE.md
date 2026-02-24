@@ -37,7 +37,7 @@ packages/
 
 - 전체 구조/데이터 흐름/Electron(트레이, 단축키, IPC): [docs/overview.md](docs/overview.md)
 - 변경 가이드 + 패키징 + E2E 테스트: [docs/guides.md](docs/guides.md)
-- 백엔드 아키텍처/DB/MCP/메모리: [docs/backend/architecture.md](docs/backend/architecture.md)
+- 백엔드 아키텍처/DB/MCP/메모리/프로젝트 메모리: [docs/backend/architecture.md](docs/backend/architecture.md)
 - REST API 레퍼런스 (MCP, Memory 포함): [docs/backend/api-reference.md](docs/backend/api-reference.md)
 - 프론트엔드 아키텍처/FSD: [docs/frontend/architecture.md](docs/frontend/architecture.md)
 - UI 컨벤션: [docs/frontend/ui-conventions.md](docs/frontend/ui-conventions.md)

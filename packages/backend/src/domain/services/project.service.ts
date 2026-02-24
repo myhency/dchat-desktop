@@ -14,6 +14,8 @@ export class ProjectService implements ManageProjectUseCase {
       description,
       instructions: '',
       isFavorite: false,
+      memoryContent: '',
+      memoryUpdatedAt: null,
       createdAt: now,
       updatedAt: now
     }

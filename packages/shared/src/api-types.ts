@@ -91,7 +91,7 @@ export interface BackupData {
   exportedAt: string
   data: {
     settings: Record<string, string>
-    projects: Array<{ id: string; name: string; description: string; instructions: string; isFavorite: boolean; createdAt: string; updatedAt: string }>
+    projects: Array<{ id: string; name: string; description: string; instructions: string; isFavorite: boolean; createdAt: string; updatedAt: string; memoryContent?: string; memoryUpdatedAt?: string | null }>
     sessions: Array<{ id: string; title: string; model: string; projectId: string | null; isFavorite: boolean; createdAt: string; updatedAt: string }>
     messages: Array<{ id: string; sessionId: string; role: 'user' | 'assistant'; content: string; attachments: ImageAttachment[]; createdAt: string }>
   }
@@ -163,6 +163,18 @@ export interface MemoryResponse {
 }
 
 export interface EditMemoryRequest {
+  instruction: string
+  model: string
+}
+
+// ── Project Memory ──
+
+export interface ProjectMemoryResponse {
+  content: string
+  updatedAt: string | null
+}
+
+export interface EditProjectMemoryRequest {
   instruction: string
   model: string
 }

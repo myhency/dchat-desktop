@@ -137,12 +137,20 @@ SearchModal과 동일한 UI 패턴을 따르는 프로젝트 선택 모달:
 `packages/frontend/src/pages/project-detail/ProjectDetailScreen.tsx`
 
 - **진입**: `projectsOpen === true && selectedProjectId !== null` (ChatArea.tsx에서 분기)
-- **우측 사이드바**: 지침(instructions) + 파일 섹션. 메모리 섹션은 없음.
+- **우측 사이드바**: 지침(instructions) + 프로젝트 기억 + 파일 섹션
 - **지침 편집 패턴**: `isEditingInstructions` / `instructionsDraft` 상태로 보기↔편집 모드 전환
   - 내용 없을 때: 플레이스홀더 텍스트 + Plus 버튼 → 편집 모드 진입
   - 내용 있을 때: 텍스트 클릭 → 편집 모드 진입
   - 편집 모드: textarea + 취소/저장 버튼, Escape로 취소
   - 저장: `useProjectStore.updateInstructions(id, draft)` 호출
+- **프로젝트 기억 카드**: `memoryContent` + `memoryUpdatedAt` 상태로 관리
+  - 메모리 있을 때: 미리보기 텍스트 + "마지막 업데이트: N일 전" + 헤더에 Pencil 아이콘
+  - 메모리 없을 때: 안내 텍스트만 표시, Pencil 아이콘 미표시
+  - 카드 클릭 또는 Pencil 클릭 → `ProjectMemoryManageModal` 열림
+  - "초기화" 링크 → `DeleteProjectMemoryModal` 열림
+  - `onMemoryChange` 콜백: `(content: string, updatedAt: string) => void` — 글로벌 메모리 모달과 달리 `updatedAt`도 함께 전달
+  - 삭제 확인 시 `memoryUpdatedAt`도 `null`로 리셋
+- **ProjectMemoryManageModal / DeleteProjectMemoryModal**: `SettingsScreen`의 글로벌 `MemoryManageModal`/`DeleteMemoryModal`과 동일한 구조. 로컬 컴포넌트로 같은 파일에 정의
 
 ## 사이드바 레이아웃 (Sidebar)
 
