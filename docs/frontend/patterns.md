@@ -226,6 +226,18 @@ const keepCount = target.role === 'user' ? targetIndex + 1 : targetIndex
 - **`onEnd` 수정 시**: re-fetch 로직 제거 금지. 제거 시 user 재생성이 깨짐
 - **assistant 메시지**: SSE `end` 이벤트로 백엔드 ID가 직접 전달되므로 불일치 없음
 
+## Filesystem Config — 디렉토리 인라인 편집 패턴
+
+`SettingsScreen.tsx`의 `ExtensionsContent` — Filesystem MCP 서버 디렉토리 설정 UI:
+
+- `directories` 상태 배열에 빈 문자열 `''`이 포함될 수 있음 = 아직 경로 미입력 행
+- "+ directory 추가" → `setDirectories([...directories, ''])` (빈 행 추가)
+- 각 행: 텍스트 input + `FolderOpen` 아이콘 버튼(picker) + `X` 버튼(삭제)
+- `handlePickDirectory(index)`: `pickDirectory()` 호출 → 결과를 해당 인덱스에 설정
+- `handleSave`: `directories.filter(d => d.trim())`로 빈 행 제거 후 서버에 저장
+- `needsConfig`/저장 버튼 disabled 판별도 동일하게 빈 문자열 필터 후 체크
+- **수정 시 주의**: `directories.length === 0` 대신 `directories.filter(d => d.trim()).length === 0`으로 유효 디렉토리 존재 여부 확인 (빈 행이 있을 수 있으므로)
+
 ## 백업 가져오기 후 스토어 갱신
 
 `SettingsScreen`의 `PrivacyContent`에서 백업 가져오기(import) 성공 후 반드시 `loadSettings()` + `loadSessions()`를 순서대로 호출해야 함.

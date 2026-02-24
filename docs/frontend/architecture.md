@@ -60,7 +60,7 @@ src/
 ├── entities/                            # 비즈니스 엔티티 (api/ + model/ + index.ts barrel)
 │   ├── session/                         # sessionApi, chatApi, useSessionStore
 │   ├── project/                         # projectApi, useProjectStore
-│   ├── settings/                        # settingsApi, useSettingsStore
+│   ├── settings/                        # settingsApi, memoryApi, useSettingsStore
 │   └── mcp/                             # mcpApi, useMcpStore
 └── shared/                              # 인프라, 유틸
     ├── api/                             # client.ts (apiFetch, apiSSE), models.api.ts
@@ -88,6 +88,7 @@ src/
 | `entities/project/api/project.api.ts` | `create`, `list`, `delete`, `update`, `updateInstructions`, `toggleFavorite` |
 | `entities/settings/api/settings.api.ts` | `getAll`, `get`, `set`, `testConnection` |
 | `entities/settings/api/backup.api.ts` | `exportBackup`, `importBackup` |
+| `entities/settings/api/memory.api.ts` | `get`, `delete`, `edit` |
 | `entities/mcp/api/mcp.api.ts` | `listServers`, `getStatuses`, `createServer`, `updateServer`, `deleteServer`, `startServer`, `stopServer`, `restartServer`, `getLogs`, `getConfigPath`, `reload` |
 | `shared/api/models.api.ts` | `list` |
 
@@ -168,6 +169,10 @@ src/
 | `setLaunchAtStartup(v)` | action | 자동 실행 설정 변경 |
 | `setQuickAccessShortcut(v)` | action | 단축키 변경 + Electron IPC로 즉시 반영 |
 | `setShowInMenuBar(v)` | action | 트레이 표시 변경 + Electron IPC로 즉시 반영 |
+| `memoryEnabled` | `boolean` | 메모리 자동 추출 활성화 |
+| `chatSearchEnabled` | `boolean` | 채팅 검색(과거 대화 참조) 활성화 |
+| `setMemoryEnabled(v)` | action | 메모리 활성화 변경 |
+| `setChatSearchEnabled(v)` | action | 채팅 검색 활성화 변경 |
 | `setProviderVerified(provider, verified)` | action | 연결 테스트 결과 반영 |
 | `openSettings()` / `closeSettings()` / `toggleSettings()` | action | 설정 화면 열기/닫기/토글 |
 | `toggleSidebar()` | action | 사이드바 토글 + persist |

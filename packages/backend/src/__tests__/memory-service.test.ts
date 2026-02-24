@@ -60,7 +60,7 @@ describe('MemoryService', () => {
     settingsRepo = {
       get: vi.fn(async (key: string) => settingsStore[key] ?? null),
       set: vi.fn(async (key: string, value: string) => { settingsStore[key] = value }),
-      delete: vi.fn(async () => {}),
+      delete: vi.fn(async (key: string) => { delete settingsStore[key] }),
       getAll: vi.fn(async () => settingsStore),
       deleteAll: vi.fn(async () => {})
     }
@@ -98,53 +98,60 @@ describe('MemoryService', () => {
 
     await memoryService.extractMemory('s1', 'claude-haiku-4-5')
 
-    expect(settingsRepo.set).not.toHaveBeenCalledWith('memory_short_term', expect.any(String))
+    expect(settingsRepo.set).not.toHaveBeenCalledWith('memory_content', expect.any(String))
   })
 
   it('extractMemory: LLM 출력 파싱 + settings 저장', async () => {
     settingsStore['memory_enabled'] = 'true'
     messageRepo.findBySessionId = vi.fn(async () => createMockMessages(6))
 
-    const llmResponse = `---SHORT_TERM---
+    const llmResponse = `## Work context
 사용자가 React 프로젝트에 대해 작업 중
----LONG_TERM---
+
+## Personal context
 사용자 이름: 홍길동, 프론트엔드 개발자
----END---`
+
+## Top of mind
+현재 메모리 기능 개발 중
+
+## Brief history
+이전에 채팅 검색 기능 구현`
 
     llmResolver.getGateway = () => createMockGateway(llmResponse)
     memoryService = new MemoryService(messageRepo, settingsRepo, llmResolver)
 
     await memoryService.extractMemory('s1', 'claude-haiku-4-5')
 
-    expect(settingsStore['memory_short_term']).toBe('사용자가 React 프로젝트에 대해 작업 중')
-    expect(settingsStore['memory_long_term']).toBe('사용자 이름: 홍길동, 프론트엔드 개발자')
+    expect(settingsStore['memory_content']).toContain('## Work context')
+    expect(settingsStore['memory_content']).toContain('홍길동')
     expect(settingsStore['memory_updated_at']).toBeTruthy()
   })
 
-  it('extractMemory: 사이즈 제한 적용', async () => {
+  it('extractMemory: 사이즈 제한 적용 (max 8000자)', async () => {
     settingsStore['memory_enabled'] = 'true'
     messageRepo.findBySessionId = vi.fn(async () => createMockMessages(6))
 
     const longContent = 'x'.repeat(10000)
-    const llmResponse = `---SHORT_TERM---
+    const llmResponse = `## Work context
 ${longContent}
----LONG_TERM---
-${longContent}
----END---`
+
+## Personal context
+
+## Top of mind
+
+## Brief history`
 
     llmResolver.getGateway = () => createMockGateway(llmResponse)
     memoryService = new MemoryService(messageRepo, settingsRepo, llmResolver)
 
     await memoryService.extractMemory('s1', 'claude-haiku-4-5')
 
-    expect(settingsStore['memory_short_term']!.length).toBeLessThanOrEqual(2000)
-    expect(settingsStore['memory_long_term']!.length).toBeLessThanOrEqual(5000)
+    expect(settingsStore['memory_content']!.length).toBeLessThanOrEqual(8000)
   })
 
   it('extractMemory: 파싱 실패 시 기존 메모리 유지', async () => {
     settingsStore['memory_enabled'] = 'true'
-    settingsStore['memory_short_term'] = '기존 단기 메모리'
-    settingsStore['memory_long_term'] = '기존 장기 메모리'
+    settingsStore['memory_content'] = '## Work context\n기존 메모리'
     messageRepo.findBySessionId = vi.fn(async () => createMockMessages(6))
 
     // Invalid format response
@@ -153,16 +160,14 @@ ${longContent}
 
     await memoryService.extractMemory('s1', 'claude-haiku-4-5')
 
-    expect(settingsStore['memory_short_term']).toBe('기존 단기 메모리')
-    expect(settingsStore['memory_long_term']).toBe('기존 장기 메모리')
+    expect(settingsStore['memory_content']).toBe('## Work context\n기존 메모리')
   })
 
   // ── buildMemoryContext ──
 
   it('buildMemoryContext: disabled일 때 검색 결과 없음', async () => {
     settingsStore['chat_search_enabled'] = 'false'
-    settingsStore['memory_short_term'] = '단기'
-    settingsStore['memory_long_term'] = '장기'
+    settingsStore['memory_content'] = '## Work context\n프론트엔드 개발자\n\n## Top of mind\n현재 작업 중'
 
     const result = await memoryService.buildMemoryContext('테스트 검색어', 's1')
 
@@ -202,8 +207,7 @@ ${longContent}
 
   it('buildMemoryContext: 메모리 + 검색 결과 결합', async () => {
     settingsStore['chat_search_enabled'] = 'true'
-    settingsStore['memory_short_term'] = '현재 React 작업 중'
-    settingsStore['memory_long_term'] = '프론트엔드 개발자'
+    settingsStore['memory_content'] = '## Work context\n프론트엔드 개발자\n\n## Top of mind\n현재 React 작업 중'
 
     const searchResults: Message[] = [
       {
@@ -225,25 +229,52 @@ ${longContent}
     expect(result).toContain('<relevant_past_conversations>')
   })
 
+  it('buildMemoryContext: 단일 <memory> 블록으로 출력', async () => {
+    settingsStore['memory_content'] = '## Work context\n개발자\n\n## Personal context\n홍길동'
+
+    const result = await memoryService.buildMemoryContext('', 's1')
+
+    expect(result).toBe('<memory>\n## Work context\n개발자\n\n## Personal context\n홍길동\n</memory>')
+  })
+
   // ── parseExtractionResult ──
 
-  it('parseExtractionResult: 올바른 포맷 파싱', () => {
-    const raw = `---SHORT_TERM---
-단기 내용
----LONG_TERM---
-장기 내용
----END---`
+  it('parseExtractionResult: 4섹션 문서 파싱', () => {
+    const raw = `## Work context
+작업 내용
+
+## Personal context
+개인 정보
+
+## Top of mind
+현재 관심사
+
+## Brief history
+과거 기록`
 
     const result = memoryService.parseExtractionResult(raw)
-    expect(result).toEqual({
-      shortTerm: '단기 내용',
-      longTerm: '장기 내용'
-    })
+    expect(result).toContain('## Work context')
+    expect(result).toContain('작업 내용')
+    expect(result).toContain('## Brief history')
+  })
+
+  it('parseExtractionResult: ## 헤더 이전 텍스트 제거', () => {
+    const raw = `Here is the updated memory:
+
+## Work context
+작업 내용
+
+## Personal context
+개인 정보`
+
+    const result = memoryService.parseExtractionResult(raw)
+    expect(result).not.toContain('Here is')
+    expect(result!.startsWith('## Work context')).toBe(true)
   })
 
   it('parseExtractionResult: 잘못된 포맷 시 null 반환', () => {
     expect(memoryService.parseExtractionResult('잘못된 포맷')).toBeNull()
-    expect(memoryService.parseExtractionResult('---SHORT_TERM--- 내용만')).toBeNull()
+    expect(memoryService.parseExtractionResult('헤더 없는 텍스트')).toBeNull()
   })
 
   // ── extractKeywords ──
@@ -271,16 +302,14 @@ ${longContent}
 
   // ── getMemory ──
 
-  it('getMemory: 저장된 메모리 반환', async () => {
-    settingsStore['memory_short_term'] = '단기 기억'
-    settingsStore['memory_long_term'] = '장기 기억'
+  it('getMemory: memory_content 키에서 반환', async () => {
+    settingsStore['memory_content'] = '## Work context\n개발자'
     settingsStore['memory_updated_at'] = '2024-01-01T00:00:00.000Z'
 
     const result = await memoryService.getMemory()
 
     expect(result).toEqual({
-      shortTerm: '단기 기억',
-      longTerm: '장기 기억',
+      content: '## Work context\n개발자',
       updatedAt: '2024-01-01T00:00:00.000Z'
     })
   })
@@ -289,9 +318,72 @@ ${longContent}
     const result = await memoryService.getMemory()
 
     expect(result).toEqual({
-      shortTerm: '',
-      longTerm: '',
+      content: '',
       updatedAt: null
     })
+  })
+
+  it('getMemory: 이전 포맷(short_term/long_term) → 자동 마이그레이션', async () => {
+    settingsStore['memory_short_term'] = '현재 React 작업 중'
+    settingsStore['memory_long_term'] = '프론트엔드 개발자'
+    settingsStore['memory_updated_at'] = '2024-01-01T00:00:00.000Z'
+
+    const result = await memoryService.getMemory()
+
+    expect(result.content).toContain('## Work context')
+    expect(result.content).toContain('프론트엔드 개발자')
+    expect(result.content).toContain('## Top of mind')
+    expect(result.content).toContain('현재 React 작업 중')
+    expect(result.updatedAt).toBe('2024-01-01T00:00:00.000Z')
+    // 마이그레이션 후 memory_content에 저장
+    expect(settingsStore['memory_content']).toContain('## Work context')
+  })
+
+  // ── deleteMemory ──
+
+  it('deleteMemory: 모든 메모리 키 삭제', async () => {
+    settingsStore['memory_content'] = '## Work context\n내용'
+    settingsStore['memory_short_term'] = '단기'
+    settingsStore['memory_long_term'] = '장기'
+    settingsStore['memory_updated_at'] = '2024-01-01T00:00:00.000Z'
+
+    await memoryService.deleteMemory()
+
+    expect(settingsStore['memory_content']).toBeUndefined()
+    expect(settingsStore['memory_short_term']).toBeUndefined()
+    expect(settingsStore['memory_long_term']).toBeUndefined()
+    expect(settingsStore['memory_updated_at']).toBeUndefined()
+  })
+
+  // ── editMemory ──
+
+  it('editMemory: LLM 호출 → memory_content 저장', async () => {
+    settingsStore['memory_content'] = '## Work context\n기존 내용\n\n## Personal context\n\n## Top of mind\n\n## Brief history'
+
+    const editResponse = `## Work context
+기존 내용
+
+## Personal context
+프론트엔드 개발자
+
+## Top of mind
+
+## Brief history`
+
+    llmResolver.getGateway = () => createMockGateway(editResponse)
+    memoryService = new MemoryService(messageRepo, settingsRepo, llmResolver)
+
+    const result = await memoryService.editMemory('나는 프론트엔드 개발자야', 'claude-haiku-4-5')
+
+    expect(result.content).toContain('프론트엔드 개발자')
+    expect(result.updatedAt).toBeTruthy()
+    expect(settingsStore['memory_content']).toContain('프론트엔드 개발자')
+  })
+
+  it('editMemory: 파싱 실패 시 에러 throw', async () => {
+    llmResolver.getGateway = () => createMockGateway('잘못된 응답')
+    memoryService = new MemoryService(messageRepo, settingsRepo, llmResolver)
+
+    await expect(memoryService.editMemory('테스트', 'claude-haiku-4-5')).rejects.toThrow('Failed to parse memory edit result')
   })
 })

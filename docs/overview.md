@@ -58,7 +58,8 @@ packages/
 │       │   │   │   ├── manage-project.usecase.ts
 │       │   │   │   ├── manage-settings.usecase.ts
 │       │   │   │   ├── backup-restore.usecase.ts
-│       │   │   │   └── manage-mcp-servers.usecase.ts
+│       │   │   │   ├── manage-mcp-servers.usecase.ts
+│       │   │   │   └── manage-memory.usecase.ts
 │       │   │   └── outbound/                    # 리포지토리/게이트웨이 인터페이스
 │       │   │       ├── llm.gateway.ts           # + streamChatRaw (tool use), LLMMessage, LLMContentBlock
 │       │   │       ├── llm-gateway.resolver.ts
@@ -76,6 +77,7 @@ packages/
 │       │       ├── settings.service.ts          # → ManageSettings
 │       │       ├── backup.service.ts           # → BackupRestore
 │       │       ├── mcp-server.service.ts        # → ManageMcpServers
+│       │       ├── memory.service.ts            # → ManageMemory (메모리 추출/검색/편집)
 │       │       └── id.ts                        # generateId()
 │       └── adapters/
 │           ├── inbound/http/                    # Express 라우트 핸들러 (REST + SSE)
@@ -85,7 +87,8 @@ packages/
 │           │   ├── settings.routes.ts           # 설정 조회/저장 + 연결 테스트
 │           │   ├── backup.routes.ts            # 백업 내보내기/가져오기
 │           │   ├── models.routes.ts             # 모델 목록 조회
-│           │   └── mcp-server.routes.ts         # MCP 서버 CRUD + 상태/로그/리로드
+│           │   ├── mcp-server.routes.ts         # MCP 서버 CRUD + 상태/로그/리로드
+│           │   └── memory.routes.ts            # 메모리 조회/삭제/편집
 │           └── outbound/
 │               ├── persistence/sqlite/          # SQLite 리포지토리
 │               │   ├── connection.ts            # DB 연결 (WAL 모드, DCHAT_DB_PATH 오버라이드)
@@ -130,7 +133,7 @@ packages/
 │       ├── entities/                            # 비즈니스 엔티티 (api/ + model/ + index.ts barrel)
 │       │   ├── session/                         # sessionApi, chatApi, useSessionStore
 │       │   ├── project/                         # projectApi, useProjectStore
-│       │   ├── settings/                        # settingsApi, backupApi, useSettingsStore
+│       │   ├── settings/                        # settingsApi, backupApi, memoryApi, useSettingsStore
 │       │   └── mcp/                             # mcpApi, useMcpStore (MCP 서버 관리)
 │       └── shared/                              # 인프라, 유틸
 │           ├── api/                             # client.ts (apiFetch, apiSSE), models.api.ts
@@ -158,7 +161,7 @@ Frontend: chat.store.sendMessage(content, attachments?)
           1. sessionRepo.findById(sessionId)
           2. messageRepo.save(userMessage)
           3. messageRepo.findBySessionId(sessionId)  // 히스토리
-          4. buildSystemPrompt(projectId)              // 프로젝트 지침 + 글로벌 지침
+          4. buildSystemPrompt(projectId, content, sessionId)  // 프로젝트 지침 + 글로벌 지침 + 메모리/채팅검색
           5. llmResolver.getGateway(session.model)     // Anthropic or OpenAI
           6. gateway.streamChat(history, options, signal)
              → 각 chunk마다 onChunk 콜백 호출

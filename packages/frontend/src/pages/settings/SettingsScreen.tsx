@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { X, ChevronDown, Shield, ExternalLink, RefreshCw, Eye, EyeOff, Loader2, Check, Upload, Download, Trash2, Play, Square, RotateCw, FileText, FolderOpen, Search, Brain, Plus, Monitor, MoreHorizontal, ChevronLeft, AlertTriangle } from 'lucide-react'
+import { X, ChevronDown, Shield, ExternalLink, RefreshCw, Eye, EyeOff, Loader2, Check, Upload, Download, Trash2, Play, Square, RotateCw, FileText, FolderOpen, Search, Brain, Plus, Monitor, MoreHorizontal, ChevronLeft, AlertTriangle, ArrowRight } from 'lucide-react'
 import { useSettingsStore, settingsApi, memoryApi } from '@/entities/settings'
 import { useSessionStore } from '@/entities/session'
 import { useMcpStore, mcpApi } from '@/entities/mcp'
@@ -972,21 +972,178 @@ function ProviderCard({
   )
 }
 
+function DeleteMemoryModal({
+  open,
+  onClose,
+  onConfirm
+}: {
+  open: boolean
+  onClose: () => void
+  onConfirm: () => void
+}): React.JSX.Element | null {
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [open, onClose])
+
+  if (!open) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+      <div className="w-[420px] rounded-xl bg-white dark:bg-neutral-800 shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
+        <h2 className="text-base font-semibold mb-2">기억 초기화</h2>
+        <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-6">
+          프로젝트 메모리를 포함한 모든 메모리가 영구적으로 삭제됩니다. 이 작업은 되돌릴 수 없습니다.
+        </p>
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium rounded-lg border border-neutral-300 dark:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors"
+          >
+            취소
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="px-4 py-2 text-sm font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors"
+          >
+            기억 초기화
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function MemoryManageModal({
+  open,
+  onClose,
+  memoryContent,
+  onMemoryChange
+}: {
+  open: boolean
+  onClose: () => void
+  memoryContent: string
+  onMemoryChange: (content: string) => void
+}): React.JSX.Element | null {
+  const selectedModel = useSettingsStore((s) => s.selectedModel)
+  const [instruction, setInstruction] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape' && !loading) onClose() }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [open, onClose, loading])
+
+  if (!open) return null
+
+  const sections = memoryContent
+    ? memoryContent.split(/^(?=## )/m).filter((s) => s.trim())
+    : []
+
+  const handleSubmit = async () => {
+    if (!instruction.trim() || loading) return
+    setLoading(true)
+    try {
+      const result = await memoryApi.edit({ instruction: instruction.trim(), model: selectedModel })
+      onMemoryChange(result.content)
+      setInstruction('')
+    } catch {
+      // silently ignore
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => { if (!loading) onClose() }}>
+      <div className="w-[560px] max-h-[80vh] flex flex-col rounded-xl bg-white dark:bg-neutral-800 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 pt-5 pb-2">
+          <h2 className="text-base font-semibold">기억 관리</h2>
+          <button
+            type="button"
+            onClick={() => { if (!loading) onClose() }}
+            className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200"
+          >
+            <X size={18} />
+          </button>
+        </div>
+        <p className="px-6 pb-4 text-sm text-neutral-500 dark:text-neutral-400">
+          D Chat이 당신에 대해 기억하고 있는 내용입니다!
+        </p>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto px-6">
+          {sections.length === 0 ? (
+            <div className="text-center py-8 text-sm text-neutral-400 dark:text-neutral-500">
+              저장된 기억이 없습니다
+            </div>
+          ) : (
+            <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 p-4 space-y-4">
+              {sections.map((section, i) => {
+                const lines = section.trim().split('\n')
+                const header = lines[0].replace(/^## /, '')
+                const body = lines.slice(1).join('\n').trim()
+                return (
+                  <div key={i}>
+                    <p className="text-sm font-semibold mb-1">{header}</p>
+                    {body && <p className="text-sm text-neutral-600 dark:text-neutral-400 whitespace-pre-wrap">{body}</p>}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Input bar */}
+        <div className="px-6 py-4">
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={instruction}
+              onChange={(e) => setInstruction(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleSubmit() }}
+              placeholder="D Chat에게 기억하거나 잊어야 할 것을 알려주세요..."
+              className="flex-1 text-sm px-3 py-2 rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 outline-none focus:ring-2 focus:ring-primary-500"
+              disabled={loading}
+            />
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={!instruction.trim() || loading}
+              className="p-2 rounded-lg bg-primary text-white hover:bg-primary/90 disabled:opacity-50 transition-colors"
+            >
+              {loading ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function FeaturesContent(): React.JSX.Element {
   const memoryEnabled = useSettingsStore((s) => s.memoryEnabled)
   const chatSearchEnabled = useSettingsStore((s) => s.chatSearchEnabled)
   const setMemoryEnabled = useSettingsStore((s) => s.setMemoryEnabled)
   const setChatSearchEnabled = useSettingsStore((s) => s.setChatSearchEnabled)
 
-  const [memoryData, setMemoryData] = useState<{ shortTerm: string; longTerm: string; updatedAt: string | null } | null>(null)
-  const [memoryExpanded, setMemoryExpanded] = useState(false)
+  const [memoryData, setMemoryData] = useState<{ content: string; updatedAt: string | null } | null>(null)
+  const [memoryModalOpen, setMemoryModalOpen] = useState(false)
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [skillTab, setSkillTab] = useState<'mine' | 'examples'>('mine')
 
   useEffect(() => {
     memoryApi.get().then(setMemoryData).catch(() => {})
   }, [])
 
-  const hasMemory = memoryData && (memoryData.shortTerm || memoryData.longTerm)
+  const hasMemory = memoryData && memoryData.content
 
   return (
     <div className="space-y-6">
@@ -1024,40 +1181,31 @@ function FeaturesContent(): React.JSX.Element {
       {hasMemory && (
         <button
           type="button"
-          onClick={() => setMemoryExpanded(!memoryExpanded)}
-          className="w-full text-left rounded-lg border border-neutral-200 dark:border-neutral-700 p-4 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+          onClick={() => setMemoryModalOpen(true)}
+          className="w-full text-left rounded-lg border border-neutral-200 dark:border-neutral-700 p-3 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
         >
-          <div className="flex items-center justify-between">
-            <div>
+          <div className="flex items-center gap-3">
+            {/* 미리보기 박스 */}
+            <div className="w-20 h-14 rounded-lg bg-neutral-100 dark:bg-neutral-700 overflow-hidden p-2 shrink-0">
+              <p className="text-[6px] leading-tight text-neutral-500 dark:text-neutral-400 overflow-hidden" style={{ display: '-webkit-box', WebkitLineClamp: 5, WebkitBoxOrient: 'vertical' }}>
+                {memoryData.content}
+              </p>
+            </div>
+            <div className="flex-1 min-w-0">
               <p className="text-sm font-medium">채팅에서 얻은 메모리</p>
-              {memoryData.updatedAt && (
-                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-                  {formatRelativeTime(memoryData.updatedAt)}에 업데이트됨
-                </p>
-              )}
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">기억 보기 및 편집</p>
             </div>
-            <ChevronDown
-              size={16}
-              className={`text-neutral-400 transition-transform ${memoryExpanded ? 'rotate-180' : ''}`}
-            />
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                setDeleteModalOpen(true)
+              }}
+              className="p-1.5 rounded-md text-neutral-400 hover:text-red-500 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
+            >
+              <Trash2 size={16} />
+            </button>
           </div>
-
-          {memoryExpanded && (
-            <div className="mt-3 space-y-3" onClick={(e) => e.stopPropagation()}>
-              {memoryData.longTerm && (
-                <div>
-                  <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-1">장기 기억</p>
-                  <p className="text-sm text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap">{memoryData.longTerm}</p>
-                </div>
-              )}
-              {memoryData.shortTerm && (
-                <div>
-                  <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-1">단기 기억</p>
-                  <p className="text-sm text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap">{memoryData.shortTerm}</p>
-                </div>
-              )}
-            </div>
-          )}
         </button>
       )}
 
@@ -1119,6 +1267,27 @@ function FeaturesContent(): React.JSX.Element {
           아직 추가한 스킬이 없습니다
         </div>
       </div>
+
+      {/* Modals */}
+      <DeleteMemoryModal
+        open={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        onConfirm={async () => {
+          try {
+            await memoryApi.delete()
+            setMemoryData({ content: '', updatedAt: null })
+          } catch { /* ignore */ }
+          setDeleteModalOpen(false)
+        }}
+      />
+      <MemoryManageModal
+        open={memoryModalOpen}
+        onClose={() => setMemoryModalOpen(false)}
+        memoryContent={memoryData?.content ?? ''}
+        onMemoryChange={(content) => {
+          setMemoryData((prev) => ({ content, updatedAt: prev?.updatedAt ?? null }))
+        }}
+      />
     </div>
   )
 }

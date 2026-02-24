@@ -199,4 +199,118 @@ describe('features settings E2E', () => {
     )
     expect(hasEmptyMsg).toBe(true)
   }, 30_000)
+
+  it('메모리 카드 클릭 → 기억 관리 모달 열림 확인', async () => {
+    // Seed memory data via settings API using Vite proxy
+    await vibe.evaluate(`
+      fetch('/api/settings/memory_content', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value: '## Work context\\n프론트엔드 개발자\\n\\n## Personal context\\n홍길동\\n\\n## Top of mind\\n메모리 기능 개발\\n\\n## Brief history\\n이전 작업 기록' })
+      });
+      return true;
+    `)
+    await new Promise((r) => setTimeout(r, 1000))
+
+    // Switch tabs to force FeaturesContent remount and re-fetch
+    await vibe.evaluate(
+      'const tab = [...document.querySelectorAll("button")].find(b => b.textContent.trim() === "연결"); if (tab) tab.click();'
+    )
+    await new Promise((r) => setTimeout(r, 500))
+    await vibe.evaluate(
+      'const tab = [...document.querySelectorAll("button")].find(b => b.textContent.trim() === "기능"); if (tab) tab.click();'
+    )
+    await new Promise((r) => setTimeout(r, 1500))
+
+    // Click memory card (button with "채팅에서 얻은 메모리")
+    const cardClicked = await vibe.evaluate<boolean>(`
+      const card = [...document.querySelectorAll('button')].find(b => b.textContent.includes('채팅에서 얻은 메모리'));
+      if (card) { card.click(); return true; }
+      return false;
+    `)
+    expect(cardClicked).toBe(true)
+    await new Promise((r) => setTimeout(r, 500))
+
+    // Verify "기억 관리" modal is open
+    const modalTitle = await vibe.evaluate<string>(`
+      const h = [...document.querySelectorAll('h2')].find(el => el.textContent.includes('기억 관리'));
+      return h ? h.textContent : '';
+    `)
+    expect(modalTitle).toContain('기억 관리')
+
+    // Verify memory sections are rendered
+    const hasWorkContext = await vibe.evaluate<boolean>(
+      'return !!document.body.textContent.includes("Work context")'
+    )
+    expect(hasWorkContext).toBe(true)
+  }, 30_000)
+
+  it('기억 관리 모달 X 버튼 클릭 시 닫힘 확인', async () => {
+    // Close modal via X button (inside the "기억 관리" modal header)
+    await vibe.evaluate(`
+      const modal = [...document.querySelectorAll('h2')].find(el => el.textContent.includes('기억 관리'));
+      if (modal) {
+        const container = modal.closest('.flex.items-center.justify-between');
+        if (container) {
+          const btn = container.querySelector('button');
+          if (btn) btn.click();
+        }
+      }
+    `)
+    await new Promise((r) => setTimeout(r, 500))
+
+    // Verify modal is closed
+    const modalGone = await vibe.evaluate<boolean>(`
+      const h = [...document.querySelectorAll('h2')].find(el => el.textContent.includes('기억 관리'));
+      return !h;
+    `)
+    expect(modalGone).toBe(true)
+  }, 30_000)
+
+  it('삭제 아이콘 → 기억 초기화 확인 모달 → 취소 동작 확인', async () => {
+    // Click trash icon (Trash2) on the memory card — it's a button inside the card
+    const trashClicked = await vibe.evaluate<boolean>(`
+      const card = [...document.querySelectorAll('button')].find(b => b.textContent.includes('채팅에서 얻은 메모리'));
+      if (!card) return false;
+      const trashBtn = card.querySelector('button');
+      if (trashBtn) { trashBtn.click(); return true; }
+      return false;
+    `)
+    expect(trashClicked).toBe(true)
+    await new Promise((r) => setTimeout(r, 500))
+
+    // Verify "기억 초기화" confirmation modal is open
+    const confirmTitle = await vibe.evaluate<string>(`
+      const h = [...document.querySelectorAll('h2')].find(el => el.textContent.includes('기억 초기화'));
+      return h ? h.textContent : '';
+    `)
+    expect(confirmTitle).toContain('기억 초기화')
+
+    // Click "취소" button
+    await vibe.evaluate(`
+      const cancelBtn = [...document.querySelectorAll('button')].find(b => b.textContent.trim() === '취소');
+      if (cancelBtn) cancelBtn.click();
+    `)
+    await new Promise((r) => setTimeout(r, 500))
+
+    // Verify confirmation modal is closed
+    const confirmGone = await vibe.evaluate<boolean>(`
+      const h = [...document.querySelectorAll('h2')].find(el => el.textContent.includes('기억 초기화'));
+      return !h;
+    `)
+    expect(confirmGone).toBe(true)
+
+    // Memory card should still be visible
+    const cardStillThere = await vibe.evaluate<boolean>(`
+      return !![...document.querySelectorAll('button')].find(b => b.textContent.includes('채팅에서 얻은 메모리'));
+    `)
+    expect(cardStillThere).toBe(true)
+
+    // Cleanup: remove seeded memory
+    await vibe.evaluate(`
+      fetch('/api/memory', { method: 'DELETE' });
+      return true;
+    `)
+    await new Promise((r) => setTimeout(r, 300))
+  }, 30_000)
 })
