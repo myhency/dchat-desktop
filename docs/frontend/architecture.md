@@ -56,7 +56,7 @@ src/
 │   └── artifact-panel/                  # ArtifactPanel
 ├── features/                            # 사용자 인터랙션
 │   ├── search/                          # SearchModal
-│   └── manage-project/                  # ProjectContextMenu
+│   └── manage-project/                  # ProjectContextMenu, MoveToProjectModal
 ├── entities/                            # 비즈니스 엔티티 (api/ + model/ + index.ts barrel)
 │   ├── session/                         # sessionApi, chatApi, useSessionStore
 │   ├── project/                         # projectApi, useProjectStore

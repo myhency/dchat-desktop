@@ -77,6 +77,45 @@ onKeyDown={(e) => {
 - **query 변경 시**: `selectedIndex`를 0으로 리셋 (`handleQueryChange` 래퍼)
 - **React hooks 순서**: 모든 `useEffect`/`useCallback`은 early return (`if (!searchOpen) return null`) 위에 배치
 
+## 컨텍스트 메뉴 → 모달 브릿지 패턴
+
+사이드바 컨텍스트 메뉴에서 모달을 열어야 할 때, 중간 상태(`moveToProjectSessionId`)를 사용하여 메뉴 닫기 → 모달 열기를 분리:
+
+```tsx
+// Sidebar.tsx
+const [moveToProjectSessionId, setMoveToProjectSessionId] = useState<string | null>(null)
+
+// 컨텍스트 메뉴 콜백: 메뉴 닫기 + 대상 ID 설정
+onMoveToProject={() => {
+  setMoveToProjectSessionId(menuSessionId)
+  setMenuSessionId(null)      // 메뉴 닫기
+  setMenuAnchor(null)
+}}
+
+// 모달: 대상 ID 존재 여부로 open 제어
+<MoveToProjectModal
+  open={moveToProjectSessionId !== null}
+  onSelect={(projectId) => {
+    updateSessionProjectId(moveToProjectSessionId!, projectId)
+    setMoveToProjectSessionId(null)  // 모달 닫기
+  }}
+/>
+```
+
+- 컨텍스트 메뉴와 모달이 동시에 열리지 않도록 메뉴를 먼저 닫고 모달 대상 ID를 설정
+- `SessionContextMenu`의 `projectId` prop에 따라 메뉴 항목이 조건부 렌더링됨 (`null` → "프로젝트에 추가", 非null → "프로젝트 변경" + "프로젝트에서 제거")
+
+## MoveToProjectModal
+
+`packages/frontend/src/features/manage-project/ui/MoveToProjectModal.tsx`
+
+SearchModal과 동일한 UI 패턴을 따르는 프로젝트 선택 모달:
+
+- **키보드 네비게이션**: `selectedIndex` + ArrowUp/Down/Enter/Escape (SearchModal과 동일)
+- **필터링**: `useProjectStore.projects`를 query로 클라이언트 사이드 필터링
+- **현재 프로젝트 제외**: `currentProjectId`와 일치하는 프로젝트는 리스트에서 제외
+- **props 기반 open/close**: SearchModal과 달리 스토어가 아닌 부모 컴포넌트의 상태로 제어 (`open`, `onClose`, `onSelect`)
+
 ## HomeScreen
 
 `packages/frontend/src/pages/home/HomeScreen.tsx`
