@@ -1,11 +1,14 @@
 import { useEffect, useRef } from 'react'
-import { Star, Pencil, FolderPlus, Trash2 } from 'lucide-react'
+import { Star, Pencil, FolderPlus, FolderSync, FolderMinus, Trash2 } from 'lucide-react'
 
 interface SessionContextMenuProps {
   anchorEl: HTMLElement
   isFavorite: boolean
+  projectId: string | null
   onToggleFavorite: () => void
   onRename: () => void
+  onMoveToProject: () => void
+  onRemoveFromProject: () => void
   onDelete: () => void
   onClose: () => void
 }
@@ -13,8 +16,11 @@ interface SessionContextMenuProps {
 export function SessionContextMenu({
   anchorEl,
   isFavorite,
+  projectId,
   onToggleFavorite,
   onRename,
+  onMoveToProject,
+  onRemoveFromProject,
   onDelete,
   onClose
 }: SessionContextMenuProps): React.JSX.Element {
@@ -52,13 +58,33 @@ export function SessionContextMenu({
         <Pencil size={16} />
         이름 변경
       </button>
-      <button
-        className="flex w-full items-center gap-2 px-3 py-1.5 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
-        onClick={onClose}
-      >
-        <FolderPlus size={16} />
-        프로젝트에 추가
-      </button>
+      {projectId === null ? (
+        <button
+          className="flex w-full items-center gap-2 px-3 py-1.5 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
+          onClick={onMoveToProject}
+        >
+          <FolderPlus size={16} />
+          프로젝트에 추가
+        </button>
+      ) : (
+        <>
+          <button
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
+            onClick={onMoveToProject}
+          >
+            <FolderSync size={16} />
+            프로젝트 변경
+          </button>
+          <button
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-sm hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
+            onClick={onRemoveFromProject}
+          >
+            <FolderMinus size={16} />
+            프로젝트에서 제거
+          </button>
+          <hr className="my-1 border-neutral-200 dark:border-neutral-700" />
+        </>
+      )}
       <button
         className="flex w-full items-center gap-2 px-3 py-1.5 text-sm text-red-500 hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
         onClick={onDelete}

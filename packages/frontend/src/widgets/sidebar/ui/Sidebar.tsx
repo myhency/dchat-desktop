@@ -3,6 +3,7 @@ import { Plus, Search, FolderOpen, MoreHorizontal, MessageSquare, ChevronsUpDown
 import { useSessionStore } from '@/entities/session'
 import { useProjectStore } from '@/entities/project'
 import { useSettingsStore } from '@/entities/settings'
+import { MoveToProjectModal } from '@/features/manage-project'
 import { SessionContextMenu } from './SessionContextMenu'
 import { SettingsMenu } from './SettingsMenu'
 
@@ -18,6 +19,7 @@ export function Sidebar(): React.JSX.Element {
   const openProjects = useSessionStore((s) => s.openProjects)
   const toggleSessionFavorite = useSessionStore((s) => s.toggleSessionFavorite)
   const streamingSessionIds = useSessionStore((s) => s.streamingSessionIds)
+  const updateSessionProjectId = useSessionStore((s) => s.updateSessionProjectId)
   const projects = useProjectStore((s) => s.projects)
   const selectProject = useProjectStore((s) => s.selectProject)
   const openSettings = useSettingsStore((s) => s.openSettings)
@@ -33,6 +35,7 @@ export function Sidebar(): React.JSX.Element {
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null)
   const [editingTitle, setEditingTitle] = useState('')
   const [settingsMenuAnchor, setSettingsMenuAnchor] = useState<HTMLElement | null>(null)
+  const [moveToProjectSessionId, setMoveToProjectSessionId] = useState<string | null>(null)
 
   const handleNewSession = () => {
     closeSettings()
@@ -196,6 +199,7 @@ export function Sidebar(): React.JSX.Element {
         <SessionContextMenu
           anchorEl={menuAnchor}
           isFavorite={sessions.find((s) => s.id === menuSessionId)?.isFavorite ?? false}
+          projectId={sessions.find((s) => s.id === menuSessionId)?.projectId ?? null}
           onToggleFavorite={() => {
             toggleSessionFavorite(menuSessionId)
             setMenuSessionId(null)
@@ -207,6 +211,16 @@ export function Sidebar(): React.JSX.Element {
               setEditingSessionId(menuSessionId)
               setEditingTitle(session.title)
             }
+            setMenuSessionId(null)
+            setMenuAnchor(null)
+          }}
+          onMoveToProject={() => {
+            setMoveToProjectSessionId(menuSessionId)
+            setMenuSessionId(null)
+            setMenuAnchor(null)
+          }}
+          onRemoveFromProject={() => {
+            updateSessionProjectId(menuSessionId, null)
             setMenuSessionId(null)
             setMenuAnchor(null)
           }}
@@ -230,6 +244,19 @@ export function Sidebar(): React.JSX.Element {
           onClose={() => setSettingsMenuAnchor(null)}
         />
       )}
+
+      {/* Move to project modal */}
+      <MoveToProjectModal
+        open={moveToProjectSessionId !== null}
+        onClose={() => setMoveToProjectSessionId(null)}
+        onSelect={(projectId) => {
+          if (moveToProjectSessionId) {
+            updateSessionProjectId(moveToProjectSessionId, projectId)
+          }
+          setMoveToProjectSessionId(null)
+        }}
+        currentProjectId={moveToProjectSessionId ? (sessions.find((s) => s.id === moveToProjectSessionId)?.projectId ?? null) : null}
+      />
 
       {/* Bottom fixed area: Profile */}
       <div
