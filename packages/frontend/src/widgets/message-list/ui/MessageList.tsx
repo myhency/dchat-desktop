@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowDown } from 'lucide-react'
-import { useSessionStore } from '@/entities/session'
+import { useSessionStore, type StreamingSegment } from '@/entities/session'
 import { MessageBubble } from './MessageBubble'
 import { StreamingIndicator } from './StreamingIndicator'
 import { ToolCallBlock } from './ToolCallBlock'
 
 const NEAR_BOTTOM_THRESHOLD = 50
+const EMPTY_SEGMENTS: StreamingSegment[] = []
 
 export function MessageList(): React.JSX.Element {
   const messages = useSessionStore((s) => s.messages)
-  const streamingSegments = useSessionStore((s) => s.streamingSegments[s.currentSessionId ?? ''] ?? [])
+  const streamingSegments = useSessionStore((s) => s.streamingSegments[s.currentSessionId ?? ''] ?? EMPTY_SEGMENTS)
   const isStreaming = useSessionStore((s) => s.streamingSessionIds.has(s.currentSessionId ?? ''))
   const error = useSessionStore((s) => s.error)
   const regenerateMessage = useSessionStore((s) => s.regenerateMessage)
