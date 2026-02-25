@@ -165,6 +165,61 @@ describe('ChatService', () => {
       .rejects.toThrow('Session not found: nonexistent')
   })
 
+  it('도구가 있을 때 system prompt에 tool_usage_guidelines가 포함됨', async () => {
+    let capturedOptions: ChatOptions | undefined
+    const rawGateway: LLMGateway = {
+      async *streamChat() { /* unused */ },
+      async *streamChatRaw(_messages: LLMMessage[], options: ChatOptions): AsyncGenerator<ExtendedStreamChunk, LLMStreamResult> {
+        capturedOptions = options
+        yield { type: 'text', content: 'Hi' }
+        return { textContent: 'Hi', toolUseBlocks: [], stopReason: 'end_turn' }
+      },
+      listModels: () => []
+    }
+
+    const mcpClient: McpClientGateway = {
+      startServer: vi.fn(async () => {}),
+      stopServer: vi.fn(async () => {}),
+      getServerStatus: vi.fn(() => 'running' as const),
+      getServerTools: vi.fn(() => []),
+      getAllTools: vi.fn(() => [{ name: 'write_file', description: 'Write a file', inputSchema: {}, serverId: 'fs' }]),
+      callTool: vi.fn(async () => ({ content: '', isError: false })),
+      getServerLogs: vi.fn(() => []),
+      shutdownAll: vi.fn(async () => {})
+    }
+
+    llmResolver = { getGateway: () => rawGateway, listAllModels: () => [], configureProvider: () => {}, testConnection: async () => {} }
+    chatService = new ChatService(messageRepo, sessionRepo, llmResolver, settingsRepo, projectRepo, mcpClient)
+
+    await chatService.execute('s1', 'Hello', [], vi.fn())
+
+    expect(capturedOptions?.systemPrompt).toContain('<tool_usage_guidelines>')
+    expect(capturedOptions?.systemPrompt).toContain('명시적으로 요청')
+  })
+
+  it('도구가 없을 때 system prompt에 tool_usage_guidelines가 포함되지 않음', async () => {
+    let capturedOptions: ChatOptions | undefined
+    const gateway: LLMGateway = {
+      async *streamChat(_messages: Message[], options: ChatOptions) {
+        capturedOptions = options
+        yield { type: 'text' as const, content: 'Hi' }
+        yield { type: 'done' as const, content: '' }
+      },
+      listModels: () => []
+    }
+
+    llmResolver = { getGateway: () => gateway, listAllModels: () => [], configureProvider: () => {}, testConnection: async () => {} }
+    chatService = new ChatService(messageRepo, sessionRepo, llmResolver, settingsRepo, projectRepo)
+
+    await chatService.execute('s1', 'Hello', [], vi.fn())
+
+    // No tools → systemPrompt should be undefined (no project, no custom instructions)
+    // or if defined, should not contain tool guidelines
+    if (capturedOptions?.systemPrompt) {
+      expect(capturedOptions.systemPrompt).not.toContain('<tool_usage_guidelines>')
+    }
+  })
+
   it('MCP tool use: 모든 iteration의 텍스트가 누적되어 저장됨', async () => {
     // streamChatRaw: 1회차 → text + tool_use, 2회차 → text + end
     let callCount = 0

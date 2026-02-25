@@ -55,7 +55,7 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
     // Check for available MCP tools
     const allTools = (await this.mcpClient?.getAllTools()) ?? []
     const gateway = this.llmResolver.getGateway(session.model)
-    const systemPrompt = await this.buildSystemPrompt(session.projectId ?? null, content, sessionId)
+    const systemPrompt = await this.buildSystemPrompt(session.projectId ?? null, content, sessionId, allTools.length > 0)
     const options: ChatOptions = { model: session.model, systemPrompt: systemPrompt || undefined }
 
     // If tools available and gateway supports raw streaming, use agentic loop
@@ -270,7 +270,7 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
     // Check for tools
     const allTools = (await this.mcpClient?.getAllTools()) ?? []
     const gateway = this.llmResolver.getGateway(session.model)
-    const systemPrompt = await this.buildSystemPrompt(session.projectId ?? null)
+    const systemPrompt = await this.buildSystemPrompt(session.projectId ?? null, undefined, undefined, allTools.length > 0)
     const options: ChatOptions = { model: session.model, systemPrompt: systemPrompt || undefined }
 
     let assistantContent = ''
@@ -384,7 +384,7 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
     await this.messageRepo.updateContent(messageId, content)
   }
 
-  private async buildSystemPrompt(projectId: string | null, userQuery?: string, excludeSessionId?: string): Promise<string> {
+  private async buildSystemPrompt(projectId: string | null, userQuery?: string, excludeSessionId?: string, hasTools?: boolean): Promise<string> {
     const parts: string[] = []
 
     if (projectId) {
@@ -411,6 +411,16 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
       if (memoryContext) {
         parts.push(memoryContext)
       }
+    }
+
+    if (hasTools) {
+      parts.push(
+        '<tool_usage_guidelines>\n' +
+        '- 파일시스템 도구(write_file, edit_file, create_directory 등)는 사용자가 파일 생성, 수정, 저장을 **명시적으로 요청**할 때만 사용하세요.\n' +
+        '- 코드 작성, 설명, 분석 등 일반적인 요청에는 채팅 메시지로 답변하세요. 파일을 만들지 마세요.\n' +
+        '- 파일 읽기 도구(read_text_file, list_directory 등)는 사용자가 특정 파일이나 디렉토리에 대해 질문할 때 사용할 수 있습니다.\n' +
+        '</tool_usage_guidelines>'
+      )
     }
 
     return parts.join('\n\n')
