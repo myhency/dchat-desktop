@@ -56,13 +56,16 @@ async function startBackend(): Promise<number> {
   const isDev = !app.isPackaged
   const port = isDev ? 3131 : await findAvailablePort()
 
-  const dbPath = join(app.getPath('userData'), 'hchat.db')
-
-  const commonEnv = {
-    ...process.env,
+  const commonEnv: Record<string, string> = {
+    ...(process.env as Record<string, string>),
     PORT: String(port),
-    DCHAT_DB_PATH: dbPath,
     DCHAT_LOG_PATH: logFilePath
+  }
+
+  // 프로덕션에서만 Electron userData 경로 사용. dev에서는 백엔드 폴백(~/.dchat/dchat.db) 사용하여
+  // npm run dev (웹 모드)와 동일한 DB를 공유.
+  if (!isDev) {
+    commonEnv.DCHAT_DB_PATH = join(app.getPath('userData'), 'dchat.db')
   }
 
   if (isDev) {

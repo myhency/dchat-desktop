@@ -134,16 +134,16 @@ export function MessageList(): React.JSX.Element {
           />
         ))}
 
+        {isStreaming && streamingContent && (
+          <MessageBubble role="assistant" content={streamingContent} isStreaming />
+        )}
+
         {isStreaming && activeToolCalls.length > 0 && (
           <div className="space-y-1">
             {activeToolCalls.map((tc) => (
               <ToolCallBlock key={tc.toolUseId} toolCall={tc} />
             ))}
           </div>
-        )}
-
-        {isStreaming && streamingContent && (
-          <MessageBubble role="assistant" content={streamingContent} isStreaming />
         )}
 
         {isStreaming && !streamingContent && activeToolCalls.length === 0 && <StreamingIndicator />}

@@ -178,12 +178,11 @@ export const useSessionStore = create<ChatState>((set, get) => ({
       onToolConfirm: (data) => {
         if (sessionId !== get().currentSessionId) return
         set((s) => ({
-          activeToolCalls: [...s.activeToolCalls, {
-            toolUseId: data.toolUseId,
-            toolName: data.toolName,
-            toolInput: data.toolInput,
-            status: 'confirming' as const
-          }]
+          activeToolCalls: s.activeToolCalls.map((tc) =>
+            tc.toolUseId === data.toolUseId
+              ? { ...tc, status: 'confirming' as const }
+              : tc
+          )
         }))
       },
       onEnd: (message) => {

@@ -2,6 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
+@keyframes blink-cursor {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.streaming-cursor::after {
+  content: '▍';
+  animation: blink-cursor 1s step-end infinite;
+  color: currentColor;
+  font-weight: normal;
+  margin-left: 1px;
+}
+
 @layer base {
   html {
     font-size: 18px;
