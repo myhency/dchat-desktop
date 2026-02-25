@@ -204,16 +204,18 @@ const stream = await this.client.chat.completions.create(
 
 ## 시스템 프롬프트 구성 (ChatService.buildSystemPrompt)
 
-`packages/backend/src/domain/services/chat.service.ts`의 `buildSystemPrompt(projectId, userQuery?, excludeSessionId?)`가 LLM에 전달할 system prompt를 조합:
+`packages/backend/src/domain/services/chat.service.ts`의 `buildSystemPrompt(projectId, userQuery?, excludeSessionId?, hasTools?)`가 LLM에 전달할 system prompt를 조합:
 
 1. `projectId`가 있으면 → `projectRepo.findById` → `project.instructions` (비어있지 않으면 추가)
 2. `settingsRepo.get('custom_instructions')` → 글로벌 커스텀 지침 (비어있지 않으면 추가)
 3. `memoryService.buildMemoryContext(userQuery, excludeSessionId)` → 메모리 + 과거 대화 검색 결과 (활성화 시)
 4. `memoryService.buildProjectMemoryContext(projectId)` → 프로젝트 메모리 (`<project_memory>` 태그, 비어있으면 생략)
-5. 모든 파트를 `"\n\n"`으로 결합 (프로젝트 지침 → 프로젝트 메모리 → 글로벌 지침 → 메모리 컨텍스트 순서)
+5. `hasTools`가 true이면 → `<tool_usage_guidelines>` 블록 추가 (파일시스템 도구의 명시적 요청 시에만 사용하도록 제한)
+6. 모든 파트를 `"\n\n"`으로 결합 (프로젝트 지침 → 프로젝트 메모리 → 글로벌 지침 → 메모리 컨텍스트 → 도구 가이드라인 순서)
 
 - **적용 범위**: `execute()`, `regenerate()` — 사용자 채팅에만 적용
 - **미적용**: `generateTitle()` — 자체 하드코딩된 프롬프트 사용, `buildSystemPrompt` 호출하지 않음
+- **도구 가이드라인**: `allTools.length > 0`일 때 `hasTools=true`로 전달. LLM이 도구 존재만으로 파일을 생성하지 않도록 명시적 요청 시에만 사용하라는 지침 포함
 - **수정 시 주의**: `buildSystemPrompt`는 도메인 서비스 내부 private 메서드. `ProjectRepository`를 생성자에서 주입받음 (`container.ts`에서 5번째 인자)
 
 ## MemoryService
