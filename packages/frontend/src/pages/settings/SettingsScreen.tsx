@@ -1690,6 +1690,8 @@ function ExtensionsContent({ onNavigate }: { onNavigate: (tab: Tab) => void }): 
         } catch { /* ignore */ }
       }
       setLoaded(true)
+    }).catch(() => {
+      setLoaded(true)
     })
     fetchBuiltinStatus()
   }, [fetchBuiltinStatus])
