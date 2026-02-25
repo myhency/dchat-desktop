@@ -245,6 +245,9 @@ const keepCount = target.role === 'user' ? targetIndex + 1 : targetIndex
 - `handleSave`: `directories.filter(d => d.trim())`로 빈 행 제거 후 JSON으로 저장
 - `hasDirectories` 판별: `directories.filter(d => d.trim()).length > 0` (빈 행이 있을 수 있으므로 length 비교)
 - Shell 토글: `shellEnabled` boolean → `"true"/"false"` 문자열로 저장
+- **상태 표시**: `builtinStatus` 상태로 `settingsApi.getBuiltinToolsStatus()` fetch → Filesystem 카드에 색상 dot + 라벨 (`실행 중`/`오류`/`비활성화`). `handleSave` 후에도 재fetch (`fetchBuiltinStatus()`).
+- **에러 배너**: `builtinStatus.errors`가 있으면 filesystem 설정 뷰에서 접근 불가 디렉토리 목록을 빨간 배너로 표시
+- **에러 핸들링**: `useEffect`의 `Promise.all([...]).catch(() => { setLoaded(true) })` — API 실패 시에도 loaded 상태 설정하여 무한 로딩 방지
 
 ## 도구 확인 UI (ToolCallBlock)
 
@@ -257,6 +260,7 @@ const keepCount = target.role === 'user' ? targetIndex + 1 : targetIndex
   - 승인 시: `status → 'calling'` (도구 실행 계속)
   - 거부 시: `status → 'error'`, `result: 'User denied the tool execution.'`
 - **SSE 이벤트**: `onToolConfirm` 콜백으로 `activeToolCalls`에서 동일 `toolUseId`를 가진 기존 항목의 `status`를 `'confirming'`으로 업데이트 (새 항목 추가가 아님)
+- **렌더링 순서 제약** (`MessageList.tsx`): 스트리밍 텍스트 버블을 tool blocks **위에** 렌더링해야 함. tool blocks가 최하단에 위치해야 auto-scroll 영역에서 확인 버튼이 보임. 순서가 반대면 스트리밍 텍스트가 tool blocks를 화면 밖으로 밀어내어 확인 버튼이 보이지 않고, 60초 타임아웃으로 자동 거부됨
 
 ## 메모리 관리 UI (FeaturesContent)
 
