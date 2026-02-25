@@ -1,4 +1,5 @@
 import { apiFetch } from '@/shared/api/client'
+import type { BuiltinToolsStatusDTO } from '@dchat/shared'
 
 export const settingsApi = {
   getAll: () => apiFetch<Record<string, string>>('/api/settings'),
@@ -16,5 +17,8 @@ export const settingsApi = {
     apiFetch<{ ok: boolean }>('/api/settings/connection-test', {
       method: 'POST',
       body: JSON.stringify({ provider })
-    })
+    }),
+
+  getBuiltinToolsStatus: () =>
+    apiFetch<BuiltinToolsStatusDTO>('/api/builtin-tools/status')
 }

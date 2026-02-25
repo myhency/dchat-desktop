@@ -3,10 +3,13 @@ import * as path from 'path'
 import type { BuiltInToolDef } from '../tool-registry'
 import { validatePath } from './path-utils'
 
-const MAX_RESULTS = 100
+interface TreeNode {
+  name: string
+  type: 'file' | 'directory'
+  children?: TreeNode[]
+}
 
 function matchesGlob(name: string, pattern: string): boolean {
-  // Convert simple glob pattern to regex
   const escaped = pattern
     .replace(/[.+^${}()|[\]\\]/g, '\\$&')
     .replace(/\*/g, '.*')
@@ -14,62 +17,58 @@ function matchesGlob(name: string, pattern: string): boolean {
   return new RegExp(`^${escaped}$`, 'i').test(name)
 }
 
-export const searchFilesTool: BuiltInToolDef = {
-  name: 'search_files',
-  description: 'Search for files matching a pattern in a directory tree. Returns matching file paths.',
+export const directoryTreeTool: BuiltInToolDef = {
+  name: 'directory_tree',
+  description: 'Get a recursive tree view of a directory structure as JSON. Excludes hidden files and node_modules by default.',
   inputSchema: {
     type: 'object',
     properties: {
-      path: { type: 'string', description: 'Base directory to search from' },
-      pattern: { type: 'string', description: 'Search pattern (substring match on file/directory names)' },
+      path: { type: 'string', description: 'Root directory for the tree' },
       excludePatterns: {
         type: 'array',
         description: 'Glob patterns for files/directories to exclude',
         items: { type: 'string' }
       }
     },
-    required: ['path', 'pattern']
+    required: ['path']
   },
   isDangerous: false,
   async execute(args, config) {
     const dirPath = args.path as string
-    const pattern = (args.pattern as string).toLowerCase()
     const excludePatterns = (args.excludePatterns as string[] | undefined) ?? []
     const validated = await validatePath(dirPath, config.allowedDirectories)
 
-    const results: string[] = []
-
-    async function walk(dir: string): Promise<void> {
-      if (results.length >= MAX_RESULTS) return
+    async function buildTree(dir: string): Promise<TreeNode[]> {
       let entries
       try {
         entries = await fs.readdir(dir, { withFileTypes: true })
       } catch {
-        return
+        return []
       }
+
+      const nodes: TreeNode[] = []
       for (const entry of entries) {
-        if (results.length >= MAX_RESULTS) break
         if (entry.name.startsWith('.')) continue
         if (entry.name === 'node_modules') continue
         if (excludePatterns.some((ep) => matchesGlob(entry.name, ep))) continue
 
-        const fullPath = path.join(dir, entry.name)
-        if (entry.name.toLowerCase().includes(pattern)) {
-          results.push(fullPath)
-        }
         if (entry.isDirectory()) {
-          await walk(fullPath)
+          const children = await buildTree(path.join(dir, entry.name))
+          nodes.push({ name: entry.name, type: 'directory', children })
+        } else {
+          nodes.push({ name: entry.name, type: 'file' })
         }
       }
+      return nodes
     }
 
-    await walk(validated)
-
-    if (results.length === 0) {
-      return { content: `No files matching "${args.pattern}" found in ${dirPath}`, isError: false }
+    const tree = await buildTree(validated)
+    const root: TreeNode = {
+      name: path.basename(validated),
+      type: 'directory',
+      children: tree
     }
 
-    const suffix = results.length >= MAX_RESULTS ? `\n... (truncated at ${MAX_RESULTS} results)` : ''
-    return { content: results.join('\n') + suffix, isError: false }
+    return { content: JSON.stringify(root, null, 2), isError: false }
   }
 }

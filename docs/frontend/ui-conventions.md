@@ -115,6 +115,25 @@ Assistant 버블 하단에 항상 표시되는 액션 바 (복사, 재생성):
 - **복사**: User 버블과 동일한 `copied` state 패턴
 - **재생성**: 모든 assistant 메시지에 표시 (마지막 메시지 제한 없음). `onRegenerate(id)` 호출
 
+### Flex 가로 레이아웃 min-w-0 체인
+
+CSS flex 아이템은 기본 `min-width: auto`로 콘텐츠 크기 이하로 줄어들지 못함. 코드 블록 등 넓은 콘텐츠가 flex 아이템을 밀어내어 사이드바 공간을 침범하거나 `overflow-x-auto`가 동작하지 않는 문제 발생.
+
+**해결**: 레이아웃 체인의 각 flex 아이템에 `min-w-0`을 추가하여 overflow가 전파되지 않도록 차단:
+
+```
+MainLayout (flex 가로)
+  └─ ChatPage: flex flex-1 flex-col min-w-0    ← 핵심 (사이드바 공간 보호)
+       └─ MessageList: overflow-y-auto
+            └─ MessageBubble: flex justify-start min-w-0
+                 └─ 콘텐츠: min-w-0
+                      └─ CodeBlock: w-full min-w-0
+                           └─ overflow-x-auto ✓
+```
+
+- **수정 시 주의**: 이 체인에서 하나라도 `min-w-0`을 빠뜨리면 긴 코드 블록이 사이드바를 밀어냄
+- 새로운 flex 래퍼를 이 체인 중간에 추가할 때 반드시 `min-w-0` 포함
+
 ### PromptInput 외부 패딩
 
 `py-4`만 사용 (좌우 패딩 없음). 좌우 여백은 내부 콘텐츠 div의 `mx-auto` + max-width로 제어. 외부에 `px-*`를 넣으면 MessageList와 너비 불일치 발생.

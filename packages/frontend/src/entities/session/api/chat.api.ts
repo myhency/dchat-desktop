@@ -61,9 +61,9 @@ export const chatApi = {
       body: JSON.stringify({ content })
     }),
 
-  confirmTool: (sessionId: string, toolUseId: string, approved: boolean) =>
+  confirmTool: (sessionId: string, toolUseId: string, approved: boolean, alwaysAllow?: boolean) =>
     apiFetch(`/api/chat/${sessionId}/tool-confirm`, {
       method: 'POST',
-      body: JSON.stringify({ toolUseId, approved })
+      body: JSON.stringify({ toolUseId, approved, alwaysAllow })
     })
 }

@@ -233,9 +233,6 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
       }
 
       messages.push({ role: 'user', content: toolResultBlocks })
-
-      // Reset text for next iteration (only keep final iteration's text)
-      finalText = ''
     }
 
     return finalText

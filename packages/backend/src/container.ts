@@ -36,6 +36,7 @@ export interface AppContainer {
   mcpServerService: McpServerService
   memoryService: MemoryService
   mcpClient: CompositeMcpClientGateway
+  builtInTools: BuiltInToolProvider
   llmFactory: LLMGatewayResolver
   restoreApiKeys(): Promise<void>
   startMcpServers(): Promise<void>
@@ -73,6 +74,7 @@ export function createContainer(): AppContainer {
     mcpServerService,
     memoryService,
     mcpClient,
+    builtInTools,
     llmFactory,
 
     async restoreApiKeys(): Promise<void> {

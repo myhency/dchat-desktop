@@ -165,6 +165,7 @@ export interface SSEToolConfirmEvent {
 export interface ToolConfirmRequest {
   toolUseId: string
   approved: boolean
+  alwaysAllow?: boolean
 }
 
 // ── Memory ──
@@ -189,6 +190,15 @@ export interface ProjectMemoryResponse {
 export interface EditProjectMemoryRequest {
   instruction: string
   model: string
+}
+
+// ── Built-in Tools ──
+
+export interface BuiltinToolsStatusDTO {
+  status: 'running' | 'error' | 'disabled'
+  toolCount: number
+  directories: string[]
+  errors: string[]
 }
 
 // ── Health ──

@@ -59,7 +59,7 @@ interface ChatState {
   closeProjects: () => void
   openArtifact: (code: string, title: string) => void
   closeArtifact: () => void
-  confirmTool: (toolUseId: string, approved: boolean) => void
+  confirmTool: (toolUseId: string, approved: boolean, alwaysAllow?: boolean) => void
   toggleSessionFavorite: (sessionId: string) => Promise<void>
   updateSessionProjectId: (sessionId: string, projectId: string | null) => Promise<void>
 }
@@ -162,9 +162,7 @@ export const useSessionStore = create<ChatState>((set, get) => ({
             toolName: data.toolName,
             toolInput: data.toolInput,
             status: 'calling'
-          }],
-          // Reset streaming content for next LLM turn
-          streamingContents: { ...s.streamingContents, [sessionId]: '' }
+          }]
         }))
       },
       onToolResult: (data) => {
@@ -185,8 +183,7 @@ export const useSessionStore = create<ChatState>((set, get) => ({
             toolName: data.toolName,
             toolInput: data.toolInput,
             status: 'confirming' as const
-          }],
-          streamingContents: { ...s.streamingContents, [sessionId]: '' }
+          }]
         }))
       },
       onEnd: (message) => {
@@ -199,9 +196,6 @@ export const useSessionStore = create<ChatState>((set, get) => ({
           newIds.delete(sessionId)
           const { [sessionId]: _, ...rest } = s.streamingContents
           return {
-            ...(isCurrentSession && message.content
-              ? { messages: [...s.messages, message] }
-              : {}),
             streamingSessionIds: newIds,
             streamingContents: rest,
             activeToolCalls: []
@@ -488,7 +482,7 @@ export const useSessionStore = create<ChatState>((set, get) => ({
     }))
   },
 
-  confirmTool: (toolUseId, approved) => {
+  confirmTool: (toolUseId, approved, alwaysAllow) => {
     const { currentSessionId } = get()
     if (!currentSessionId) return
     // Update UI state
@@ -500,7 +494,7 @@ export const useSessionStore = create<ChatState>((set, get) => ({
       )
     }))
     // Send confirmation to backend
-    chatApi.confirmTool(currentSessionId, toolUseId, approved)
+    chatApi.confirmTool(currentSessionId, toolUseId, approved, alwaysAllow)
   },
 
   toggleSessionFavorite: async (sessionId) => {

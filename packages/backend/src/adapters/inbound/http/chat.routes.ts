@@ -7,6 +7,7 @@ import type { ManageMessagesUseCase } from '../../../domain/ports/inbound/manage
 import type { SendMessageRequest, StopStreamRequest, EditMessageRequest, ToolConfirmRequest } from '@dchat/shared'
 import type { ExtendedStreamChunk } from '../../../domain/ports/outbound/llm.gateway'
 import type { CompositeMcpClientGateway } from '../../outbound/builtin-tools/composite-mcp-gateway'
+import type { ManageSettingsUseCase } from '../../../domain/ports/inbound/manage-settings.usecase'
 import logger from '../../../logger'
 
 export function formatErrorMessage(error: unknown): string {
@@ -32,7 +33,7 @@ const lastAssistantMessageIds = new Map<string, string>()
 
 // Pending tool confirmations
 const CONFIRM_TIMEOUT_MS = 60_000
-const pendingConfirmations = new Map<string, { resolve: (approved: boolean) => void }>()
+const pendingConfirmations = new Map<string, { resolve: (approved: boolean) => void; toolName: string }>()
 
 function sendSSE(res: Response, event: string, data: unknown): void {
   res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
@@ -64,7 +65,8 @@ export function createChatRoutes(
   regenerateMessage: RegenerateMessageUseCase,
   generateTitle: GenerateTitleUseCase,
   manageMessages: ManageMessagesUseCase,
-  mcpGateway?: CompositeMcpClientGateway
+  mcpGateway?: CompositeMcpClientGateway,
+  settingsService?: ManageSettingsUseCase
 ): Router {
   const router = Router()
 
@@ -101,7 +103,7 @@ export function createChatRoutes(
       mcpGateway.setConfirmationHandler((toolUseId, toolName, toolInput) => {
         return new Promise<boolean>((resolve) => {
           sendSSE(res, 'tool_confirm', { type: 'tool_confirm', toolUseId, toolName, toolInput })
-          pendingConfirmations.set(toolUseId, { resolve })
+          pendingConfirmations.set(toolUseId, { resolve, toolName })
           // Auto-deny after timeout
           setTimeout(() => {
             if (pendingConfirmations.has(toolUseId)) {
@@ -199,7 +201,7 @@ export function createChatRoutes(
       mcpGateway.setConfirmationHandler((toolUseId, toolName, toolInput) => {
         return new Promise<boolean>((resolve) => {
           sendSSE(res, 'tool_confirm', { type: 'tool_confirm', toolUseId, toolName, toolInput })
-          pendingConfirmations.set(toolUseId, { resolve })
+          pendingConfirmations.set(toolUseId, { resolve, toolName })
           setTimeout(() => {
             if (pendingConfirmations.has(toolUseId)) {
               pendingConfirmations.get(toolUseId)!.resolve(false)
@@ -279,7 +281,7 @@ export function createChatRoutes(
       mcpGateway.setConfirmationHandler((toolUseId, toolName, toolInput) => {
         return new Promise<boolean>((resolve) => {
           sendSSE(res, 'tool_confirm', { type: 'tool_confirm', toolUseId, toolName, toolInput })
-          pendingConfirmations.set(toolUseId, { resolve })
+          pendingConfirmations.set(toolUseId, { resolve, toolName })
           setTimeout(() => {
             if (pendingConfirmations.has(toolUseId)) {
               pendingConfirmations.get(toolUseId)!.resolve(false)
@@ -339,15 +341,21 @@ export function createChatRoutes(
   })
 
   // POST /api/chat/:sessionId/tool-confirm
-  router.post('/:sessionId/tool-confirm', (req: Request, res: Response) => {
-    const { toolUseId, approved } = req.body as ToolConfirmRequest
+  router.post('/:sessionId/tool-confirm', asyncHandler(async (req: Request, res: Response) => {
+    const { toolUseId, approved, alwaysAllow } = req.body as ToolConfirmRequest
     const pending = pendingConfirmations.get(toolUseId)
     if (pending) {
+      if (approved && alwaysAllow && settingsService) {
+        const json = await settingsService.get('builtin_tools_permissions')
+        const perms: Record<string, string> = json ? JSON.parse(json) : {}
+        perms[pending.toolName] = 'always'
+        await settingsService.set('builtin_tools_permissions', JSON.stringify(perms))
+      }
       pending.resolve(approved)
       pendingConfirmations.delete(toolUseId)
     }
     res.json({ ok: true })
-  })
+  }))
 
   // POST /api/chat/:sessionId/stop
   router.post('/:sessionId/stop', asyncHandler(async (req, res) => {

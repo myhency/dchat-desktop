@@ -9,13 +9,20 @@ import * as fs from 'fs/promises'
 import * as path from 'path'
 import * as os from 'os'
 import type { ToolConfig } from '../adapters/outbound/builtin-tools/tool-registry'
-import { readFileTool } from '../adapters/outbound/builtin-tools/tools/read-file'
+import { readTextFileTool } from '../adapters/outbound/builtin-tools/tools/read-text-file'
 import { writeFileTool } from '../adapters/outbound/builtin-tools/tools/write-file'
 import { editFileTool } from '../adapters/outbound/builtin-tools/tools/edit-file'
 import { listDirectoryTool } from '../adapters/outbound/builtin-tools/tools/list-directory'
 import { searchFilesTool } from '../adapters/outbound/builtin-tools/tools/search-files'
 import { createDirectoryTool } from '../adapters/outbound/builtin-tools/tools/create-directory'
 import { executeCommandTool } from '../adapters/outbound/builtin-tools/tools/execute-command'
+import { readMediaFileTool } from '../adapters/outbound/builtin-tools/tools/read-media-file'
+import { readMultipleFilesTool } from '../adapters/outbound/builtin-tools/tools/read-multiple-files'
+import { listDirectoryWithSizesTool } from '../adapters/outbound/builtin-tools/tools/list-directory-with-sizes'
+import { directoryTreeTool } from '../adapters/outbound/builtin-tools/tools/directory-tree'
+import { moveFileTool } from '../adapters/outbound/builtin-tools/tools/move-file'
+import { getFileInfoTool } from '../adapters/outbound/builtin-tools/tools/get-file-info'
+import { listAllowedDirectoriesTool } from '../adapters/outbound/builtin-tools/tools/list-allowed-directories'
 import { BuiltInToolProvider } from '../adapters/outbound/builtin-tools/builtin-tool-provider'
 import { CompositeMcpClientGateway } from '../adapters/outbound/builtin-tools/composite-mcp-gateway'
 import type { McpClientGateway } from '../domain/ports/outbound/mcp-client.gateway'
@@ -49,18 +56,45 @@ describe('Built-in tools', () => {
     await fs.rm(tmpDir, { recursive: true, force: true })
   })
 
-  describe('read_file', () => {
+  describe('read_text_file', () => {
     it('reads file content', async () => {
       const filePath = path.join(tmpDir, 'test.txt')
       await fs.writeFile(filePath, 'hello world')
 
-      const result = await readFileTool.execute({ path: filePath }, makeConfig())
+      const result = await readTextFileTool.execute({ path: filePath }, makeConfig())
       expect(result.isError).toBe(false)
       expect(result.content).toBe('hello world')
     })
 
+    it('reads first N lines with head parameter', async () => {
+      const filePath = path.join(tmpDir, 'lines.txt')
+      await fs.writeFile(filePath, 'line1\nline2\nline3\nline4\nline5')
+
+      const result = await readTextFileTool.execute({ path: filePath, head: 2 }, makeConfig())
+      expect(result.isError).toBe(false)
+      expect(result.content).toBe('line1\nline2')
+    })
+
+    it('reads last N lines with tail parameter', async () => {
+      const filePath = path.join(tmpDir, 'lines.txt')
+      await fs.writeFile(filePath, 'line1\nline2\nline3\nline4\nline5')
+
+      const result = await readTextFileTool.execute({ path: filePath, tail: 2 }, makeConfig())
+      expect(result.isError).toBe(false)
+      expect(result.content).toBe('line4\nline5')
+    })
+
+    it('errors when both head and tail specified', async () => {
+      const filePath = path.join(tmpDir, 'lines.txt')
+      await fs.writeFile(filePath, 'line1\nline2\nline3')
+
+      const result = await readTextFileTool.execute({ path: filePath, head: 1, tail: 1 }, makeConfig())
+      expect(result.isError).toBe(true)
+      expect(result.content).toContain('Cannot specify both')
+    })
+
     it('rejects path outside allowed directories', async () => {
-      await expect(readFileTool.execute({ path: '/etc/passwd' }, makeConfig()))
+      await expect(readTextFileTool.execute({ path: '/etc/passwd' }, makeConfig()))
         .rejects.toThrow('Access denied')
     })
   })
@@ -82,31 +116,75 @@ describe('Built-in tools', () => {
   })
 
   describe('edit_file', () => {
-    it('replaces unique string', async () => {
+    it('applies single edit and returns diff', async () => {
       const filePath = path.join(tmpDir, 'edit.txt')
       await fs.writeFile(filePath, 'hello world foo')
 
-      const result = await editFileTool.execute({ path: filePath, old_string: 'world', new_string: 'earth' }, makeConfig())
+      const result = await editFileTool.execute({
+        path: filePath,
+        edits: [{ oldText: 'world', newText: 'earth' }]
+      }, makeConfig())
       expect(result.isError).toBe(false)
+      expect(result.content).toContain('-')
+      expect(result.content).toContain('+')
 
       const content = await fs.readFile(filePath, 'utf-8')
       expect(content).toBe('hello earth foo')
     })
 
-    it('errors when old_string not found', async () => {
+    it('applies multiple edits sequentially', async () => {
+      const filePath = path.join(tmpDir, 'edit.txt')
+      await fs.writeFile(filePath, 'hello world foo')
+
+      const result = await editFileTool.execute({
+        path: filePath,
+        edits: [
+          { oldText: 'world', newText: 'earth' },
+          { oldText: 'foo', newText: 'bar' }
+        ]
+      }, makeConfig())
+      expect(result.isError).toBe(false)
+
+      const content = await fs.readFile(filePath, 'utf-8')
+      expect(content).toBe('hello earth bar')
+    })
+
+    it('returns diff without modifying file in dryRun mode', async () => {
+      const filePath = path.join(tmpDir, 'edit.txt')
+      await fs.writeFile(filePath, 'hello world foo')
+
+      const result = await editFileTool.execute({
+        path: filePath,
+        edits: [{ oldText: 'world', newText: 'earth' }],
+        dryRun: true
+      }, makeConfig())
+      expect(result.isError).toBe(false)
+      expect(result.content).toContain('dry run')
+
+      const content = await fs.readFile(filePath, 'utf-8')
+      expect(content).toBe('hello world foo')
+    })
+
+    it('errors when oldText not found', async () => {
       const filePath = path.join(tmpDir, 'edit.txt')
       await fs.writeFile(filePath, 'hello world')
 
-      const result = await editFileTool.execute({ path: filePath, old_string: 'nonexistent', new_string: 'x' }, makeConfig())
+      const result = await editFileTool.execute({
+        path: filePath,
+        edits: [{ oldText: 'nonexistent', newText: 'x' }]
+      }, makeConfig())
       expect(result.isError).toBe(true)
       expect(result.content).toContain('not found')
     })
 
-    it('errors when old_string has multiple occurrences', async () => {
+    it('errors when oldText has multiple occurrences', async () => {
       const filePath = path.join(tmpDir, 'edit.txt')
       await fs.writeFile(filePath, 'aaa bbb aaa')
 
-      const result = await editFileTool.execute({ path: filePath, old_string: 'aaa', new_string: 'x' }, makeConfig())
+      const result = await editFileTool.execute({
+        path: filePath,
+        edits: [{ oldText: 'aaa', newText: 'x' }]
+      }, makeConfig())
       expect(result.isError).toBe(true)
       expect(result.content).toContain('2 times')
     })
@@ -141,6 +219,20 @@ describe('Built-in tools', () => {
       expect(result.isError).toBe(false)
       expect(result.content).toContain('No files matching')
     })
+
+    it('excludes files matching excludePatterns', async () => {
+      await fs.writeFile(path.join(tmpDir, 'hello.txt'), '')
+      await fs.writeFile(path.join(tmpDir, 'hello.log'), '')
+
+      const result = await searchFilesTool.execute({
+        path: tmpDir,
+        pattern: 'hello',
+        excludePatterns: ['*.log']
+      }, makeConfig())
+      expect(result.isError).toBe(false)
+      expect(result.content).toContain('hello.txt')
+      expect(result.content).not.toContain('hello.log')
+    })
   })
 
   describe('create_directory', () => {
@@ -164,6 +256,165 @@ describe('Built-in tools', () => {
     it('returns error for failing command', async () => {
       const result = await executeCommandTool.execute({ command: 'false' }, makeConfig())
       expect(result.isError).toBe(true)
+    })
+  })
+
+  describe('read_media_file', () => {
+    it('reads image file as base64', async () => {
+      const filePath = path.join(tmpDir, 'test.png')
+      const buffer = Buffer.from([0x89, 0x50, 0x4e, 0x47]) // PNG header
+      await fs.writeFile(filePath, buffer)
+
+      const result = await readMediaFileTool.execute({ path: filePath }, makeConfig())
+      expect(result.isError).toBe(false)
+      const parsed = JSON.parse(result.content)
+      expect(parsed.mimeType).toBe('image/png')
+      expect(parsed.base64Data).toBe(buffer.toString('base64'))
+    })
+
+    it('rejects unsupported file type', async () => {
+      const filePath = path.join(tmpDir, 'test.xyz')
+      await fs.writeFile(filePath, 'data')
+
+      const result = await readMediaFileTool.execute({ path: filePath }, makeConfig())
+      expect(result.isError).toBe(true)
+      expect(result.content).toContain('Unsupported media type')
+    })
+  })
+
+  describe('read_multiple_files', () => {
+    it('reads multiple files', async () => {
+      const file1 = path.join(tmpDir, 'a.txt')
+      const file2 = path.join(tmpDir, 'b.txt')
+      await fs.writeFile(file1, 'content A')
+      await fs.writeFile(file2, 'content B')
+
+      const result = await readMultipleFilesTool.execute({ paths: [file1, file2] }, makeConfig())
+      expect(result.isError).toBe(false)
+      expect(result.content).toContain('content A')
+      expect(result.content).toContain('content B')
+    })
+
+    it('includes error for missing files', async () => {
+      const file1 = path.join(tmpDir, 'exists.txt')
+      const file2 = path.join(tmpDir, 'missing.txt')
+      await fs.writeFile(file1, 'ok')
+
+      const result = await readMultipleFilesTool.execute({ paths: [file1, file2] }, makeConfig())
+      expect(result.isError).toBe(false)
+      expect(result.content).toContain('ok')
+      expect(result.content).toContain('Error:')
+    })
+  })
+
+  describe('list_directory_with_sizes', () => {
+    it('lists files with sizes and summary', async () => {
+      await fs.writeFile(path.join(tmpDir, 'small.txt'), 'hi')
+      await fs.mkdir(path.join(tmpDir, 'sub'))
+
+      const result = await listDirectoryWithSizesTool.execute({ path: tmpDir }, makeConfig())
+      expect(result.isError).toBe(false)
+      expect(result.content).toContain('[FILE] small.txt')
+      expect(result.content).toContain('[DIR] sub/')
+      expect(result.content).toContain('file(s)')
+      expect(result.content).toContain('directory(ies)')
+    })
+
+    it('sorts by size', async () => {
+      await fs.writeFile(path.join(tmpDir, 'big.txt'), 'a'.repeat(1000))
+      await fs.writeFile(path.join(tmpDir, 'small.txt'), 'hi')
+
+      const result = await listDirectoryWithSizesTool.execute({ path: tmpDir, sortBy: 'size' }, makeConfig())
+      expect(result.isError).toBe(false)
+      const lines = result.content.split('\n')
+      expect(lines[0]).toContain('big.txt')
+    })
+  })
+
+  describe('directory_tree', () => {
+    it('returns JSON tree structure', async () => {
+      await fs.mkdir(path.join(tmpDir, 'sub'))
+      await fs.writeFile(path.join(tmpDir, 'sub', 'file.txt'), '')
+      await fs.writeFile(path.join(tmpDir, 'root.txt'), '')
+
+      const result = await directoryTreeTool.execute({ path: tmpDir }, makeConfig())
+      expect(result.isError).toBe(false)
+      const tree = JSON.parse(result.content)
+      expect(tree.type).toBe('directory')
+      expect(tree.children).toBeDefined()
+      expect(tree.children.length).toBeGreaterThan(0)
+    })
+
+    it('excludes patterns', async () => {
+      await fs.writeFile(path.join(tmpDir, 'keep.txt'), '')
+      await fs.writeFile(path.join(tmpDir, 'skip.log'), '')
+
+      const result = await directoryTreeTool.execute({
+        path: tmpDir,
+        excludePatterns: ['*.log']
+      }, makeConfig())
+      const tree = JSON.parse(result.content)
+      const names = tree.children.map((c: { name: string }) => c.name)
+      expect(names).toContain('keep.txt')
+      expect(names).not.toContain('skip.log')
+    })
+  })
+
+  describe('move_file', () => {
+    it('moves a file', async () => {
+      const src = path.join(tmpDir, 'source.txt')
+      const dst = path.join(tmpDir, 'dest.txt')
+      await fs.writeFile(src, 'data')
+
+      const result = await moveFileTool.execute({ source: src, destination: dst }, makeConfig())
+      expect(result.isError).toBe(false)
+
+      await expect(fs.access(src)).rejects.toThrow()
+      const content = await fs.readFile(dst, 'utf-8')
+      expect(content).toBe('data')
+    })
+
+    it('rejects move to outside allowed directories', async () => {
+      const src = path.join(tmpDir, 'source.txt')
+      await fs.writeFile(src, 'data')
+
+      await expect(moveFileTool.execute({ source: src, destination: '/tmp/hacked.txt' }, makeConfig()))
+        .rejects.toThrow('Access denied')
+    })
+  })
+
+  describe('get_file_info', () => {
+    it('returns file metadata', async () => {
+      const filePath = path.join(tmpDir, 'info.txt')
+      await fs.writeFile(filePath, 'hello')
+
+      const result = await getFileInfoTool.execute({ path: filePath }, makeConfig())
+      expect(result.isError).toBe(false)
+      expect(result.content).toContain('Name: info.txt')
+      expect(result.content).toContain('Type: file')
+      expect(result.content).toContain('Size: 5')
+      expect(result.content).toContain('Permissions:')
+    })
+
+    it('returns directory metadata', async () => {
+      const result = await getFileInfoTool.execute({ path: tmpDir }, makeConfig())
+      expect(result.isError).toBe(false)
+      expect(result.content).toContain('Type: directory')
+    })
+  })
+
+  describe('list_allowed_directories', () => {
+    it('returns allowed directories', async () => {
+      const result = await listAllowedDirectoriesTool.execute({}, makeConfig())
+      expect(result.isError).toBe(false)
+      expect(result.content).toContain('Allowed directories:')
+      expect(result.content).toContain(tmpDir)
+    })
+
+    it('handles empty directories', async () => {
+      const result = await listAllowedDirectoriesTool.execute({}, makeConfig({ allowedDirectories: [] }))
+      expect(result.isError).toBe(false)
+      expect(result.content).toContain('No allowed directories')
     })
   })
 })
@@ -197,7 +448,7 @@ describe('BuiltInToolProvider', () => {
 
   it('returns filesystem tools when directories are configured', async () => {
     const tools = await provider.getTools()
-    expect(tools.length).toBeGreaterThan(0)
+    expect(tools.length).toBe(13)
     expect(tools.every((t) => t.serverId === '__builtin__')).toBe(true)
     // Should not include execute_command when shell disabled
     expect(tools.find((t) => t.name === 'execute_command')).toBeUndefined()
@@ -245,6 +496,149 @@ describe('BuiltInToolProvider', () => {
     await provider.callTool('list_directory', { path: providerDir }, 'tool-2')
     expect(confirmFn).not.toHaveBeenCalled()
   })
+
+  describe('tool permissions', () => {
+    it('excludes blocked tools from getTools()', async () => {
+      const perms = { read_text_file: 'blocked' }
+      settingsRepo.get = vi.fn(async (key: string) => {
+        if (key === 'builtin_tools_allowed_dirs') return JSON.stringify([providerDir])
+        if (key === 'builtin_tools_permissions') return JSON.stringify(perms)
+        return null
+      })
+
+      const tools = await provider.getTools()
+      expect(tools.find((t) => t.name === 'read_text_file')).toBeUndefined()
+      expect(tools.find((t) => t.name === 'list_directory')).toBeDefined()
+    })
+
+    it('skips confirmFn when permission is always (even for dangerous tools)', async () => {
+      const perms = { write_file: 'always' }
+      settingsRepo.get = vi.fn(async (key: string) => {
+        if (key === 'builtin_tools_allowed_dirs') return JSON.stringify([providerDir])
+        if (key === 'builtin_tools_permissions') return JSON.stringify(perms)
+        return null
+      })
+
+      const confirmFn = vi.fn(async () => true)
+      provider.setConfirmationHandler(confirmFn)
+
+      const filePath = path.join(providerDir, 'always-test.txt')
+      await provider.callTool('write_file', { path: filePath, content: 'hi' }, 'tool-3')
+      expect(confirmFn).not.toHaveBeenCalled()
+    })
+
+    it('calls confirmFn when permission is confirm (even for safe tools)', async () => {
+      const perms = { list_directory: 'confirm' }
+      settingsRepo.get = vi.fn(async (key: string) => {
+        if (key === 'builtin_tools_allowed_dirs') return JSON.stringify([providerDir])
+        if (key === 'builtin_tools_permissions') return JSON.stringify(perms)
+        return null
+      })
+
+      const confirmFn = vi.fn(async () => true)
+      provider.setConfirmationHandler(confirmFn)
+
+      await provider.callTool('list_directory', { path: providerDir }, 'tool-4')
+      expect(confirmFn).toHaveBeenCalledWith('tool-4', 'list_directory', { path: providerDir })
+    })
+
+    it('returns error when calling a blocked tool', async () => {
+      const perms = { read_text_file: 'blocked' }
+      settingsRepo.get = vi.fn(async (key: string) => {
+        if (key === 'builtin_tools_allowed_dirs') return JSON.stringify([providerDir])
+        if (key === 'builtin_tools_permissions') return JSON.stringify(perms)
+        return null
+      })
+
+      const result = await provider.callTool('read_text_file', { path: '/any' }, 'tool-5')
+      expect(result.isError).toBe(true)
+      expect(result.content).toContain('not found')
+    })
+
+    it('falls back to isDangerous-based default when no permission set', async () => {
+      // No permissions set — write_file (isDangerous=true) should trigger confirm
+      settingsRepo.get = vi.fn(async (key: string) => {
+        if (key === 'builtin_tools_allowed_dirs') return JSON.stringify([providerDir])
+        return null
+      })
+
+      const confirmFn = vi.fn(async () => true)
+      provider.setConfirmationHandler(confirmFn)
+
+      const filePath = path.join(providerDir, 'default-test.txt')
+      await provider.callTool('write_file', { path: filePath, content: 'hi' }, 'tool-6')
+      expect(confirmFn).toHaveBeenCalled()
+
+      // list_directory (isDangerous=false) should NOT trigger confirm
+      confirmFn.mockClear()
+      await provider.callTool('list_directory', { path: providerDir }, 'tool-7')
+      expect(confirmFn).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('getStatus', () => {
+    it('returns disabled when no directories configured', async () => {
+      settingsRepo.get = vi.fn(async () => null)
+      const status = await provider.getStatus()
+      expect(status.status).toBe('disabled')
+      expect(status.toolCount).toBe(0)
+      expect(status.directories).toEqual([])
+      expect(status.errors).toEqual([])
+    })
+
+    it('returns running when directories are accessible', async () => {
+      const status = await provider.getStatus()
+      expect(status.status).toBe('running')
+      expect(status.toolCount).toBe(13)
+      expect(status.directories).toEqual([providerDir])
+      expect(status.errors).toEqual([])
+    })
+
+    it('returns error when directories are inaccessible', async () => {
+      const badDir = '/nonexistent/path/that/does/not/exist'
+      settingsRepo.get = vi.fn(async (key: string) => {
+        if (key === 'builtin_tools_allowed_dirs') return JSON.stringify([badDir])
+        if (key === 'builtin_tools_shell_enabled') return 'false'
+        return null
+      })
+
+      const status = await provider.getStatus()
+      expect(status.status).toBe('error')
+      expect(status.directories).toEqual([badDir])
+      expect(status.errors).toEqual([badDir])
+    })
+  })
+
+  describe('alwaysAllow flow', () => {
+    it('skips confirmFn after permission is changed to always', async () => {
+      const settings: Record<string, string> = {
+        builtin_tools_allowed_dirs: JSON.stringify([providerDir]),
+        builtin_tools_shell_enabled: 'false'
+      }
+      settingsRepo.get = vi.fn(async (key: string) => settings[key] ?? null)
+      settingsRepo.set = vi.fn(async (key: string, value: string) => {
+        settings[key] = value
+      })
+
+      // First call: confirmFn should be called (write_file is dangerous, no permission set)
+      const confirmFn = vi.fn(async () => true)
+      provider.setConfirmationHandler(confirmFn)
+
+      const filePath = path.join(providerDir, 'always-test.txt')
+      await provider.callTool('write_file', { path: filePath, content: 'hi' }, 'tool-a1')
+      expect(confirmFn).toHaveBeenCalled()
+
+      // Simulate alwaysAllow: save permission as 'always'
+      const perms = { write_file: 'always' }
+      await settingsRepo.set('builtin_tools_permissions', JSON.stringify(perms))
+
+      // Second call: confirmFn should NOT be called
+      confirmFn.mockClear()
+      const filePath2 = path.join(providerDir, 'always-test2.txt')
+      await provider.callTool('write_file', { path: filePath2, content: 'hi2' }, 'tool-a2')
+      expect(confirmFn).not.toHaveBeenCalled()
+    })
+  })
 })
 
 describe('CompositeMcpClientGateway', () => {
@@ -288,7 +682,7 @@ describe('CompositeMcpClientGateway', () => {
     const builtInNames = tools.filter((t) => t.serverId === '__builtin__').map((t) => t.name)
     const extNames = tools.filter((t) => t.serverId === 'ext-1').map((t) => t.name)
 
-    expect(builtInNames.length).toBeGreaterThan(0)
+    expect(builtInNames.length).toBe(13)
     expect(extNames).toContain('ext_tool')
   })
 

@@ -1,24 +1,42 @@
+import * as fs from 'fs/promises'
 import type { McpToolDefinition } from '../../../domain/ports/outbound/mcp-client.gateway'
 import type { SettingsRepository } from '../../../domain/ports/outbound/settings.repository'
+import type { BuiltinToolsStatusDTO } from '@dchat/shared'
 import type { BuiltInToolDef, ToolConfig } from './tool-registry'
-import { readFileTool } from './tools/read-file'
+import { readTextFileTool } from './tools/read-text-file'
 import { writeFileTool } from './tools/write-file'
 import { editFileTool } from './tools/edit-file'
 import { listDirectoryTool } from './tools/list-directory'
 import { searchFilesTool } from './tools/search-files'
 import { createDirectoryTool } from './tools/create-directory'
+import { readMediaFileTool } from './tools/read-media-file'
+import { readMultipleFilesTool } from './tools/read-multiple-files'
+import { listDirectoryWithSizesTool } from './tools/list-directory-with-sizes'
+import { directoryTreeTool } from './tools/directory-tree'
+import { moveFileTool } from './tools/move-file'
+import { getFileInfoTool } from './tools/get-file-info'
+import { listAllowedDirectoriesTool } from './tools/list-allowed-directories'
 import { executeCommandTool } from './tools/execute-command'
 import logger from '../../../logger'
 
 export type ConfirmationHandler = (toolUseId: string, toolName: string, toolInput: Record<string, unknown>) => Promise<boolean>
 
+export type ToolPermission = 'always' | 'confirm' | 'blocked'
+
 const FILESYSTEM_TOOLS: BuiltInToolDef[] = [
-  readFileTool,
+  readTextFileTool,
   writeFileTool,
   editFileTool,
   listDirectoryTool,
   searchFilesTool,
-  createDirectoryTool
+  createDirectoryTool,
+  readMediaFileTool,
+  readMultipleFilesTool,
+  listDirectoryWithSizesTool,
+  directoryTreeTool,
+  moveFileTool,
+  getFileInfoTool,
+  listAllowedDirectoriesTool
 ]
 
 const SHELL_TOOLS: BuiltInToolDef[] = [
@@ -40,6 +58,21 @@ export class BuiltInToolProvider {
     this.confirmFn = undefined
   }
 
+  private async getPermissions(): Promise<Record<string, ToolPermission>> {
+    const json = await this.settingsRepo.get('builtin_tools_permissions')
+    if (!json) return {}
+    try {
+      return JSON.parse(json)
+    } catch {
+      return {}
+    }
+  }
+
+  private getToolPermission(permissions: Record<string, ToolPermission>, toolName: string, isDangerous: boolean): ToolPermission {
+    if (permissions[toolName]) return permissions[toolName]
+    return isDangerous ? 'confirm' : 'always'
+  }
+
   async getActiveTools(): Promise<BuiltInToolDef[]> {
     const dirsJson = await this.settingsRepo.get('builtin_tools_allowed_dirs')
     const dirs: string[] = dirsJson ? JSON.parse(dirsJson) : []
@@ -50,7 +83,9 @@ export class BuiltInToolProvider {
     if (shellEnabled === 'true') {
       tools.push(...SHELL_TOOLS)
     }
-    return tools
+
+    const permissions = await this.getPermissions()
+    return tools.filter((t) => this.getToolPermission(permissions, t.name, t.isDangerous) !== 'blocked')
   }
 
   async getTools(): Promise<McpToolDefinition[]> {
@@ -70,8 +105,14 @@ export class BuiltInToolProvider {
       return { content: `Built-in tool "${toolName}" not found`, isError: true }
     }
 
-    // Dangerous tool confirmation
-    if (tool.isDangerous && this.confirmFn && toolUseId) {
+    const permissions = await this.getPermissions()
+    const permission = this.getToolPermission(permissions, toolName, tool.isDangerous)
+
+    if (permission === 'blocked') {
+      return { content: `Tool "${toolName}" is blocked by user settings.`, isError: true }
+    }
+
+    if (permission === 'confirm' && this.confirmFn && toolUseId) {
       try {
         const approved = await this.confirmFn(toolUseId, toolName, args)
         if (!approved) {
@@ -97,6 +138,33 @@ export class BuiltInToolProvider {
       const message = err instanceof Error ? err.message : 'Tool execution failed'
       logger.error({ err, toolName }, 'Built-in tool execution error')
       return { content: message, isError: true }
+    }
+  }
+
+  async getStatus(): Promise<BuiltinToolsStatusDTO> {
+    const dirsJson = await this.settingsRepo.get('builtin_tools_allowed_dirs')
+    const dirs: string[] = dirsJson ? JSON.parse(dirsJson) : []
+
+    if (dirs.length === 0) {
+      return { status: 'disabled', toolCount: 0, directories: [], errors: [] }
+    }
+
+    const errors: string[] = []
+    for (const dir of dirs) {
+      try {
+        await fs.access(dir)
+      } catch {
+        errors.push(dir)
+      }
+    }
+
+    const tools = await this.getActiveTools()
+
+    return {
+      status: errors.length > 0 ? 'error' : 'running',
+      toolCount: tools.length,
+      directories: dirs,
+      errors
     }
   }
 }

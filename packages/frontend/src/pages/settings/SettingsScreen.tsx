@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { X, ChevronDown, Shield, ExternalLink, RefreshCw, Eye, EyeOff, Loader2, Check, Upload, Download, Trash2, Play, Square, RotateCw, FileText, FolderOpen, Search, Brain, Plus, Monitor, MoreHorizontal, ChevronLeft, AlertTriangle, ArrowRight } from 'lucide-react'
+import { X, ChevronDown, Shield, ExternalLink, RefreshCw, Eye, EyeOff, Loader2, Check, Upload, Download, Trash2, Play, Square, RotateCw, FileText, FolderOpen, Search, Brain, Plus, MoreHorizontal, ChevronLeft, AlertTriangle, ArrowRight, Terminal, CircleCheck, Hand, Ban } from 'lucide-react'
 import { useSettingsStore, settingsApi, memoryApi } from '@/entities/settings'
 import { useSessionStore } from '@/entities/session'
 import { useMcpStore, mcpApi } from '@/entities/mcp'
@@ -1632,6 +1632,31 @@ function DeveloperContent(): React.JSX.Element {
 
 const isElectron = typeof window !== 'undefined' && !!(window as any).electron
 
+type ToolPermission = 'always' | 'confirm' | 'blocked'
+
+const FILESYSTEM_TOOL_NAMES = [
+  'read_text_file', 'write_file', 'edit_file',
+  'list_directory', 'search_files', 'create_directory',
+  'read_media_file', 'read_multiple_files', 'list_directory_with_sizes',
+  'directory_tree', 'move_file', 'get_file_info', 'list_allowed_directories'
+] as const
+
+const DEFAULT_PERMISSIONS: Record<string, ToolPermission> = {
+  read_text_file: 'always',
+  write_file: 'confirm',
+  edit_file: 'confirm',
+  list_directory: 'always',
+  search_files: 'always',
+  create_directory: 'confirm',
+  read_media_file: 'always',
+  read_multiple_files: 'always',
+  list_directory_with_sizes: 'always',
+  directory_tree: 'always',
+  move_file: 'confirm',
+  get_file_info: 'always',
+  list_allowed_directories: 'always'
+}
+
 type ExtensionView = 'list' | 'filesystem-config'
 
 function ExtensionsContent({ onNavigate }: { onNavigate: (tab: Tab) => void }): React.JSX.Element {
@@ -1640,20 +1665,40 @@ function ExtensionsContent({ onNavigate }: { onNavigate: (tab: Tab) => void }): 
   const [shellEnabled, setShellEnabled] = useState(false)
   const [saving, setSaving] = useState(false)
   const [loaded, setLoaded] = useState(false)
+  const [toolPermissions, setToolPermissions] = useState<Record<string, ToolPermission>>({ ...DEFAULT_PERMISSIONS })
+  const [builtinStatus, setBuiltinStatus] = useState<{ status: 'running' | 'error' | 'disabled'; toolCount: number; directories: string[]; errors: string[] } | null>(null)
+
+  const fetchBuiltinStatus = useCallback(() => {
+    settingsApi.getBuiltinToolsStatus().then(setBuiltinStatus).catch(() => {})
+  }, [])
 
   // Load settings on mount
   useEffect(() => {
     Promise.all([
       settingsApi.get('builtin_tools_allowed_dirs'),
-      settingsApi.get('builtin_tools_shell_enabled')
-    ]).then(([dirsVal, shellVal]) => {
+      settingsApi.get('builtin_tools_shell_enabled'),
+      settingsApi.get('builtin_tools_permissions')
+    ]).then(([dirsVal, shellVal, permsVal]) => {
       if (dirsVal) {
         try { setDirectories(JSON.parse(dirsVal)) } catch { /* ignore */ }
       }
       setShellEnabled(shellVal === 'true')
+      if (permsVal) {
+        try {
+          const parsed = JSON.parse(permsVal)
+          setToolPermissions({ ...DEFAULT_PERMISSIONS, ...parsed })
+        } catch { /* ignore */ }
+      }
       setLoaded(true)
     })
-  }, [])
+    fetchBuiltinStatus()
+  }, [fetchBuiltinStatus])
+
+  const handlePermissionChange = (toolName: string, permission: ToolPermission): void => {
+    const updated = { ...toolPermissions, [toolName]: permission }
+    setToolPermissions(updated)
+    settingsApi.set('builtin_tools_permissions', JSON.stringify(updated))
+  }
 
   const handleAddDirectory = (): void => {
     setDirectories([...directories, ''])
@@ -1679,11 +1724,16 @@ function ExtensionsContent({ onNavigate }: { onNavigate: (tab: Tab) => void }): 
     setSaving(true)
     try {
       await settingsApi.set('builtin_tools_allowed_dirs', JSON.stringify(validDirs))
-      await settingsApi.set('builtin_tools_shell_enabled', shellEnabled ? 'true' : 'false')
       setDirectories(validDirs)
+      fetchBuiltinStatus()
     } finally {
       setSaving(false)
     }
+  }
+
+  const handleShellToggle = async (value: boolean): Promise<void> => {
+    setShellEnabled(value)
+    await settingsApi.set('builtin_tools_shell_enabled', value ? 'true' : 'false')
   }
 
   const hasDirectories = directories.filter((d) => d.trim()).length > 0
@@ -1701,16 +1751,25 @@ function ExtensionsContent({ onNavigate }: { onNavigate: (tab: Tab) => void }): 
 
         <div>
           <h4 className="text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-3">내장 도구</h4>
-          <div className="rounded-lg border border-neutral-200 dark:border-neutral-700">
+          <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 divide-y divide-neutral-200 dark:divide-neutral-700">
+            {/* Filesystem card */}
             <div className="flex items-center justify-between px-4 py-3">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">
-                  <Monitor size={16} className="text-neutral-600 dark:text-neutral-400" />
+                  <FolderOpen size={16} className="text-neutral-600 dark:text-neutral-400" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium">Filesystem & Shell</p>
-                  <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                    {hasDirectories ? '구성됨' : '구성 필요'}
+                  <p className="text-sm font-medium">Filesystem</p>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
+                    <span className={`w-1.5 h-1.5 rounded-full ${
+                      builtinStatus?.status === 'running' ? 'bg-blue-500' :
+                      builtinStatus?.status === 'error' ? 'bg-red-500' :
+                      'bg-neutral-400'
+                    }`} />
+                    {builtinStatus?.status === 'running' ? '실행 중' :
+                     builtinStatus?.status === 'error' ? '오류' :
+                     '비활성화'}
+                    {builtinStatus && builtinStatus.toolCount > 0 && ` (${builtinStatus.toolCount}개 도구)`}
                   </p>
                 </div>
               </div>
@@ -1721,6 +1780,21 @@ function ExtensionsContent({ onNavigate }: { onNavigate: (tab: Tab) => void }): 
               >
                 구성
               </button>
+            </div>
+            {/* Shell card */}
+            <div className="flex items-center justify-between px-4 py-3">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">
+                  <Terminal size={16} className="text-neutral-600 dark:text-neutral-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Shell</p>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                    {shellEnabled ? '활성화됨' : '비활성화됨'}
+                  </p>
+                </div>
+              </div>
+              <Toggle checked={shellEnabled} onChange={handleShellToggle} />
             </div>
           </div>
         </div>
@@ -1754,10 +1828,10 @@ function ExtensionsContent({ onNavigate }: { onNavigate: (tab: Tab) => void }): 
       {/* Header */}
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">
-          <Monitor size={20} className="text-neutral-600 dark:text-neutral-400" />
+          <FolderOpen size={20} className="text-neutral-600 dark:text-neutral-400" />
         </div>
         <div>
-          <h3 className="text-base font-semibold">Filesystem & Shell</h3>
+          <h3 className="text-base font-semibold">Filesystem</h3>
           <p className="text-xs text-neutral-500 dark:text-neutral-400">내장 도구</p>
         </div>
       </div>
@@ -1769,6 +1843,20 @@ function ExtensionsContent({ onNavigate }: { onNavigate: (tab: Tab) => void }): 
           <p className="text-sm text-amber-700 dark:text-amber-400">
             도구를 사용하려면 허용할 디렉토리를 추가하세요.
           </p>
+        </div>
+      )}
+
+      {builtinStatus && builtinStatus.errors.length > 0 && (
+        <div className="flex items-start gap-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3">
+          <AlertTriangle size={16} className="text-red-500 shrink-0 mt-0.5" />
+          <div className="text-sm text-red-700 dark:text-red-400">
+            <p>접근할 수 없는 디렉토리:</p>
+            <ul className="mt-1 list-disc list-inside">
+              {builtinStatus.errors.map((dir) => (
+                <li key={dir} className="font-mono text-xs">{dir}</li>
+              ))}
+            </ul>
+          </div>
         </div>
       )}
 
@@ -1820,16 +1908,43 @@ function ExtensionsContent({ onNavigate }: { onNavigate: (tab: Tab) => void }): 
         </button>
       </div>
 
-      {/* Shell toggle */}
+      {/* Tool Permissions */}
       <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 p-5">
-        <div className="flex items-center justify-between">
-          <div>
-            <h4 className="text-sm font-semibold">Shell 명령어 실행</h4>
-            <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
-              AI가 셸 명령어를 실행할 수 있도록 허용합니다. 위험한 작업은 실행 전 확인을 요청합니다.
-            </p>
-          </div>
-          <Toggle checked={shellEnabled} onChange={setShellEnabled} />
+        <h4 className="text-sm font-semibold mb-1">도구 권한</h4>
+        <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-4">
+          각 도구의 실행 권한을 설정합니다
+        </p>
+
+        <div className="space-y-2">
+          {FILESYSTEM_TOOL_NAMES.map((toolName) => {
+            const current = toolPermissions[toolName] ?? DEFAULT_PERMISSIONS[toolName]
+            return (
+              <div key={toolName} className="flex items-center justify-between py-1.5">
+                <span className="text-sm font-mono">{toolName}</span>
+                <div className="flex items-center gap-1">
+                  {([
+                    { value: 'always' as const, icon: CircleCheck, title: '항상 허용' },
+                    { value: 'confirm' as const, icon: Hand, title: '승인 필요' },
+                    { value: 'blocked' as const, icon: Ban, title: '차단됨' }
+                  ]).map(({ value, icon: Icon, title }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      title={title}
+                      onClick={() => handlePermissionChange(toolName, value)}
+                      className={`p-1.5 rounded-md transition-colors ${
+                        current === value
+                          ? 'bg-neutral-200 dark:bg-neutral-700 text-neutral-800 dark:text-neutral-200'
+                          : 'text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                      }`}
+                    >
+                      <Icon size={16} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )
+          })}
         </div>
       </div>
 
