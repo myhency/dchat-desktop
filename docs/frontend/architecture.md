@@ -110,7 +110,7 @@ src/
 | `currentSessionId` | `string \| null` | 현재 선택된 세션 ID |
 | `messages` | `Message[]` | 현재 세션 메시지 |
 | `streamingSessionIds` | `Set<string>` | 스트리밍 진행 중인 세션 ID 집합 (멀티세션 지원) |
-| `streamingContents` | `Record<string, string>` | 세션별 스트리밍 중 누적 텍스트 |
+| `streamingSegments` | `Record<string, StreamingSegment[]>` | 세션별 스트리밍 세그먼트 (텍스트/도구호출 시간순) |
 | `error` | `string \| null` | 에러 메시지 |
 | `searchOpen` | `boolean` | 검색 모달 열림 상태 |
 | `allChatsOpen` | `boolean` | 전체 채팅 목록 페이지 열림 상태 |

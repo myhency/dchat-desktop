@@ -1,5 +1,20 @@
 # 프론트엔드 동작 패턴
 
+## Zustand 셀렉터에서 안정적 참조 사용
+
+Zustand 셀렉터에서 폴백 값(`?? []`, `?? {}`)을 인라인으로 쓰면 매 호출마다 새로운 참조가 생성되어 `useSyncExternalStore`가 무한 리렌더를 일으킴:
+
+```tsx
+// ❌ 매번 새 배열 참조 → 무한 루프
+const segments = useSessionStore((s) => s.streamingSegments[id] ?? [])
+
+// ✅ 모듈 스코프 상수 → 안정적 참조
+const EMPTY_SEGMENTS: StreamingSegment[] = []
+const segments = useSessionStore((s) => s.streamingSegments[id] ?? EMPTY_SEGMENTS)
+```
+
+`Record<string, T[]>` 같은 동적 키 구조에서 키가 없을 때 폴백을 반환하는 셀렉터를 작성할 때 반드시 적용할 것.
+
 ## Quick Chat 모드 (`App.tsx`)
 
 `App.tsx`에서 URL 쿼리 `?mode=quick-chat` 감지 시 `QuickChatPage`를 렌더링 (트레이 팝업 전용):
