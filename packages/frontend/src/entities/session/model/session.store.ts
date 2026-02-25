@@ -21,18 +21,21 @@ export interface ToolCallInfo {
   toolUseId: string
   toolName: string
   toolInput: Record<string, unknown>
-  status: 'calling' | 'done' | 'error'
+  status: 'calling' | 'done' | 'error' | 'confirming'
   result?: string
   isError?: boolean
 }
+
+export type StreamingSegment =
+  | { type: 'text'; content: string }
+  | { type: 'tool'; toolCall: ToolCallInfo }
 
 interface ChatState {
   sessions: Session[]
   currentSessionId: string | null
   messages: Message[]
   streamingSessionIds: Set<string>
-  streamingContents: Record<string, string>
-  activeToolCalls: ToolCallInfo[]
+  streamingSegments: Record<string, StreamingSegment[]>
   error: string | null
   searchOpen: boolean
   allChatsOpen: boolean
@@ -59,6 +62,7 @@ interface ChatState {
   closeProjects: () => void
   openArtifact: (code: string, title: string) => void
   closeArtifact: () => void
+  confirmTool: (toolUseId: string, approved: boolean, alwaysAllow?: boolean) => void
   toggleSessionFavorite: (sessionId: string) => Promise<void>
   updateSessionProjectId: (sessionId: string, projectId: string | null) => Promise<void>
 }
@@ -66,13 +70,38 @@ interface ChatState {
 // Active SSE abort controllers per session
 const activeControllers = new Map<string, AbortController>()
 
+function appendText(segments: StreamingSegment[], text: string): StreamingSegment[] {
+  const last = segments[segments.length - 1]
+  if (last?.type === 'text') {
+    const updated = [...segments]
+    updated[updated.length - 1] = { type: 'text', content: last.content + text }
+    return updated
+  }
+  return [...segments, { type: 'text', content: text }]
+}
+
+function updateToolInSegments(
+  segments: StreamingSegment[],
+  toolUseId: string,
+  updater: (tc: ToolCallInfo) => ToolCallInfo
+): StreamingSegment[] {
+  return segments.map((seg) =>
+    seg.type === 'tool' && seg.toolCall.toolUseId === toolUseId
+      ? { type: 'tool', toolCall: updater(seg.toolCall) }
+      : seg
+  )
+}
+
+function getFullText(segments: StreamingSegment[]): string {
+  return segments.filter((s): s is StreamingSegment & { type: 'text' } => s.type === 'text').map((s) => s.content).join('')
+}
+
 export const useSessionStore = create<ChatState>((set, get) => ({
   sessions: [],
   currentSessionId: null,
   messages: [],
   streamingSessionIds: new Set(),
-  streamingContents: {},
-  activeToolCalls: [],
+  streamingSegments: {},
   error: null,
   searchOpen: false,
   allChatsOpen: false,
@@ -134,8 +163,7 @@ export const useSessionStore = create<ChatState>((set, get) => ({
     set((state) => ({
       messages: [...state.messages, userMessage],
       streamingSessionIds: new Set([...state.streamingSessionIds, currentSessionId]),
-      streamingContents: { ...state.streamingContents, [currentSessionId]: '' },
-      activeToolCalls: [],
+      streamingSegments: { ...state.streamingSegments, [currentSessionId]: [] },
       error: null
     }))
 
@@ -144,9 +172,9 @@ export const useSessionStore = create<ChatState>((set, get) => ({
       onChunk: (text) => {
         if (!get().streamingSessionIds.has(sessionId)) return
         set((state) => ({
-          streamingContents: {
-            ...state.streamingContents,
-            [sessionId]: (state.streamingContents[sessionId] ?? '') + text
+          streamingSegments: {
+            ...state.streamingSegments,
+            [sessionId]: appendText(state.streamingSegments[sessionId] ?? [], text)
           }
         }))
       },
@@ -156,24 +184,44 @@ export const useSessionStore = create<ChatState>((set, get) => ({
       onToolUse: (data) => {
         if (sessionId !== get().currentSessionId) return
         set((s) => ({
-          activeToolCalls: [...s.activeToolCalls, {
-            toolUseId: data.toolUseId,
-            toolName: data.toolName,
-            toolInput: data.toolInput,
-            status: 'calling'
-          }],
-          // Reset streaming content for next LLM turn
-          streamingContents: { ...s.streamingContents, [sessionId]: '' }
+          streamingSegments: {
+            ...s.streamingSegments,
+            [sessionId]: [...(s.streamingSegments[sessionId] ?? []), {
+              type: 'tool' as const,
+              toolCall: {
+                toolUseId: data.toolUseId,
+                toolName: data.toolName,
+                toolInput: data.toolInput,
+                status: 'calling' as const
+              }
+            }]
+          }
         }))
       },
       onToolResult: (data) => {
         if (sessionId !== get().currentSessionId) return
         set((s) => ({
-          activeToolCalls: s.activeToolCalls.map((tc) =>
-            tc.toolUseId === data.toolUseId
-              ? { ...tc, status: data.isError ? 'error' as const : 'done' as const, result: data.content, isError: data.isError }
-              : tc
-          )
+          streamingSegments: {
+            ...s.streamingSegments,
+            [sessionId]: updateToolInSegments(s.streamingSegments[sessionId] ?? [], data.toolUseId, (tc) => ({
+              ...tc,
+              status: data.isError ? 'error' as const : 'done' as const,
+              result: data.content,
+              isError: data.isError
+            }))
+          }
+        }))
+      },
+      onToolConfirm: (data) => {
+        if (sessionId !== get().currentSessionId) return
+        set((s) => ({
+          streamingSegments: {
+            ...s.streamingSegments,
+            [sessionId]: updateToolInSegments(s.streamingSegments[sessionId] ?? [], data.toolUseId, (tc) => ({
+              ...tc,
+              status: 'confirming' as const
+            }))
+          }
         }))
       },
       onEnd: (message) => {
@@ -184,14 +232,10 @@ export const useSessionStore = create<ChatState>((set, get) => ({
         set((s) => {
           const newIds = new Set(s.streamingSessionIds)
           newIds.delete(sessionId)
-          const { [sessionId]: _, ...rest } = s.streamingContents
+          const { [sessionId]: _, ...rest } = s.streamingSegments
           return {
-            ...(isCurrentSession && message.content
-              ? { messages: [...s.messages, message] }
-              : {}),
             streamingSessionIds: newIds,
-            streamingContents: rest,
-            activeToolCalls: []
+            streamingSegments: rest
           }
         })
 
@@ -214,12 +258,11 @@ export const useSessionStore = create<ChatState>((set, get) => ({
         set((s) => {
           const newIds = new Set(s.streamingSessionIds)
           newIds.delete(sessionId)
-          const { [sessionId]: _, ...rest } = s.streamingContents
+          const { [sessionId]: _, ...rest } = s.streamingSegments
           return {
             ...(isCurrentSession ? { error } : {}),
             streamingSessionIds: newIds,
-            streamingContents: rest,
-            activeToolCalls: []
+            streamingSegments: rest
           }
         })
 
@@ -245,7 +288,7 @@ export const useSessionStore = create<ChatState>((set, get) => ({
     set((state) => ({
       messages: keepMessages,
       streamingSessionIds: new Set([...state.streamingSessionIds, currentSessionId]),
-      streamingContents: { ...state.streamingContents, [currentSessionId]: '' },
+      streamingSegments: { ...state.streamingSegments, [currentSessionId]: [] },
       error: null
     }))
 
@@ -254,9 +297,9 @@ export const useSessionStore = create<ChatState>((set, get) => ({
       onChunk: (text) => {
         if (!get().streamingSessionIds.has(sessionId)) return
         set((state) => ({
-          streamingContents: {
-            ...state.streamingContents,
-            [sessionId]: (state.streamingContents[sessionId] ?? '') + text
+          streamingSegments: {
+            ...state.streamingSegments,
+            [sessionId]: appendText(state.streamingSegments[sessionId] ?? [], text)
           }
         }))
       },
@@ -271,13 +314,13 @@ export const useSessionStore = create<ChatState>((set, get) => ({
         set((s) => {
           const newIds = new Set(s.streamingSessionIds)
           newIds.delete(sessionId)
-          const { [sessionId]: _, ...rest } = s.streamingContents
+          const { [sessionId]: _, ...rest } = s.streamingSegments
           return {
             ...(isCurrentSession && message.content
               ? { messages: [...s.messages, message] }
               : {}),
             streamingSessionIds: newIds,
-            streamingContents: rest
+            streamingSegments: rest
           }
         })
 
@@ -299,11 +342,11 @@ export const useSessionStore = create<ChatState>((set, get) => ({
         set((s) => {
           const newIds = new Set(s.streamingSessionIds)
           newIds.delete(sessionId)
-          const { [sessionId]: _, ...rest } = s.streamingContents
+          const { [sessionId]: _, ...rest } = s.streamingSegments
           return {
             ...(isCurrentSession ? { error } : {}),
             streamingSessionIds: newIds,
-            streamingContents: rest
+            streamingSegments: rest
           }
         })
 
@@ -328,7 +371,7 @@ export const useSessionStore = create<ChatState>((set, get) => ({
     set((state) => ({
       messages: updatedMessages,
       streamingSessionIds: new Set([...state.streamingSessionIds, currentSessionId]),
-      streamingContents: { ...state.streamingContents, [currentSessionId]: '' },
+      streamingSegments: { ...state.streamingSegments, [currentSessionId]: [] },
       error: null
     }))
 
@@ -337,9 +380,9 @@ export const useSessionStore = create<ChatState>((set, get) => ({
       onChunk: (text) => {
         if (!get().streamingSessionIds.has(sessionId)) return
         set((state) => ({
-          streamingContents: {
-            ...state.streamingContents,
-            [sessionId]: (state.streamingContents[sessionId] ?? '') + text
+          streamingSegments: {
+            ...state.streamingSegments,
+            [sessionId]: appendText(state.streamingSegments[sessionId] ?? [], text)
           }
         }))
       },
@@ -354,13 +397,13 @@ export const useSessionStore = create<ChatState>((set, get) => ({
         set((s) => {
           const newIds = new Set(s.streamingSessionIds)
           newIds.delete(sessionId)
-          const { [sessionId]: _, ...rest } = s.streamingContents
+          const { [sessionId]: _, ...rest } = s.streamingSegments
           return {
             ...(isCurrentSession && message.content
               ? { messages: [...s.messages, message] }
               : {}),
             streamingSessionIds: newIds,
-            streamingContents: rest
+            streamingSegments: rest
           }
         })
 
@@ -382,11 +425,11 @@ export const useSessionStore = create<ChatState>((set, get) => ({
         set((s) => {
           const newIds = new Set(s.streamingSessionIds)
           newIds.delete(sessionId)
-          const { [sessionId]: _, ...rest } = s.streamingContents
+          const { [sessionId]: _, ...rest } = s.streamingSegments
           return {
             ...(isCurrentSession ? { error } : {}),
             streamingSessionIds: newIds,
-            streamingContents: rest
+            streamingSegments: rest
           }
         })
 
@@ -398,14 +441,14 @@ export const useSessionStore = create<ChatState>((set, get) => ({
   },
 
   stopStream: () => {
-    const { streamingContents, currentSessionId } = get()
+    const { streamingSegments, currentSessionId } = get()
     if (!currentSessionId) return
-    const content = streamingContents[currentSessionId] ?? ''
+    const content = getFullText(streamingSegments[currentSessionId] ?? [])
 
     set((s) => {
       const newIds = new Set(s.streamingSessionIds)
       newIds.delete(currentSessionId)
-      const { [currentSessionId]: _, ...rest } = s.streamingContents
+      const { [currentSessionId]: _, ...rest } = s.streamingSegments
       return {
         ...(content ? {
           messages: [...s.messages, {
@@ -418,7 +461,7 @@ export const useSessionStore = create<ChatState>((set, get) => ({
           }]
         } : {}),
         streamingSessionIds: newIds,
-        streamingContents: rest
+        streamingSegments: rest
       }
     })
 
@@ -473,6 +516,24 @@ export const useSessionStore = create<ChatState>((set, get) => ({
         s.id === sessionId ? { ...s, model } : s
       )
     }))
+  },
+
+  confirmTool: (toolUseId, approved, alwaysAllow) => {
+    const { currentSessionId } = get()
+    if (!currentSessionId) return
+    // Update UI state
+    set((s) => ({
+      streamingSegments: {
+        ...s.streamingSegments,
+        [currentSessionId]: updateToolInSegments(s.streamingSegments[currentSessionId] ?? [], toolUseId, (tc) => ({
+          ...tc,
+          status: approved ? 'calling' as const : 'error' as const,
+          ...(!approved ? { result: 'User denied the tool execution.', isError: true } : {})
+        }))
+      }
+    }))
+    // Send confirmation to backend
+    chatApi.confirmTool(currentSessionId, toolUseId, approved, alwaysAllow)
   },
 
   toggleSessionFavorite: async (sessionId) => {

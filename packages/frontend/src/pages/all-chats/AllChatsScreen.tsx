@@ -21,8 +21,8 @@ export function AllChatsScreen(): React.JSX.Element {
     : sessions
 
   return (
-    <div className="flex flex-1 flex-col px-4 py-6">
-      <div className="mx-auto w-full max-w-2xl">
+    <div className="flex flex-1 flex-col px-4 py-6 min-h-0">
+      <div className="mx-auto w-full max-w-2xl flex flex-1 flex-col min-h-0">
         {/* Title */}
         <h1 className="mb-4 text-xl font-semibold text-neutral-800 dark:text-neutral-100">
           채팅
@@ -55,7 +55,7 @@ export function AllChatsScreen(): React.JSX.Element {
         </div>
 
         {/* Session list */}
-        <div className="space-y-0.5">
+        <div className="space-y-0.5 overflow-y-auto flex-1 min-h-0">
           {filtered.length === 0 ? (
             <div className="py-6 text-center text-sm text-neutral-400">
               검색 결과가 없습니다

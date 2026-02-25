@@ -1,5 +1,5 @@
 import { apiFetch, apiSSE } from '@/shared/api/client'
-import type { SSEToolUseData, SSEToolResultData } from '@/shared/api/client'
+import type { SSEToolUseData, SSEToolResultData, SSEToolConfirmData } from '@/shared/api/client'
 import type { Message, ImageAttachment } from '@dchat/shared'
 
 export interface StreamCallbacks {
@@ -9,6 +9,7 @@ export interface StreamCallbacks {
   onError: (error: string) => void
   onToolUse?: (data: SSEToolUseData) => void
   onToolResult?: (data: SSEToolResultData) => void
+  onToolConfirm?: (data: SSEToolConfirmData) => void
 }
 
 function buildSSECallbacks(callbacks: StreamCallbacks) {
@@ -22,7 +23,8 @@ function buildSSECallbacks(callbacks: StreamCallbacks) {
     onEnd: (data: any) => callbacks.onEnd(data as Message),
     onError: (data: { message: string }) => callbacks.onError(data.message),
     onToolUse: callbacks.onToolUse,
-    onToolResult: callbacks.onToolResult
+    onToolResult: callbacks.onToolResult,
+    onToolConfirm: callbacks.onToolConfirm
   }
 }
 
@@ -57,5 +59,11 @@ export const chatApi = {
     apiFetch(`/api/chat/${sessionId}/stop`, {
       method: 'POST',
       body: JSON.stringify({ content })
+    }),
+
+  confirmTool: (sessionId: string, toolUseId: string, approved: boolean, alwaysAllow?: boolean) =>
+    apiFetch(`/api/chat/${sessionId}/tool-confirm`, {
+      method: 'POST',
+      body: JSON.stringify({ toolUseId, approved, alwaysAllow })
     })
 }

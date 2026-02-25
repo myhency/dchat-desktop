@@ -4,8 +4,10 @@ import type { SendMessageUseCase } from '../../../domain/ports/inbound/send-mess
 import type { RegenerateMessageUseCase } from '../../../domain/ports/inbound/regenerate-message.usecase'
 import type { GenerateTitleUseCase } from '../../../domain/ports/inbound/generate-title.usecase'
 import type { ManageMessagesUseCase } from '../../../domain/ports/inbound/manage-messages.usecase'
-import type { SendMessageRequest, StopStreamRequest, EditMessageRequest } from '@dchat/shared'
+import type { SendMessageRequest, StopStreamRequest, EditMessageRequest, ToolConfirmRequest } from '@dchat/shared'
 import type { ExtendedStreamChunk } from '../../../domain/ports/outbound/llm.gateway'
+import type { CompositeMcpClientGateway } from '../../outbound/builtin-tools/composite-mcp-gateway'
+import type { ManageSettingsUseCase } from '../../../domain/ports/inbound/manage-settings.usecase'
 import logger from '../../../logger'
 
 export function formatErrorMessage(error: unknown): string {
@@ -28,6 +30,10 @@ export function formatErrorMessage(error: unknown): string {
 const activeStreams = new Map<string, AbortController>()
 const stoppedContents = new Map<string, string>()
 const lastAssistantMessageIds = new Map<string, string>()
+
+// Pending tool confirmations
+const CONFIRM_TIMEOUT_MS = 60_000
+const pendingConfirmations = new Map<string, { resolve: (approved: boolean) => void; toolName: string }>()
 
 function sendSSE(res: Response, event: string, data: unknown): void {
   res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
@@ -58,7 +64,9 @@ export function createChatRoutes(
   sendMessage: SendMessageUseCase,
   regenerateMessage: RegenerateMessageUseCase,
   generateTitle: GenerateTitleUseCase,
-  manageMessages: ManageMessagesUseCase
+  manageMessages: ManageMessagesUseCase,
+  mcpGateway?: CompositeMcpClientGateway,
+  settingsService?: ManageSettingsUseCase
 ): Router {
   const router = Router()
 
@@ -90,10 +98,32 @@ export function createChatRoutes(
 
     logger.info({ sessionId }, 'SSE stream started')
 
+    // Set up tool confirmation handler
+    if (mcpGateway) {
+      mcpGateway.setConfirmationHandler((toolUseId, toolName, toolInput) => {
+        return new Promise<boolean>((resolve) => {
+          sendSSE(res, 'tool_confirm', { type: 'tool_confirm', toolUseId, toolName, toolInput })
+          pendingConfirmations.set(toolUseId, { resolve, toolName })
+          // Auto-deny after timeout
+          setTimeout(() => {
+            if (pendingConfirmations.has(toolUseId)) {
+              pendingConfirmations.get(toolUseId)!.resolve(false)
+              pendingConfirmations.delete(toolUseId)
+            }
+          }, CONFIRM_TIMEOUT_MS)
+        })
+      })
+    }
+
     // Clean up on client disconnect
     res.on('close', () => {
       abortController.abort()
       activeStreams.delete(sessionId)
+      // Auto-deny all pending confirmations
+      pendingConfirmations.forEach((pending, id) => {
+        pending.resolve(false)
+        pendingConfirmations.delete(id)
+      })
     })
 
     try {
@@ -143,6 +173,7 @@ export function createChatRoutes(
         sendSSE(res, 'error', { message: errorMessage })
       }
     } finally {
+      mcpGateway?.clearConfirmationHandler()
       activeStreams.delete(sessionId)
       res.end()
     }
@@ -165,9 +196,29 @@ export function createChatRoutes(
 
     logger.info({ sessionId }, 'SSE regenerate stream started')
 
+    // Set up tool confirmation handler
+    if (mcpGateway) {
+      mcpGateway.setConfirmationHandler((toolUseId, toolName, toolInput) => {
+        return new Promise<boolean>((resolve) => {
+          sendSSE(res, 'tool_confirm', { type: 'tool_confirm', toolUseId, toolName, toolInput })
+          pendingConfirmations.set(toolUseId, { resolve, toolName })
+          setTimeout(() => {
+            if (pendingConfirmations.has(toolUseId)) {
+              pendingConfirmations.get(toolUseId)!.resolve(false)
+              pendingConfirmations.delete(toolUseId)
+            }
+          }, CONFIRM_TIMEOUT_MS)
+        })
+      })
+    }
+
     res.on('close', () => {
       abortController.abort()
       activeStreams.delete(sessionId)
+      pendingConfirmations.forEach((pending, id) => {
+        pending.resolve(false)
+        pendingConfirmations.delete(id)
+      })
     })
 
     try {
@@ -201,6 +252,7 @@ export function createChatRoutes(
         sendSSE(res, 'error', { message: errorMessage })
       }
     } finally {
+      mcpGateway?.clearConfirmationHandler()
       activeStreams.delete(sessionId)
       res.end()
     }
@@ -224,9 +276,29 @@ export function createChatRoutes(
 
     logger.info({ sessionId, messageId }, 'SSE edit stream started')
 
+    // Set up tool confirmation handler
+    if (mcpGateway) {
+      mcpGateway.setConfirmationHandler((toolUseId, toolName, toolInput) => {
+        return new Promise<boolean>((resolve) => {
+          sendSSE(res, 'tool_confirm', { type: 'tool_confirm', toolUseId, toolName, toolInput })
+          pendingConfirmations.set(toolUseId, { resolve, toolName })
+          setTimeout(() => {
+            if (pendingConfirmations.has(toolUseId)) {
+              pendingConfirmations.get(toolUseId)!.resolve(false)
+              pendingConfirmations.delete(toolUseId)
+            }
+          }, CONFIRM_TIMEOUT_MS)
+        })
+      })
+    }
+
     res.on('close', () => {
       abortController.abort()
       activeStreams.delete(sessionId)
+      pendingConfirmations.forEach((pending, id) => {
+        pending.resolve(false)
+        pendingConfirmations.delete(id)
+      })
     })
 
     try {
@@ -262,10 +334,28 @@ export function createChatRoutes(
         sendSSE(res, 'error', { message: errorMessage })
       }
     } finally {
+      mcpGateway?.clearConfirmationHandler()
       activeStreams.delete(sessionId)
       res.end()
     }
   })
+
+  // POST /api/chat/:sessionId/tool-confirm
+  router.post('/:sessionId/tool-confirm', asyncHandler(async (req: Request, res: Response) => {
+    const { toolUseId, approved, alwaysAllow } = req.body as ToolConfirmRequest
+    const pending = pendingConfirmations.get(toolUseId)
+    if (pending) {
+      if (approved && alwaysAllow && settingsService) {
+        const json = await settingsService.get('builtin_tools_permissions')
+        const perms: Record<string, string> = json ? JSON.parse(json) : {}
+        perms[pending.toolName] = 'always'
+        await settingsService.set('builtin_tools_permissions', JSON.stringify(perms))
+      }
+      pending.resolve(approved)
+      pendingConfirmations.delete(toolUseId)
+    }
+    res.json({ ok: true })
+  }))
 
   // POST /api/chat/:sessionId/stop
   router.post('/:sessionId/stop', asyncHandler(async (req, res) => {

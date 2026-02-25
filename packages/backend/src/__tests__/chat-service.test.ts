@@ -14,7 +14,8 @@ import type { SessionRepository } from '../domain/ports/outbound/session.reposit
 import type { SettingsRepository } from '../domain/ports/outbound/settings.repository'
 import type { ProjectRepository } from '../domain/ports/outbound/project.repository'
 import type { LLMGatewayResolver } from '../domain/ports/outbound/llm-gateway.resolver'
-import type { LLMGateway, StreamChunk, ChatOptions } from '../domain/ports/outbound/llm.gateway'
+import type { LLMGateway, StreamChunk, ChatOptions, ExtendedStreamChunk, LLMStreamResult, LLMMessage } from '../domain/ports/outbound/llm.gateway'
+import type { McpClientGateway } from '../domain/ports/outbound/mcp-client.gateway'
 
 // ── Helpers ──
 
@@ -162,5 +163,103 @@ describe('ChatService', () => {
 
     await expect(chatService.execute('nonexistent', 'Hello', [], vi.fn()))
       .rejects.toThrow('Session not found: nonexistent')
+  })
+
+  it('도구가 있을 때 system prompt에 tool_usage_guidelines가 포함됨', async () => {
+    let capturedOptions: ChatOptions | undefined
+    const rawGateway: LLMGateway = {
+      async *streamChat() { /* unused */ },
+      async *streamChatRaw(_messages: LLMMessage[], options: ChatOptions): AsyncGenerator<ExtendedStreamChunk, LLMStreamResult> {
+        capturedOptions = options
+        yield { type: 'text', content: 'Hi' }
+        return { textContent: 'Hi', toolUseBlocks: [], stopReason: 'end_turn' }
+      },
+      listModels: () => []
+    }
+
+    const mcpClient: McpClientGateway = {
+      startServer: vi.fn(async () => {}),
+      stopServer: vi.fn(async () => {}),
+      getServerStatus: vi.fn(() => 'running' as const),
+      getServerTools: vi.fn(() => []),
+      getAllTools: vi.fn(() => [{ name: 'write_file', description: 'Write a file', inputSchema: {}, serverId: 'fs' }]),
+      callTool: vi.fn(async () => ({ content: '', isError: false })),
+      getServerLogs: vi.fn(() => []),
+      shutdownAll: vi.fn(async () => {})
+    }
+
+    llmResolver = { getGateway: () => rawGateway, listAllModels: () => [], configureProvider: () => {}, testConnection: async () => {} }
+    chatService = new ChatService(messageRepo, sessionRepo, llmResolver, settingsRepo, projectRepo, mcpClient)
+
+    await chatService.execute('s1', 'Hello', [], vi.fn())
+
+    expect(capturedOptions?.systemPrompt).toContain('<tool_usage_guidelines>')
+    expect(capturedOptions?.systemPrompt).toContain('명시적으로 요청')
+  })
+
+  it('도구가 없을 때 system prompt에 tool_usage_guidelines가 포함되지 않음', async () => {
+    let capturedOptions: ChatOptions | undefined
+    const gateway: LLMGateway = {
+      async *streamChat(_messages: Message[], options: ChatOptions) {
+        capturedOptions = options
+        yield { type: 'text' as const, content: 'Hi' }
+        yield { type: 'done' as const, content: '' }
+      },
+      listModels: () => []
+    }
+
+    llmResolver = { getGateway: () => gateway, listAllModels: () => [], configureProvider: () => {}, testConnection: async () => {} }
+    chatService = new ChatService(messageRepo, sessionRepo, llmResolver, settingsRepo, projectRepo)
+
+    await chatService.execute('s1', 'Hello', [], vi.fn())
+
+    // No tools → systemPrompt should be undefined (no project, no custom instructions)
+    // or if defined, should not contain tool guidelines
+    if (capturedOptions?.systemPrompt) {
+      expect(capturedOptions.systemPrompt).not.toContain('<tool_usage_guidelines>')
+    }
+  })
+
+  it('MCP tool use: 모든 iteration의 텍스트가 누적되어 저장됨', async () => {
+    // streamChatRaw: 1회차 → text + tool_use, 2회차 → text + end
+    let callCount = 0
+    const rawGateway: LLMGateway = {
+      async *streamChat() { /* unused */ },
+      async *streamChatRaw(_messages: LLMMessage[], _options: ChatOptions): AsyncGenerator<ExtendedStreamChunk, LLMStreamResult> {
+        callCount++
+        if (callCount === 1) {
+          yield { type: 'text', content: '파일을 읽어볼게요. ' }
+          yield { type: 'tool_use', toolUseId: 'tu1', toolName: 'read_file', toolInput: { path: '/tmp/test' } }
+          return { textContent: '파일을 읽어볼게요. ', toolUseBlocks: [{ id: 'tu1', name: 'read_file', input: { path: '/tmp/test' } }], stopReason: 'tool_use' }
+        }
+        yield { type: 'text', content: '결과는 이렇습니다.' }
+        return { textContent: '결과는 이렇습니다.', toolUseBlocks: [], stopReason: 'end_turn' }
+      },
+      listModels: () => []
+    }
+
+    const mcpClient: McpClientGateway = {
+      startServer: vi.fn(async () => {}),
+      stopServer: vi.fn(async () => {}),
+      getServerStatus: vi.fn(() => 'running' as const),
+      getServerTools: vi.fn(() => []),
+      getAllTools: vi.fn(() => [{ name: 'read_file', description: 'Read a file', inputSchema: {}, serverId: 'fs' }]),
+      callTool: vi.fn(async () => ({ content: 'file contents here', isError: false })),
+      getServerLogs: vi.fn(() => []),
+      shutdownAll: vi.fn(async () => {})
+    }
+
+    llmResolver = { getGateway: () => rawGateway, listAllModels: () => [], configureProvider: () => {}, testConnection: async () => {} }
+    chatService = new ChatService(messageRepo, sessionRepo, llmResolver, settingsRepo, projectRepo, mcpClient)
+
+    const onChunk = vi.fn()
+    const result = await chatService.execute('s1', 'Hello', [], onChunk)
+
+    // assistant 메시지가 모든 iteration의 텍스트를 포함해야 함
+    expect(result.content).toBe('파일을 읽어볼게요. 결과는 이렇습니다.')
+
+    // DB에 저장된 assistant 메시지도 동일
+    const savedAssistant = savedMessages.find((m) => m.role === 'assistant')
+    expect(savedAssistant?.content).toBe('파일을 읽어볼게요. 결과는 이렇습니다.')
   })
 })

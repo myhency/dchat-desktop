@@ -10,8 +10,8 @@ export interface McpClientGateway {
   stopServer(id: string): Promise<void>
   getServerStatus(id: string): 'stopped' | 'running' | 'error'
   getServerTools(id: string): McpToolDefinition[]
-  getAllTools(): McpToolDefinition[]
-  callTool(serverId: string, toolName: string, args: Record<string, unknown>): Promise<{ content: string; isError: boolean }>
+  getAllTools(): McpToolDefinition[] | Promise<McpToolDefinition[]>
+  callTool(serverId: string, toolName: string, args: Record<string, unknown>, toolUseId?: string): Promise<{ content: string; isError: boolean }>
   getServerLogs(id: string): string[]
   shutdownAll(): Promise<void>
 }

@@ -16,6 +16,7 @@ Base URL: `/api` (기본 포트 3131)
 | POST | `/api/chat/:sessionId/messages` | `{ content, attachments? }` | SSE 스트림 | 메시지 전송 + 스트리밍 |
 | POST | `/api/chat/:sessionId/messages/:messageId/regenerate` | — | SSE 스트림 | 메시지 재생성 |
 | POST | `/api/chat/:sessionId/stop` | `{ content }` | `{ ok: true }` | 스트리밍 중단 + 부분 저장 |
+| POST | `/api/chat/:sessionId/tool-confirm` | `{ toolUseId, approved }` | `{ ok: true }` | 도구 실행 승인/거부 |
 
 ## Session
 
@@ -99,6 +100,7 @@ Base URL: `/api` (기본 포트 3131)
 | `chunk` | `{ type: "text", content: string }` | 스트리밍 텍스트 청크 |
 | `tool_use` | `{ type: "tool_use", toolUseId, toolName, toolInput }` | MCP 도구 호출 시작 |
 | `tool_result` | `{ type: "tool_result", toolUseId, toolName, content, isError }` | MCP 도구 실행 결과 |
+| `tool_confirm` | `{ type: "tool_confirm", toolUseId, toolName, toolInput }` | 도구 실행 승인 요청 (위험한 도구) |
 | `title` | `{ sessionId: string, title: string }` | 자동 생성된 세션 제목 |
 | `end` | `{ id, sessionId, role, content, attachments, createdAt }` | 스트리밍 완료 + 최종 assistant 메시지 |
 | `error` | `{ message: string }` | 스트리밍 에러 |

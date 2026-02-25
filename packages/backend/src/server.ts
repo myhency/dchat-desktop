@@ -9,6 +9,7 @@ import { createModelsRoutes } from './adapters/inbound/http/models.routes'
 import { createBackupRoutes } from './adapters/inbound/http/backup.routes'
 import { createMcpServerRoutes } from './adapters/inbound/http/mcp-server.routes'
 import { createMemoryRoutes } from './adapters/inbound/http/memory.routes'
+import { createBuiltinToolsRoutes } from './adapters/inbound/http/builtin-tools.routes'
 import logger from './logger'
 
 export function createApp(container: AppContainer): express.Express {
@@ -39,7 +40,9 @@ export function createApp(container: AppContainer): express.Express {
       container.chatService,
       container.chatService,
       container.chatService,
-      container.chatService
+      container.chatService,
+      container.mcpClient,
+      container.settingsService
     )
   )
   app.use('/api/settings', createSettingsRoutes(container.settingsService, container.llmFactory))
@@ -48,6 +51,7 @@ export function createApp(container: AppContainer): express.Express {
   app.use('/api/backup', createBackupRoutes(container.backupService))
   app.use('/api/mcp', createMcpServerRoutes(container.mcpServerService))
   app.use('/api/memory', createMemoryRoutes(container.memoryService))
+  app.use('/api/builtin-tools', createBuiltinToolsRoutes(container.builtInTools))
 
   // Global error handler — Express 4 does not catch rejected promises from async handlers
   app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

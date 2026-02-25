@@ -1,5 +1,20 @@
 # 프론트엔드 동작 패턴
 
+## Zustand 셀렉터에서 안정적 참조 사용
+
+Zustand 셀렉터에서 폴백 값(`?? []`, `?? {}`)을 인라인으로 쓰면 매 호출마다 새로운 참조가 생성되어 `useSyncExternalStore`가 무한 리렌더를 일으킴:
+
+```tsx
+// ❌ 매번 새 배열 참조 → 무한 루프
+const segments = useSessionStore((s) => s.streamingSegments[id] ?? [])
+
+// ✅ 모듈 스코프 상수 → 안정적 참조
+const EMPTY_SEGMENTS: StreamingSegment[] = []
+const segments = useSessionStore((s) => s.streamingSegments[id] ?? EMPTY_SEGMENTS)
+```
+
+`Record<string, T[]>` 같은 동적 키 구조에서 키가 없을 때 폴백을 반환하는 셀렉터를 작성할 때 반드시 적용할 것.
+
 ## Quick Chat 모드 (`App.tsx`)
 
 `App.tsx`에서 URL 쿼리 `?mode=quick-chat` 감지 시 `QuickChatPage`를 렌더링 (트레이 팝업 전용):
@@ -234,17 +249,33 @@ const keepCount = target.role === 'user' ? targetIndex + 1 : targetIndex
 - **`onEnd` 수정 시**: re-fetch 로직 제거 금지. 제거 시 user 재생성이 깨짐
 - **assistant 메시지**: SSE `end` 이벤트로 백엔드 ID가 직접 전달되므로 불일치 없음
 
-## Filesystem Config — 디렉토리 인라인 편집 패턴
+## 내장 도구 설정 (ExtensionsContent)
 
-`SettingsScreen.tsx`의 `ExtensionsContent` — Filesystem MCP 서버 디렉토리 설정 UI:
+`SettingsScreen.tsx`의 `ExtensionsContent` — 내장 도구(Filesystem & Shell) 설정 UI:
 
+- **저장 방식**: settings API 직접 사용 (`builtin_tools_allowed_dirs`, `builtin_tools_shell_enabled`). 외부 MCP 서버 API 미사용.
 - `directories` 상태 배열에 빈 문자열 `''`이 포함될 수 있음 = 아직 경로 미입력 행
-- "+ directory 추가" → `setDirectories([...directories, ''])` (빈 행 추가)
+- "+ 디렉토리 추가" → `setDirectories([...directories, ''])` (빈 행 추가)
 - 각 행: 텍스트 input + `FolderOpen` 아이콘 버튼(picker) + `X` 버튼(삭제)
-- `handlePickDirectory(index)`: `pickDirectory()` 호출 → 결과를 해당 인덱스에 설정
-- `handleSave`: `directories.filter(d => d.trim())`로 빈 행 제거 후 서버에 저장
-- `needsConfig`/저장 버튼 disabled 판별도 동일하게 빈 문자열 필터 후 체크
-- **수정 시 주의**: `directories.length === 0` 대신 `directories.filter(d => d.trim()).length === 0`으로 유효 디렉토리 존재 여부 확인 (빈 행이 있을 수 있으므로)
+- `handleSave`: `directories.filter(d => d.trim())`로 빈 행 제거 후 JSON으로 저장
+- `hasDirectories` 판별: `directories.filter(d => d.trim()).length > 0` (빈 행이 있을 수 있으므로 length 비교)
+- Shell 토글: `shellEnabled` boolean → `"true"/"false"` 문자열로 저장
+- **상태 표시**: `builtinStatus` 상태로 `settingsApi.getBuiltinToolsStatus()` fetch → Filesystem 카드에 색상 dot + 라벨 (`실행 중`/`오류`/`비활성화`). `handleSave` 후에도 재fetch (`fetchBuiltinStatus()`).
+- **에러 배너**: `builtinStatus.errors`가 있으면 filesystem 설정 뷰에서 접근 불가 디렉토리 목록을 빨간 배너로 표시
+- **에러 핸들링**: `useEffect`의 `Promise.all([...]).catch(() => { setLoaded(true) })` — API 실패 시에도 loaded 상태 설정하여 무한 로딩 방지
+
+## 도구 확인 UI (ToolCallBlock)
+
+`ToolCallBlock.tsx` — 위험한 도구 실행 시 사용자 승인/거부 UI:
+
+- **`ToolCallInfo.status`**: `'calling' | 'done' | 'error' | 'confirming'` — `confirming`은 승인 대기 상태
+- **`confirming` 스타일**: amber 계열 border/bg (`border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20`), Shield 아이콘
+- **자동 확장**: `confirming` 상태일 때 `expanded` 초기값 `true` (input 확인 + 버튼 즉시 표시)
+- **승인/거부 버튼**: `confirmTool(toolUseId, approved)` → `chatApi.confirmTool()` 호출 + UI 상태 갱신
+  - 승인 시: `status → 'calling'` (도구 실행 계속)
+  - 거부 시: `status → 'error'`, `result: 'User denied the tool execution.'`
+- **SSE 이벤트**: `onToolConfirm` 콜백으로 `activeToolCalls`에서 동일 `toolUseId`를 가진 기존 항목의 `status`를 `'confirming'`으로 업데이트 (새 항목 추가가 아님)
+- **렌더링 순서 제약** (`MessageList.tsx`): 스트리밍 텍스트 버블을 tool blocks **위에** 렌더링해야 함. tool blocks가 최하단에 위치해야 auto-scroll 영역에서 확인 버튼이 보임. 순서가 반대면 스트리밍 텍스트가 tool blocks를 화면 밖으로 밀어내어 확인 버튼이 보이지 않고, 60초 타임아웃으로 자동 거부됨
 
 ## 메모리 관리 UI (FeaturesContent)
 
