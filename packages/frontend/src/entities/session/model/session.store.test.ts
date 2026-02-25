@@ -70,7 +70,7 @@ function resetStore() {
     currentSessionId: null,
     messages: [],
     streamingSessionIds: new Set(),
-    streamingContents: {},
+    streamingSegments: {},
     error: null,
     searchOpen: false,
     allChatsOpen: false,
@@ -108,7 +108,7 @@ describe('session store', () => {
       expect(state.messages[0].content).toBe('Hello')
       expect(state.messages[0].sessionId).toBe('sess-1')
       expect(state.streamingSessionIds.has('sess-1')).toBe(true)
-      expect(state.streamingContents['sess-1']).toBe('')
+      expect(state.streamingSegments['sess-1']).toEqual([])
     })
 
     it('passes attachments to the optimistic message', async () => {
@@ -166,12 +166,12 @@ describe('session store', () => {
   })
 
   describe('stopStream', () => {
-    it('creates synthetic assistant message from streaming content', () => {
+    it('creates synthetic assistant message from streaming segments', () => {
       useSessionStore.setState({
         currentSessionId: 'sess-1',
         messages: [makeMessage()],
         streamingSessionIds: new Set(['sess-1']),
-        streamingContents: { 'sess-1': 'Partial response' }
+        streamingSegments: { 'sess-1': [{ type: 'text', content: 'Partial response' }] }
       })
 
       useSessionStore.getState().stopStream()
@@ -181,16 +181,16 @@ describe('session store', () => {
       expect(state.messages[1].role).toBe('assistant')
       expect(state.messages[1].content).toBe('Partial response')
       expect(state.streamingSessionIds.has('sess-1')).toBe(false)
-      expect(state.streamingContents['sess-1']).toBeUndefined()
+      expect(state.streamingSegments['sess-1']).toBeUndefined()
       expect(mockChatApi.stopStream).toHaveBeenCalledWith('sess-1', 'Partial response')
     })
 
-    it('does not add message when streaming content is empty', () => {
+    it('does not add message when streaming segments have no text', () => {
       useSessionStore.setState({
         currentSessionId: 'sess-1',
         messages: [makeMessage()],
         streamingSessionIds: new Set(['sess-1']),
-        streamingContents: { 'sess-1': '' }
+        streamingSegments: { 'sess-1': [] }
       })
 
       useSessionStore.getState().stopStream()
@@ -281,6 +281,73 @@ describe('session store', () => {
       expect(state.allChatsOpen).toBe(false)
       expect(state.projectsOpen).toBe(false)
       expect(state.artifactPanel).toBeNull()
+    })
+  })
+
+  describe('streamingSegments chronological order', () => {
+    it('produces text → tool → text segments in order', async () => {
+      let callbacks: any = {}
+      mockChatApi.sendMessage.mockImplementation((_sid, _content, _imgs, cbs) => {
+        callbacks = cbs
+        return new AbortController()
+      })
+
+      useSessionStore.setState({ currentSessionId: 'sess-1', messages: [] })
+      await useSessionStore.getState().sendMessage('Hello')
+
+      // Simulate: text chunk → tool use → text chunk
+      callbacks.onChunk('Before tool. ')
+      callbacks.onToolUse({ toolUseId: 'tu-1', toolName: 'read_file', toolInput: { path: '/a' } })
+      callbacks.onChunk('After tool.')
+
+      const segments = useSessionStore.getState().streamingSegments['sess-1']
+      expect(segments).toHaveLength(3)
+      expect(segments[0]).toEqual({ type: 'text', content: 'Before tool. ' })
+      expect(segments[1]).toEqual({
+        type: 'tool',
+        toolCall: { toolUseId: 'tu-1', toolName: 'read_file', toolInput: { path: '/a' }, status: 'calling' }
+      })
+      expect(segments[2]).toEqual({ type: 'text', content: 'After tool.' })
+    })
+
+    it('consecutive text chunks merge into a single text segment', async () => {
+      let callbacks: any = {}
+      mockChatApi.sendMessage.mockImplementation((_sid, _content, _imgs, cbs) => {
+        callbacks = cbs
+        return new AbortController()
+      })
+
+      useSessionStore.setState({ currentSessionId: 'sess-1', messages: [] })
+      await useSessionStore.getState().sendMessage('Hello')
+
+      callbacks.onChunk('Hello ')
+      callbacks.onChunk('world')
+
+      const segments = useSessionStore.getState().streamingSegments['sess-1']
+      expect(segments).toHaveLength(1)
+      expect(segments[0]).toEqual({ type: 'text', content: 'Hello world' })
+    })
+
+    it('stopStream joins all text segments into synthetic message', async () => {
+      useSessionStore.setState({
+        currentSessionId: 'sess-1',
+        messages: [makeMessage()],
+        streamingSessionIds: new Set(['sess-1']),
+        streamingSegments: {
+          'sess-1': [
+            { type: 'text', content: 'Part 1. ' },
+            { type: 'tool', toolCall: { toolUseId: 'tu-1', toolName: 'read_file', toolInput: {}, status: 'done' } },
+            { type: 'text', content: 'Part 2.' }
+          ]
+        }
+      })
+
+      useSessionStore.getState().stopStream()
+
+      const state = useSessionStore.getState()
+      expect(state.messages).toHaveLength(2)
+      expect(state.messages[1].content).toBe('Part 1. Part 2.')
+      expect(mockChatApi.stopStream).toHaveBeenCalledWith('sess-1', 'Part 1. Part 2.')
     })
   })
 
