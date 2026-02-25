@@ -269,7 +269,7 @@ SSE 이벤트 타입:
 
 - Production: 랜덤 가용 포트, `process.execPath` + `ELECTRON_RUN_AS_NODE=1`로 빌드된 백엔드 실행
 - Dev: 포트 3131 고정, `npx tsx`로 TypeScript 직접 실행
-- DB 경로: `${app.getPath('userData')}/hchat.db` (환경변수 `DCHAT_DB_PATH`로 오버라이드 가능)
+- DB 경로: Production에서 `${app.getPath('userData')}/dchat.db` (`DCHAT_DB_PATH` 환경변수로 설정). Dev에서는 `DCHAT_DB_PATH` 미설정 → 백엔드 폴백 경로(`~/.dchat/dchat.db`) 사용하여 `npm run dev` (웹 모드)와 동일 DB 공유
 - 백엔드 stdout/stderr → `[backend]` 프리픽스로 로깅
 - Graceful shutdown: `SIGTERM`/`SIGINT`/`will-quit` 시 백엔드 프로세스 kill
 

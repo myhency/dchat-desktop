@@ -87,6 +87,7 @@ max-w-[90%] md:max-w-[80%] lg:max-w-[70%] mx-auto w-full
 - **User (텍스트)**: 파란 버블 — `max-w-[80%] rounded-2xl px-4 py-3 bg-primary text-white`
 - **User (이미지 첨부)**: 이미지는 파란 버블 **바깥 위쪽**에 별도 컨테이너로 렌더링 (`rounded-2xl overflow-hidden border border-neutral-200 dark:border-neutral-700`). 텍스트가 있으면 그 아래에 파란 버블. 이미지만 있고 텍스트 없으면 파란 버블 렌더링 안 함.
 - **Assistant**: 배경/테두리 없음 (Claude 앱 스타일) — `max-w-none py-1 text-neutral-900 dark:text-neutral-100`
+- **Assistant 스트리밍 커서**: `isStreaming` prop이 true일 때 prose div에 `streaming-cursor` CSS 클래스 추가 → `::after` 의사 요소로 블링킹 `▍` 커서 표시. 애니메이션 정의는 `globals.css`의 `@keyframes blink-cursor`. 스트리밍 완료 시 클래스 제거로 커서 자동 소멸.
 
 #### User 버블 긴 텍스트 overflow 방지
 

@@ -256,7 +256,7 @@ const keepCount = target.role === 'user' ? targetIndex + 1 : targetIndex
 - **승인/거부 버튼**: `confirmTool(toolUseId, approved)` → `chatApi.confirmTool()` 호출 + UI 상태 갱신
   - 승인 시: `status → 'calling'` (도구 실행 계속)
   - 거부 시: `status → 'error'`, `result: 'User denied the tool execution.'`
-- **SSE 이벤트**: `onToolConfirm` 콜백으로 `activeToolCalls`에 `confirming` 상태 항목 추가
+- **SSE 이벤트**: `onToolConfirm` 콜백으로 `activeToolCalls`에서 동일 `toolUseId`를 가진 기존 항목의 `status`를 `'confirming'`으로 업데이트 (새 항목 추가가 아님)
 
 ## 메모리 관리 UI (FeaturesContent)
 
