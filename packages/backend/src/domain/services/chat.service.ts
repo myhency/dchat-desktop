@@ -53,7 +53,7 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
     const history = await this.messageRepo.findBySessionId(sessionId)
 
     // Check for available MCP tools
-    const allTools = this.mcpClient?.getAllTools() ?? []
+    const allTools = (await this.mcpClient?.getAllTools()) ?? []
     const gateway = this.llmResolver.getGateway(session.model)
     const systemPrompt = await this.buildSystemPrompt(session.projectId ?? null, content, sessionId)
     const options: ChatOptions = { model: session.model, systemPrompt: systemPrompt || undefined }
@@ -214,7 +214,7 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
           continue
         }
 
-        const callResult = await this.mcpClient.callTool(toolDef.serverId, toolUse.name, toolUse.input)
+        const callResult = await this.mcpClient.callTool(toolDef.serverId, toolUse.name, toolUse.input, toolUse.id)
 
         toolResultBlocks.push({
           type: 'tool_result',
@@ -271,7 +271,7 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
     const history = allMessages.slice(0, keepCount)
 
     // Check for tools
-    const allTools = this.mcpClient?.getAllTools() ?? []
+    const allTools = (await this.mcpClient?.getAllTools()) ?? []
     const gateway = this.llmResolver.getGateway(session.model)
     const systemPrompt = await this.buildSystemPrompt(session.projectId ?? null)
     const options: ChatOptions = { model: session.model, systemPrompt: systemPrompt || undefined }

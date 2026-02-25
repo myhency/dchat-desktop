@@ -21,7 +21,7 @@ export interface ToolCallInfo {
   toolUseId: string
   toolName: string
   toolInput: Record<string, unknown>
-  status: 'calling' | 'done' | 'error'
+  status: 'calling' | 'done' | 'error' | 'confirming'
   result?: string
   isError?: boolean
 }
@@ -59,6 +59,7 @@ interface ChatState {
   closeProjects: () => void
   openArtifact: (code: string, title: string) => void
   closeArtifact: () => void
+  confirmTool: (toolUseId: string, approved: boolean) => void
   toggleSessionFavorite: (sessionId: string) => Promise<void>
   updateSessionProjectId: (sessionId: string, projectId: string | null) => Promise<void>
 }
@@ -174,6 +175,18 @@ export const useSessionStore = create<ChatState>((set, get) => ({
               ? { ...tc, status: data.isError ? 'error' as const : 'done' as const, result: data.content, isError: data.isError }
               : tc
           )
+        }))
+      },
+      onToolConfirm: (data) => {
+        if (sessionId !== get().currentSessionId) return
+        set((s) => ({
+          activeToolCalls: [...s.activeToolCalls, {
+            toolUseId: data.toolUseId,
+            toolName: data.toolName,
+            toolInput: data.toolInput,
+            status: 'confirming' as const
+          }],
+          streamingContents: { ...s.streamingContents, [sessionId]: '' }
         }))
       },
       onEnd: (message) => {
@@ -473,6 +486,21 @@ export const useSessionStore = create<ChatState>((set, get) => ({
         s.id === sessionId ? { ...s, model } : s
       )
     }))
+  },
+
+  confirmTool: (toolUseId, approved) => {
+    const { currentSessionId } = get()
+    if (!currentSessionId) return
+    // Update UI state
+    set((s) => ({
+      activeToolCalls: s.activeToolCalls.map((tc) =>
+        tc.toolUseId === toolUseId
+          ? { ...tc, status: approved ? 'calling' as const : 'error' as const, ...(!approved ? { result: 'User denied the tool execution.', isError: true } : {}) }
+          : tc
+      )
+    }))
+    // Send confirmation to backend
+    chatApi.confirmTool(currentSessionId, toolUseId, approved)
   },
 
   toggleSessionFavorite: async (sessionId) => {

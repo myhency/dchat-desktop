@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronRight, Loader2, Check, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, Loader2, Check, X, Shield } from 'lucide-react'
+import { useSessionStore } from '@/entities/session'
 import type { ToolCallInfo } from '@/entities/session'
 
 interface ToolCallBlockProps {
@@ -7,10 +8,16 @@ interface ToolCallBlockProps {
 }
 
 export function ToolCallBlock({ toolCall }: ToolCallBlockProps): React.JSX.Element {
-  const [expanded, setExpanded] = useState(false)
+  const isConfirming = toolCall.status === 'confirming'
+  const [expanded, setExpanded] = useState(isConfirming)
+  const confirmTool = useSessionStore((s) => s.confirmTool)
 
   return (
-    <div className="my-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/50 text-sm overflow-hidden">
+    <div className={`my-2 rounded-lg border text-sm overflow-hidden ${
+      isConfirming
+        ? 'border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20'
+        : 'border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/50'
+    }`}>
       {/* Header */}
       <button
         type="button"
@@ -18,6 +25,9 @@ export function ToolCallBlock({ toolCall }: ToolCallBlockProps): React.JSX.Eleme
         className="w-full flex items-center gap-2 px-3 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 transition-colors"
       >
         {/* Status icon */}
+        {toolCall.status === 'confirming' && (
+          <Shield size={14} className="shrink-0 text-amber-500" />
+        )}
         {toolCall.status === 'calling' && (
           <Loader2 size={14} className="shrink-0 text-blue-500 animate-spin" />
         )}
@@ -31,7 +41,7 @@ export function ToolCallBlock({ toolCall }: ToolCallBlockProps): React.JSX.Eleme
         <span className="font-medium font-mono text-xs">{toolCall.toolName}</span>
 
         <span className="text-xs text-neutral-400 dark:text-neutral-500">
-          {toolCall.status === 'calling' ? '호출 중...' : toolCall.status === 'error' ? '오류' : '완료'}
+          {toolCall.status === 'confirming' ? '확인 필요' : toolCall.status === 'calling' ? '호출 중...' : toolCall.status === 'error' ? '오류' : '완료'}
         </span>
 
         <span className="flex-1" />
@@ -49,6 +59,26 @@ export function ToolCallBlock({ toolCall }: ToolCallBlockProps): React.JSX.Eleme
               {JSON.stringify(toolCall.toolInput, null, 2)}
             </pre>
           </div>
+
+          {/* Confirmation buttons */}
+          {toolCall.status === 'confirming' && (
+            <div className="flex items-center gap-2 pt-2 border-t border-amber-200 dark:border-amber-800">
+              <button
+                type="button"
+                onClick={() => confirmTool(toolCall.toolUseId, true)}
+                className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-600 transition-colors"
+              >
+                허용
+              </button>
+              <button
+                type="button"
+                onClick={() => confirmTool(toolCall.toolUseId, false)}
+                className="rounded-lg border border-red-300 dark:border-red-700 px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+              >
+                거부
+              </button>
+            </div>
+          )}
 
           {/* Result */}
           {toolCall.result !== undefined && (

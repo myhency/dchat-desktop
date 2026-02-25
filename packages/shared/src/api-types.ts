@@ -155,6 +155,18 @@ export interface SSEToolResultEvent {
   isError: boolean
 }
 
+export interface SSEToolConfirmEvent {
+  type: 'tool_confirm'
+  toolUseId: string
+  toolName: string
+  toolInput: Record<string, unknown>
+}
+
+export interface ToolConfirmRequest {
+  toolUseId: string
+  approved: boolean
+}
+
 // ── Memory ──
 
 export interface MemoryResponse {

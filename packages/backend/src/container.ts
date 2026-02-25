@@ -12,6 +12,8 @@ import { SqliteProjectRepository } from './adapters/outbound/persistence/sqlite/
 import { JsonFileMcpServerRepository } from './adapters/outbound/persistence/json/mcp-config.repository'
 import { LLMAdapterFactory } from './adapters/outbound/llm/llm-adapter.factory'
 import { StdioMcpClientManager } from './adapters/outbound/mcp/stdio-mcp-client.manager'
+import { BuiltInToolProvider } from './adapters/outbound/builtin-tools/builtin-tool-provider'
+import { CompositeMcpClientGateway } from './adapters/outbound/builtin-tools/composite-mcp-gateway'
 
 // Domain Services
 import { ChatService } from './domain/services/chat.service'
@@ -24,7 +26,6 @@ import { MemoryService } from './domain/services/memory.service'
 
 // Domain Ports
 import type { LLMGatewayResolver } from './domain/ports/outbound/llm-gateway.resolver'
-import type { McpClientGateway } from './domain/ports/outbound/mcp-client.gateway'
 
 export interface AppContainer {
   chatService: ChatService
@@ -34,7 +35,7 @@ export interface AppContainer {
   backupService: BackupService
   mcpServerService: McpServerService
   memoryService: MemoryService
-  mcpClient: McpClientGateway
+  mcpClient: CompositeMcpClientGateway
   llmFactory: LLMGatewayResolver
   restoreApiKeys(): Promise<void>
   startMcpServers(): Promise<void>
@@ -50,7 +51,9 @@ export function createContainer(): AppContainer {
   const projectRepo = new SqliteProjectRepository(db)
   const mcpServerRepo = new JsonFileMcpServerRepository()
   const llmFactory = new LLMAdapterFactory()
-  const mcpClient = new StdioMcpClientManager()
+  const stdioMcpClient = new StdioMcpClientManager()
+  const builtInTools = new BuiltInToolProvider(settingsRepo)
+  const mcpClient = new CompositeMcpClientGateway(builtInTools, stdioMcpClient)
 
   // Domain Services
   const memoryService = new MemoryService(messageRepo, settingsRepo, llmFactory, projectRepo)
@@ -59,7 +62,7 @@ export function createContainer(): AppContainer {
   const settingsService = new SettingsService(settingsRepo)
   const projectService = new ProjectService(projectRepo)
   const backupService = new BackupService(messageRepo, sessionRepo, projectRepo, settingsRepo)
-  const mcpServerService = new McpServerService(mcpServerRepo, mcpClient)
+  const mcpServerService = new McpServerService(mcpServerRepo, stdioMcpClient)
 
   return {
     chatService,

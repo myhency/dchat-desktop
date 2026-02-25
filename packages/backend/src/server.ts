@@ -39,7 +39,8 @@ export function createApp(container: AppContainer): express.Express {
       container.chatService,
       container.chatService,
       container.chatService,
-      container.chatService
+      container.chatService,
+      container.mcpClient
     )
   )
   app.use('/api/settings', createSettingsRoutes(container.settingsService, container.llmFactory))
