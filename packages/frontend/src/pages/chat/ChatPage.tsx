@@ -4,7 +4,7 @@ import { PromptInput } from '@/widgets/prompt-input'
 
 export function ChatPage(): React.JSX.Element {
   return (
-    <div className="flex flex-1 flex-col">
+    <div className="flex flex-1 flex-col min-w-0">
       <ChatHeader />
       <MessageList />
       <PromptInput />

@@ -161,8 +161,8 @@ export function MessageBubble({
   }
 
   return (
-    <div className="flex justify-start">
-      <div className="max-w-none py-1 text-sm leading-relaxed text-neutral-900 dark:text-neutral-100">
+    <div className="flex justify-start min-w-0">
+      <div className="max-w-none min-w-0 py-1 text-sm leading-relaxed text-neutral-900 dark:text-neutral-100">
         <div className="prose prose-sm dark:prose-invert max-w-none prose-code:text-pink-500 dark:prose-code:text-pink-400 prose-code:before:content-[''] prose-code:after:content-['']">
           <ReactMarkdown
             remarkPlugins={[remarkGfm, remarkMath]}

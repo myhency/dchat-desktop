@@ -20,7 +20,7 @@ export function CodeBlock({ language, code }: CodeBlockProps): React.JSX.Element
   }, [code])
 
   return (
-    <div className="group my-3 w-full">
+    <div className="group my-3 w-full min-w-0">
       {/* Header */}
       <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-2 rounded-t-lg border border-b-0 border-neutral-200 dark:border-neutral-700 text-xs text-neutral-600 dark:text-neutral-400" style={{ background: darkMode ? '#171717' : '#FAF9F7' }}>
         <span>{language}</span>
