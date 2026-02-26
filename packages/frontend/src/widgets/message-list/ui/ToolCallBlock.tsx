@@ -26,6 +26,11 @@ export function ToolCallBlock({ toolCall }: ToolCallBlockProps): React.JSX.Eleme
     return () => document.removeEventListener('mousedown', handler)
   }, [dropdownOpen])
 
+  // Auto-expand when confirming
+  useEffect(() => {
+    if (isConfirming) setExpanded(true)
+  }, [isConfirming])
+
   // Keyboard shortcuts when confirming
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
