@@ -157,7 +157,11 @@ function registerNativeIpc(): void {
 
     const result = await dialog.showOpenDialog(win, {
       properties: ['openFile', 'multiSelections'],
-      filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp'] }]
+      filters: [
+        { name: 'All Supported Files', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'pdf', 'docx', 'xlsx', 'pptx', 'csv'] },
+        { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp'] },
+        { name: 'Documents', extensions: ['pdf', 'docx', 'xlsx', 'pptx', 'csv'] }
+      ]
     })
 
     if (result.canceled || result.filePaths.length === 0) return []
@@ -171,12 +175,17 @@ function registerNativeIpc(): void {
         jpg: 'image/jpeg',
         jpeg: 'image/jpeg',
         gif: 'image/gif',
-        webp: 'image/webp'
+        webp: 'image/webp',
+        pdf: 'application/pdf',
+        docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        csv: 'text/csv',
       }
       attachments.push({
         id: randomUUID(),
         fileName: basename(filePath),
-        mimeType: mimeMap[ext] ?? 'image/png',
+        mimeType: mimeMap[ext] ?? 'application/octet-stream',
         base64Data: buffer.toString('base64')
       })
     }
