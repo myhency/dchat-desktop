@@ -44,7 +44,13 @@ function sendSSE(res: Response, event: string, data: unknown): void {
 }
 
 function sendChunkSSE(res: Response, chunk: ExtendedStreamChunk): void {
-  if (chunk.type === 'tool_use') {
+  if (chunk.type === 'tool_start') {
+    sendSSE(res, 'tool_start', {
+      type: 'tool_start',
+      toolUseId: chunk.toolUseId,
+      toolName: chunk.toolName
+    })
+  } else if (chunk.type === 'tool_use') {
     sendSSE(res, 'tool_use', {
       type: 'tool_use',
       toolUseId: chunk.toolUseId,

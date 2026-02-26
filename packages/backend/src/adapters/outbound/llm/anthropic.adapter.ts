@@ -141,6 +141,11 @@ export class AnthropicAdapter implements LLMGateway {
             activeToolId = event.content_block.id
             activeToolName = event.content_block.name
             activeToolJson = ''
+            yield {
+              type: 'tool_start',
+              toolUseId: event.content_block.id,
+              toolName: event.content_block.name
+            }
           }
         } else if (event.type === 'content_block_delta') {
           if (event.delta.type === 'text_delta') {

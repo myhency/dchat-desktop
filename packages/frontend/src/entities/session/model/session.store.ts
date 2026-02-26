@@ -181,7 +181,7 @@ export const useSessionStore = create<ChatState>((set, get) => ({
       onTitle: (sid, title) => {
         get().setSessionTitleLocal(sid, title)
       },
-      onToolUse: (data) => {
+      onToolStart: (data) => {
         if (sessionId !== get().currentSessionId) return
         set((s) => ({
           streamingSegments: {
@@ -191,12 +191,40 @@ export const useSessionStore = create<ChatState>((set, get) => ({
               toolCall: {
                 toolUseId: data.toolUseId,
                 toolName: data.toolName,
-                toolInput: data.toolInput,
+                toolInput: {},
                 status: 'calling' as const
               }
             }]
           }
         }))
+      },
+      onToolUse: (data) => {
+        if (sessionId !== get().currentSessionId) return
+        set((s) => {
+          const segs = s.streamingSegments[sessionId] ?? []
+          const exists = segs.some(
+            (seg) => seg.type === 'tool' && seg.toolCall.toolUseId === data.toolUseId
+          )
+          return {
+            streamingSegments: {
+              ...s.streamingSegments,
+              [sessionId]: exists
+                ? updateToolInSegments(segs, data.toolUseId, (tc) => ({
+                    ...tc,
+                    toolInput: data.toolInput
+                  }))
+                : [...segs, {
+                    type: 'tool' as const,
+                    toolCall: {
+                      toolUseId: data.toolUseId,
+                      toolName: data.toolName,
+                      toolInput: data.toolInput,
+                      status: 'calling' as const
+                    }
+                  }]
+            }
+          }
+        })
       },
       onToolResult: (data) => {
         if (sessionId !== get().currentSessionId) return

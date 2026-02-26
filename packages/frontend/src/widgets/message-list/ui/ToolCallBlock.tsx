@@ -98,7 +98,9 @@ export function ToolCallBlock({ toolCall }: ToolCallBlockProps): React.JSX.Eleme
           <div>
             <span className="text-xs text-neutral-500 dark:text-neutral-400">입력</span>
             <pre className="mt-0.5 text-xs font-mono bg-white dark:bg-neutral-900 rounded px-2 py-1.5 overflow-x-auto max-h-32 overflow-y-auto whitespace-pre-wrap">
-              {JSON.stringify(toolCall.toolInput, null, 2)}
+              {Object.keys(toolCall.toolInput).length === 0
+                ? '입력 생성 중...'
+                : JSON.stringify(toolCall.toolInput, null, 2)}
             </pre>
           </div>
 
