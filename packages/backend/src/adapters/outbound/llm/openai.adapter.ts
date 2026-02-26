@@ -1,5 +1,5 @@
 import OpenAI from 'openai'
-import type { Message } from '../../../domain/entities/message'
+import type { Message, ImageAttachment } from '../../../domain/entities/message'
 import type { ModelInfo } from '../../../domain/entities/model-info'
 import type {
   LLMGateway,
@@ -9,12 +9,25 @@ import type {
   LLMMessage,
   LLMStreamResult
 } from '../../../domain/ports/outbound/llm.gateway'
+import { extractTextFromBuffer } from './document-text-extractor'
 import logger from '../../../logger'
 
 const OPENAI_MAX_TOKENS: Record<string, number> = {
   'gpt-4o': 16_384,
   'gpt-4o-mini': 16_384,
   'o3-mini': 100_000,
+}
+
+async function mapAttachmentToOpenAIBlock(a: ImageAttachment): Promise<OpenAI.ChatCompletionContentPart> {
+  if (a.mimeType.startsWith('image/')) {
+    return {
+      type: 'image_url' as const,
+      image_url: { url: `data:${a.mimeType};base64,${a.base64Data}` }
+    }
+  }
+  const buf = Buffer.from(a.base64Data, 'base64')
+  const text = await extractTextFromBuffer(buf, a.mimeType)
+  return { type: 'text' as const, text: `[${a.fileName}]\n${text}` }
 }
 
 export class OpenAIAdapter implements LLMGateway {
@@ -37,13 +50,11 @@ export class OpenAIAdapter implements LLMGateway {
 
     for (const m of messages) {
       if (m.role === 'user' && m.attachments.length > 0) {
+        const blocks = await Promise.all(m.attachments.map((a) => mapAttachmentToOpenAIBlock(a)))
         openaiMessages.push({
           role: 'user',
           content: [
-            ...m.attachments.map((a) => ({
-              type: 'image_url' as const,
-              image_url: { url: `data:${a.mimeType};base64,${a.base64Data}` }
-            })),
+            ...blocks,
             { type: 'text' as const, text: m.content }
           ]
         })
@@ -95,13 +106,24 @@ export class OpenAIAdapter implements LLMGateway {
     }
 
     for (const m of messages) {
-      const text = typeof m.content === 'string'
-        ? m.content
-        : m.content
-            .filter((b) => b.type === 'text')
-            .map((b) => (b as { type: 'text'; text: string }).text)
-            .join('\n')
-      openaiMessages.push({ role: m.role, content: text })
+      if (typeof m.content === 'string' && m.attachments?.length) {
+        const blocks = await Promise.all(m.attachments.map((a) => mapAttachmentToOpenAIBlock(a)))
+        openaiMessages.push({
+          role: m.role as 'user',
+          content: [
+            ...blocks,
+            { type: 'text' as const, text: m.content }
+          ]
+        })
+      } else {
+        const text = typeof m.content === 'string'
+          ? m.content
+          : m.content
+              .filter((b) => b.type === 'text')
+              .map((b) => (b as { type: 'text'; text: string }).text)
+              .join('\n')
+        openaiMessages.push({ role: m.role, content: text })
+      }
     }
 
     if (options.tools && options.tools.length > 0) {

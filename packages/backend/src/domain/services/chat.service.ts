@@ -70,7 +70,8 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
       // Build LLMMessage array from history
       const llmMessages: LLMMessage[] = history.map((m) => ({
         role: m.role,
-        content: m.content
+        content: m.content,
+        ...(m.attachments.length > 0 ? { attachments: m.attachments } : {})
       }))
 
       // Wrap onChunk to track segments
@@ -318,7 +319,8 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
 
       const llmMessages: LLMMessage[] = history.map((m) => ({
         role: m.role,
-        content: m.content
+        content: m.content,
+        ...(m.attachments.length > 0 ? { attachments: m.attachments } : {})
       }))
 
       const trackingOnChunk = (chunk: ExtendedStreamChunk) => {
