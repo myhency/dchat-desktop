@@ -270,7 +270,7 @@ const keepCount = target.role === 'user' ? targetIndex + 1 : targetIndex
 
 - **`ToolCallInfo.status`**: `'calling' | 'done' | 'error' | 'confirming'` — `confirming`은 승인 대기 상태
 - **`confirming` 스타일**: amber 계열 border/bg (`border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20`), Shield 아이콘
-- **자동 확장**: `confirming` 상태일 때 `expanded` 초기값 `true` (input 확인 + 버튼 즉시 표시)
+- **자동 확장**: `confirming` 상태 전환 시 `useEffect`로 `setExpanded(true)` 호출. `useState(isConfirming)` 초기값만으로는 마운트 이후 `calling → confirming` 전환을 감지하지 못함 (동일 `key`의 컴포넌트 인스턴스이므로 `useState` 초기값 무시됨)
 - **승인/거부 버튼**: `confirmTool(toolUseId, approved)` → `chatApi.confirmTool()` 호출 + UI 상태 갱신
   - 승인 시: `status → 'calling'` (도구 실행 계속)
   - 거부 시: `status → 'error'`, `result: 'User denied the tool execution.'`
