@@ -449,4 +449,76 @@ describe('ChatService', () => {
     const savedAssistant = savedMessages.find((m) => m.role === 'assistant')
     expect(savedAssistant?.segments).toBeUndefined()
   })
+
+  it('agentic loop 경로에서 첨부파일이 LLMMessage에 포함됨', async () => {
+    let capturedMessages: LLMMessage[] = []
+    const rawGateway: LLMGateway = {
+      async *streamChat() {},
+      async *streamChatRaw(messages: LLMMessage[], _options: ChatOptions): AsyncGenerator<ExtendedStreamChunk, LLMStreamResult> {
+        capturedMessages = messages
+        yield { type: 'text', content: '요약합니다.' }
+        return { textContent: '요약합니다.', toolUseBlocks: [], stopReason: 'end_turn' }
+      },
+      listModels: () => []
+    }
+
+    const mcpClient: McpClientGateway = {
+      startServer: vi.fn(async () => {}),
+      stopServer: vi.fn(async () => {}),
+      getServerStatus: vi.fn(() => 'running' as const),
+      getServerTools: vi.fn(() => []),
+      getAllTools: vi.fn(() => [{ name: 'read_file', description: 'Read a file', inputSchema: {}, serverId: 'fs' }]),
+      callTool: vi.fn(async () => ({ content: '', isError: false })),
+      getServerLogs: vi.fn(() => []),
+      shutdownAll: vi.fn(async () => {})
+    }
+
+    llmResolver = { getGateway: () => rawGateway, listAllModels: () => [], configureProvider: () => {}, testConnection: async () => {} }
+    chatService = new ChatService(messageRepo, sessionRepo, llmResolver, settingsRepo, projectRepo, mcpClient)
+
+    const attachments = [
+      { id: 'a1', fileName: 'doc.pdf', mimeType: 'application/pdf', base64Data: 'dGVzdA==' }
+    ]
+
+    await chatService.execute('s1', '이거 요약해', attachments, vi.fn())
+
+    // streamChatRaw에 전달된 user 메시지에 attachments가 포함되어야 함
+    const userMsg = capturedMessages.find((m) => m.role === 'user' && m.content === '이거 요약해')
+    expect(userMsg).toBeDefined()
+    expect(userMsg!.attachments).toHaveLength(1)
+    expect(userMsg!.attachments![0].fileName).toBe('doc.pdf')
+  })
+
+  it('첨부파일 없는 메시지에는 attachments가 설정되지 않음', async () => {
+    let capturedMessages: LLMMessage[] = []
+    const rawGateway: LLMGateway = {
+      async *streamChat() {},
+      async *streamChatRaw(messages: LLMMessage[], _options: ChatOptions): AsyncGenerator<ExtendedStreamChunk, LLMStreamResult> {
+        capturedMessages = messages
+        yield { type: 'text', content: 'Hi' }
+        return { textContent: 'Hi', toolUseBlocks: [], stopReason: 'end_turn' }
+      },
+      listModels: () => []
+    }
+
+    const mcpClient: McpClientGateway = {
+      startServer: vi.fn(async () => {}),
+      stopServer: vi.fn(async () => {}),
+      getServerStatus: vi.fn(() => 'running' as const),
+      getServerTools: vi.fn(() => []),
+      getAllTools: vi.fn(() => [{ name: 'read_file', description: 'Read a file', inputSchema: {}, serverId: 'fs' }]),
+      callTool: vi.fn(async () => ({ content: '', isError: false })),
+      getServerLogs: vi.fn(() => []),
+      shutdownAll: vi.fn(async () => {})
+    }
+
+    llmResolver = { getGateway: () => rawGateway, listAllModels: () => [], configureProvider: () => {}, testConnection: async () => {} }
+    chatService = new ChatService(messageRepo, sessionRepo, llmResolver, settingsRepo, projectRepo, mcpClient)
+
+    await chatService.execute('s1', 'Hello', [], vi.fn())
+
+    const userMsg = capturedMessages.find((m) => m.role === 'user')
+    expect(userMsg).toBeDefined()
+    expect(userMsg!.attachments).toBeUndefined()
+  })
 })

@@ -14,6 +14,19 @@ interface McpConfigFile {
   mcpServers: Record<string, McpServerEntry>
 }
 
+const DEFAULT_MCP_SERVERS: McpConfigFile = {
+  mcpServers: {
+    fetch: {
+      command: 'npx',
+      args: ['-y', '@anthropic-ai/fetch-mcp']
+    },
+    'sequential-thinking': {
+      command: 'npx',
+      args: ['-y', '@anthropic-ai/sequential-thinking-mcp']
+    }
+  }
+}
+
 export class JsonFileMcpServerRepository implements McpServerRepository {
   private readonly filePath: string
 
@@ -67,7 +80,7 @@ export class JsonFileMcpServerRepository implements McpServerRepository {
       readFileSync(this.filePath, 'utf-8')
     } catch {
       mkdirSync(dirname(this.filePath), { recursive: true })
-      this.writeConfig({ mcpServers: {} })
+      this.writeConfig(DEFAULT_MCP_SERVERS)
     }
   }
 

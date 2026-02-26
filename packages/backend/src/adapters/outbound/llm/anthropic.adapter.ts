@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
-import type { Message } from '../../../domain/entities/message'
+import type { Message, ImageAttachment } from '../../../domain/entities/message'
 import type { ModelInfo } from '../../../domain/entities/model-info'
 import type {
   LLMGateway,
@@ -9,12 +9,31 @@ import type {
   LLMMessage,
   LLMStreamResult
 } from '../../../domain/ports/outbound/llm.gateway'
+import { extractTextFromBuffer } from './document-text-extractor'
 import logger from '../../../logger'
 
 const ANTHROPIC_MAX_TOKENS: Record<string, number> = {
   'claude-opus-4-6': 128_000,
   'claude-sonnet-4-6': 64_000,
   'claude-haiku-4-5': 64_000,
+}
+
+async function mapAttachmentToAnthropicBlock(a: ImageAttachment): Promise<Anthropic.ContentBlockParam> {
+  if (a.mimeType.startsWith('image/')) {
+    return {
+      type: 'image' as const,
+      source: { type: 'base64' as const, media_type: a.mimeType as 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp', data: a.base64Data }
+    }
+  }
+  if (a.mimeType === 'application/pdf') {
+    return {
+      type: 'document' as const,
+      source: { type: 'base64' as const, media_type: 'application/pdf' as const, data: a.base64Data }
+    }
+  }
+  const buf = Buffer.from(a.base64Data, 'base64')
+  const text = await extractTextFromBuffer(buf, a.mimeType)
+  return { type: 'text' as const, text: `[${a.fileName}]\n${text}` }
 }
 
 export class AnthropicAdapter implements LLMGateway {
@@ -29,18 +48,15 @@ export class AnthropicAdapter implements LLMGateway {
   }
 
   async *streamChat(messages: Message[], options: ChatOptions, signal?: AbortSignal): AsyncIterable<StreamChunk> {
-    const anthropicMessages: Anthropic.MessageParam[] = messages.map((m) => ({
+    const anthropicMessages: Anthropic.MessageParam[] = await Promise.all(messages.map(async (m) => ({
       role: m.role,
       content: m.attachments.length > 0
         ? [
-            ...m.attachments.map((a) => ({
-              type: 'image' as const,
-              source: { type: 'base64' as const, media_type: a.mimeType as 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp', data: a.base64Data }
-            })),
+            ...(await Promise.all(m.attachments.map((a) => mapAttachmentToAnthropicBlock(a)))),
             { type: 'text' as const, text: m.content }
           ]
         : m.content
-    }))
+    })))
 
     logger.debug({ model: options.model, messageCount: messages.length }, 'Anthropic stream start')
 
@@ -79,8 +95,17 @@ export class AnthropicAdapter implements LLMGateway {
     options: ChatOptions,
     signal?: AbortSignal
   ): AsyncGenerator<ExtendedStreamChunk, LLMStreamResult> {
-    const anthropicMessages: Anthropic.MessageParam[] = messages.map((m) => {
+    const anthropicMessages: Anthropic.MessageParam[] = await Promise.all(messages.map(async (m) => {
       if (typeof m.content === 'string') {
+        if (m.attachments?.length) {
+          return {
+            role: m.role,
+            content: [
+              ...(await Promise.all(m.attachments.map((a) => mapAttachmentToAnthropicBlock(a)))),
+              { type: 'text' as const, text: m.content }
+            ]
+          }
+        }
         return { role: m.role, content: m.content }
       }
       // Multi-block content
@@ -102,7 +127,7 @@ export class AnthropicAdapter implements LLMGateway {
           }
         })
       }
-    })
+    }))
 
     // Build tools param for Anthropic API
     const tools: Anthropic.Tool[] | undefined = options.tools?.map((t) => ({

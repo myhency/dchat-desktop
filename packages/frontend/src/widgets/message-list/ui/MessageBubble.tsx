@@ -4,11 +4,29 @@ import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
 import 'katex/dist/katex.min.css'
-import { RefreshCw, Pencil, Copy, Check } from 'lucide-react'
+import { RefreshCw, Pencil, Copy, Check, FileText } from 'lucide-react'
 import { CodeBlock } from './CodeBlock'
 import { HtmlArtifactCard } from './HtmlArtifactCard'
 import { formatTime } from '@/shared/lib/time'
 import type { ImageAttachment } from '@/entities/session'
+
+function AttachmentPreview({ attachment }: { attachment: ImageAttachment }) {
+  if (attachment.mimeType.startsWith('image/')) {
+    return (
+      <img
+        src={`data:${attachment.mimeType};base64,${attachment.base64Data}`}
+        alt={attachment.fileName}
+        className="w-40 h-28 object-cover"
+      />
+    )
+  }
+  return (
+    <div className="w-40 h-28 flex flex-col items-center justify-center gap-1 bg-neutral-100 dark:bg-neutral-700">
+      <FileText size={24} className="text-neutral-500 dark:text-neutral-400" />
+      <span className="text-xs text-neutral-500 dark:text-neutral-400 px-2 truncate w-full text-center">{attachment.fileName}</span>
+    </div>
+  )
+}
 
 interface MessageBubbleProps {
   role: 'user' | 'assistant'
@@ -66,11 +84,7 @@ export function MessageBubble({
               <div className="flex flex-wrap gap-2">
                 {attachments.map((a) => (
                   <div key={a.id} className="rounded-2xl overflow-hidden border border-neutral-200 dark:border-neutral-700">
-                    <img
-                      src={`data:${a.mimeType};base64,${a.base64Data}`}
-                      alt={a.fileName}
-                      className="w-40 h-28 object-cover"
-                    />
+                    <AttachmentPreview attachment={a} />
                   </div>
                 ))}
               </div>
@@ -110,11 +124,7 @@ export function MessageBubble({
             <div className="flex flex-wrap gap-2 mb-2">
               {attachments.map((a) => (
                 <div key={a.id} className="rounded-2xl overflow-hidden border border-neutral-200 dark:border-neutral-700">
-                  <img
-                    src={`data:${a.mimeType};base64,${a.base64Data}`}
-                    alt={a.fileName}
-                    className="w-40 h-28 object-cover"
-                  />
+                  <AttachmentPreview attachment={a} />
                 </div>
               ))}
             </div>

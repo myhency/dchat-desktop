@@ -378,6 +378,33 @@ if (msg.role === 'assistant' && msg.segments?.length) {
 - 응답으로 `onMemoryChange(content)` 콜백 → 부모의 `memoryData` 갱신
 - 로딩 중 Escape/오버레이 닫기 비활성화
 
+## 첨부파일 미리보기: 이미지 vs 문서 분기
+
+`MessageBubble.tsx`의 `AttachmentPreview` 컴포넌트와 `PromptInput.tsx`에서 첨부파일 타입에 따라 렌더링을 분기:
+
+- **이미지** (`mimeType.startsWith('image/')`) → `<img>` 태그로 base64 미리보기
+- **문서** (PDF, DOCX 등) → `FileText` 아이콘 + 파일명 텍스트
+
+```tsx
+// MessageBubble.tsx — AttachmentPreview 컴포넌트
+if (attachment.mimeType.startsWith('image/')) {
+  return <img src={`data:${mimeType};base64,${base64Data}`} ... />
+}
+return <div><FileText /><span>{attachment.fileName}</span></div>
+```
+
+- **수정 시 주의**: `PromptInput.tsx`에도 동일한 분기가 인라인으로 존재. 새 파일 타입 추가 시 양쪽 모두 수정 필요.
+- **웹 모드 파일 선택** (`native.ts`): `input.accept`에 문서 MIME 타입 포함. `MIME_FALLBACK` 맵으로 확장자 기반 폴백 MIME 감지 (브라우저가 비이미지 파일의 `file.type`을 비워두는 경우 대비).
+
+## ErrorBoundary 에러 저장
+
+`packages/frontend/src/shared/ui/ErrorBoundary.tsx` — 앱 전역 에러 캐치 + fallback UI.
+
+- **위치**: `main.tsx`에서 `<App />` 감싸기 (`<ErrorBoundary><App /></ErrorBoundary>`)
+- **"오류 저장하기" 버튼**: `apiFetch('/api/error-reports', { method: 'POST', body: ... })` 호출 → `~/.dchat/crash-reports/`에 파일 저장
+- **상태 머신**: `saveState: 'idle' | 'saved' | 'failed'` — 버튼 텍스트/아이콘이 상태에 따라 전환, 2초 후 `idle`로 복귀
+- **수정 시 주의**: ErrorBoundary fallback은 React 트리 외부에서 렌더링되므로, Zustand 스토어나 Context에 의존하지 않음. `apiFetch`만 직접 import하여 사용
+
 ## 백업 가져오기 후 스토어 갱신
 
 `SettingsScreen`의 `PrivacyContent`에서 백업 가져오기(import) 성공 후 반드시 `loadSettings()` + `loadSessions()`를 순서대로 호출해야 함.

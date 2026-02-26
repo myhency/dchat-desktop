@@ -10,6 +10,7 @@ import { listDirectoryTool } from './tools/list-directory'
 import { searchFilesTool } from './tools/search-files'
 import { createDirectoryTool } from './tools/create-directory'
 import { readMediaFileTool } from './tools/read-media-file'
+import { readDocumentTool } from './tools/read-document'
 import { readMultipleFilesTool } from './tools/read-multiple-files'
 import { listDirectoryWithSizesTool } from './tools/list-directory-with-sizes'
 import { directoryTreeTool } from './tools/directory-tree'
@@ -25,6 +26,7 @@ export type ToolPermission = 'always' | 'confirm' | 'blocked'
 
 const FILESYSTEM_TOOLS: BuiltInToolDef[] = [
   readTextFileTool,
+  readDocumentTool,
   writeFileTool,
   editFileTool,
   listDirectoryTool,

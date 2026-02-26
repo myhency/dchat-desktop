@@ -2,8 +2,21 @@ import type { ImageAttachment } from '@dchat/shared'
 
 const isElectron = typeof window !== 'undefined' && !!(window as any).electron
 
+const MIME_FALLBACK: Record<string, string> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  pdf: 'application/pdf',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  csv: 'text/csv',
+}
+
 /**
- * Pick images — uses Electron native dialog or browser file input
+ * Pick images or documents — uses Electron native dialog or browser file input
  */
 export async function pickImage(): Promise<ImageAttachment[]> {
   if (isElectron) {
@@ -14,7 +27,7 @@ export async function pickImage(): Promise<ImageAttachment[]> {
   return new Promise((resolve) => {
     const input = document.createElement('input')
     input.type = 'file'
-    input.accept = 'image/png,image/jpeg,image/gif,image/webp'
+    input.accept = 'image/png,image/jpeg,image/gif,image/webp,application/pdf,.docx,.xlsx,.pptx,.csv'
     input.multiple = true
 
     input.onchange = async () => {
@@ -31,10 +44,11 @@ export async function pickImage(): Promise<ImageAttachment[]> {
         const base64 = btoa(
           new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
         )
+        const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
         attachments.push({
           id: crypto.randomUUID(),
           fileName: file.name,
-          mimeType: file.type || 'image/png',
+          mimeType: file.type || MIME_FALLBACK[ext] || 'application/octet-stream',
           base64Data: base64
         })
       }

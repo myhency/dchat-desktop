@@ -64,7 +64,8 @@ src/
 │   └── mcp/                             # mcpApi, useMcpStore
 └── shared/                              # 인프라, 유틸
     ├── api/                             # client.ts (apiFetch, apiSSE), models.api.ts
-    └── lib/                             # native.ts, model-meta.ts, time.ts
+    ├── lib/                             # native.ts, model-meta.ts, time.ts
+    └── ui/                              # ErrorBoundary 등 공통 UI 컴포넌트
 ```
 
 ## API 클라이언트

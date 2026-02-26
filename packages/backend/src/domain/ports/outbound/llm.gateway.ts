@@ -1,4 +1,4 @@
-import type { Message } from '../../entities/message'
+import type { Message, ImageAttachment } from '../../entities/message'
 import type { ModelInfo } from '../../entities/model-info'
 
 export interface StreamChunk {
@@ -51,6 +51,7 @@ export type LLMContentBlock =
 export interface LLMMessage {
   role: 'user' | 'assistant'
   content: string | LLMContentBlock[]
+  attachments?: ImageAttachment[]
 }
 
 export interface LLMStreamResult {

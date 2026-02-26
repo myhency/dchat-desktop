@@ -462,7 +462,7 @@ describe('BuiltInToolProvider', () => {
 
   it('returns filesystem tools when directories are configured', async () => {
     const tools = await provider.getTools()
-    expect(tools.length).toBe(13)
+    expect(tools.length).toBe(14)
     expect(tools.every((t) => t.serverId === '__builtin__')).toBe(true)
     // Should not include execute_command when shell disabled
     expect(tools.find((t) => t.name === 'execute_command')).toBeUndefined()
@@ -660,7 +660,7 @@ describe('BuiltInToolProvider', () => {
     it('returns running when directories are accessible', async () => {
       const status = await provider.getStatus()
       expect(status.status).toBe('running')
-      expect(status.toolCount).toBe(13)
+      expect(status.toolCount).toBe(14)
       expect(status.directories).toEqual([providerDir])
       expect(status.errors).toEqual([])
     })
@@ -753,7 +753,7 @@ describe('CompositeMcpClientGateway', () => {
     const builtInNames = tools.filter((t) => t.serverId === '__builtin__').map((t) => t.name)
     const extNames = tools.filter((t) => t.serverId === 'ext-1').map((t) => t.name)
 
-    expect(builtInNames.length).toBe(13)
+    expect(builtInNames.length).toBe(14)
     expect(extNames).toContain('ext_tool')
   })
 
