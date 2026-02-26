@@ -249,6 +249,40 @@ const keepCount = target.role === 'user' ? targetIndex + 1 : targetIndex
 - **`onEnd` 수정 시**: re-fetch 로직 제거 금지. 제거 시 user 재생성이 깨짐
 - **assistant 메시지**: SSE `end` 이벤트로 백엔드 ID가 직접 전달되므로 불일치 없음
 
+## sendMessage onEnd: 스트리밍 클리어와 메시지 로드의 원자적 업데이트
+
+`sendMessage`의 `onEnd` 핸들러에서 현재 세션인 경우, 스트리밍 상태 클리어(`streamingSessionIds`, `streamingSegments`)와 DB 메시지 로드(`messages`)를 **반드시 한 번의 `set()` 호출**로 처리해야 함.
+
+```typescript
+// ❌ 2단계 set → 중간 상태에서 스트리밍 콘텐츠가 DOM에서 제거되어 스크롤 점프 발생
+set({ streamingSessionIds: newIds, streamingSegments: rest })  // 콘텐츠 사라짐
+chatApi.getMessages(sessionId).then((msgs) => set({ messages: msgs }))  // 뒤늦게 복원
+
+// ✅ fetch 완료 후 한번에 set → 콘텐츠 높이가 유지됨
+chatApi.getMessages(sessionId).then((msgs) => {
+  set({ messages: msgs, streamingSessionIds: newIds, streamingSegments: rest })
+})
+```
+
+**원인**: 1차 `set()`으로 `isStreaming`이 `false`가 되면 `MessageList`의 `{isStreaming && streamingSegments...}` 블록이 DOM에서 제거됨 → 콘텐츠 높이 급감 → 브라우저 scroll 이벤트가 "유저 위로 스크롤"로 오인 → `isNearBottom = false` → 2차 `set()` 후 auto-scroll 비활성화 → 사용자가 최상단에 고정됨.
+
+**예외**: `regenerateMessage`/`editMessage`의 `onEnd`는 atomic `set()` 내에서 `messages: [...s.messages, message]`로 스트리밍 콘텐츠를 즉시 대체하므로 높이 급감이 없음. `stopStream`은 사용자 의도적 중단이므로 스크롤 위치 변경은 기대 동작.
+
+## MessageList handleScroll: nearBottom 우선 체크
+
+`handleScroll`에서 `nearBottom`을 `scrolledUp`보다 **먼저** 체크해야 함:
+
+```typescript
+// ✅ nearBottom 우선 → 콘텐츠 높이 변화로 scrollTop이 줄어도 하단이면 isNearBottom 유지
+if (nearBottom) {
+  isNearBottomRef.current = true
+} else if (scrolledUp) {
+  isNearBottomRef.current = false
+}
+```
+
+`scrolledUp`을 먼저 체크하면 콘텐츠 높이가 변할 때(메시지 교체, 이미지 로드 등) `scrollTop` 감소를 "유저 스크롤업"으로 오인하여 auto-scroll이 꺼짐. `nearBottom` 우선 체크는 이에 대한 방어.
+
 ## 내장 도구 설정 (ExtensionsContent)
 
 `SettingsScreen.tsx`의 `ExtensionsContent` — 내장 도구(Filesystem & Shell) 설정 UI:
