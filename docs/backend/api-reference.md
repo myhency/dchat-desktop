@@ -91,6 +91,15 @@ Base URL: `/api` (기본 포트 3131)
 | DELETE | `/api/memory` | — | `{ ok: true }` | 메모리 삭제 |
 | POST | `/api/memory/edit` | `EditMemoryRequest` | `MemoryResponse` | LLM으로 메모리 수정 (`{ instruction, model }`) |
 
+## Error Reports
+
+| 메서드 | 경로 | Body | 응답 | 설명 |
+|--------|------|------|------|------|
+| POST | `/api/error-reports` | `{ report: string }` | `{ ok: true, filePath: string }` | 에러 리포트를 `~/.dchat/crash-reports/`에 파일로 저장 |
+
+- 파일명: `error-{ISO timestamp}.txt` (`:` → `-` 치환)
+- 서비스/포트 없는 standalone 라우트 (순수 인프라 파일 쓰기)
+
 ## SSE 스트리밍 이벤트
 
 `POST /api/chat/:sessionId/messages` 및 `POST /api/chat/:sessionId/messages/:messageId/regenerate`는 SSE(Server-Sent Events)로 응답.
