@@ -19,6 +19,7 @@ export function MessageList(): React.JSX.Element {
 
   const bottomRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const lastUserMsgRef = useRef<HTMLDivElement>(null)
   const isNearBottomRef = useRef(true)
   const isProgrammaticScrollRef = useRef(false)
   const [showScrollButton, setShowScrollButton] = useState(false)
@@ -94,7 +95,7 @@ export function MessageList(): React.JSX.Element {
         isProgrammaticScrollRef.current = true
         isNearBottomRef.current = true
         setShowScrollButton(false)
-        bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+        lastUserMsgRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       }
     }
     prevMessagesLengthRef.current = messages.length
@@ -121,7 +122,7 @@ export function MessageList(): React.JSX.Element {
           </div>
         )}
 
-        {messages.map((msg) => {
+        {messages.map((msg, index) => {
           if (msg.role === 'assistant' && msg.segments?.length) {
             return (
               <div key={msg.id} className="space-y-2">
@@ -154,17 +155,19 @@ export function MessageList(): React.JSX.Element {
               </div>
             )
           }
+          const isLastUserMsg = index === messages.length - 1 && msg.role === 'user'
           return (
-            <MessageBubble
-              key={msg.id}
-              id={msg.id}
-              role={msg.role}
-              content={msg.content}
-              createdAt={msg.createdAt}
-              onRegenerate={regenerateMessage}
-              onEdit={editMessage}
-              attachments={msg.attachments}
-            />
+            <div key={msg.id} ref={isLastUserMsg ? lastUserMsgRef : undefined}>
+              <MessageBubble
+                id={msg.id}
+                role={msg.role}
+                content={msg.content}
+                createdAt={msg.createdAt}
+                onRegenerate={regenerateMessage}
+                onEdit={editMessage}
+                attachments={msg.attachments}
+              />
+            </div>
           )
         })}
 
