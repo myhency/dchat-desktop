@@ -1,4 +1,4 @@
-import type { Message, ImageAttachment } from '../entities/message'
+import type { Message, ImageAttachment, MessageSegment } from '../entities/message'
 import type { SendMessageUseCase } from '../ports/inbound/send-message.usecase'
 import type { RegenerateMessageUseCase } from '../ports/inbound/regenerate-message.usecase'
 import type { GenerateTitleUseCase } from '../ports/inbound/generate-title.usecase'
@@ -73,11 +73,33 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
         content: m.content
       }))
 
+      // Wrap onChunk to track segments
+      const segments: MessageSegment[] = []
+      const trackingOnChunk = (chunk: ExtendedStreamChunk) => {
+        if (chunk.type === 'text') {
+          const last = segments[segments.length - 1]
+          if (last?.type === 'text') {
+            last.content += chunk.content
+          } else {
+            segments.push({ type: 'text', content: chunk.content })
+          }
+        } else if (chunk.type === 'tool_use') {
+          segments.push({ type: 'tool', toolUseId: chunk.toolUseId, toolName: chunk.toolName, toolInput: chunk.toolInput })
+        } else if (chunk.type === 'tool_result') {
+          const toolSeg = [...segments].reverse().find((s): s is Extract<MessageSegment, { type: 'tool' }> => s.type === 'tool' && s.toolUseId === chunk.toolUseId)
+          if (toolSeg) {
+            toolSeg.result = chunk.content
+            toolSeg.isError = chunk.isError
+          }
+        }
+        onChunk(chunk)
+      }
+
       const assistantContent = await this.runAgenticLoop(
         llmMessages,
         options,
         allTools,
-        onChunk,
+        trackingOnChunk,
         signal,
         gateway.streamChatRaw.bind(gateway)
       )
@@ -89,6 +111,7 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
         role: 'assistant',
         content: assistantContent,
         attachments: [],
+        segments: segments.length > 0 ? segments : undefined,
         createdAt: new Date()
       }
 
@@ -169,6 +192,15 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
       }
 
       finalText += result.textContent
+
+      // max_tokens → continuation: append assistant text and ask LLM to continue
+      if (result.stopReason === 'max_tokens') {
+        if (result.textContent) {
+          messages.push({ role: 'assistant', content: result.textContent })
+          messages.push({ role: 'user', content: 'Continue from where you left off. Do not repeat what you already said.' })
+        }
+        continue
+      }
 
       // If no tool use, we're done
       if (result.stopReason !== 'tool_use' || result.toolUseBlocks.length === 0) {
@@ -274,6 +306,7 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
     const options: ChatOptions = { model: session.model, systemPrompt: systemPrompt || undefined }
 
     let assistantContent = ''
+    const segments: MessageSegment[] = []
 
     if (allTools.length > 0 && gateway.streamChatRaw) {
       const toolDefs = allTools.map((t) => ({
@@ -288,11 +321,31 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
         content: m.content
       }))
 
+      const trackingOnChunk = (chunk: ExtendedStreamChunk) => {
+        if (chunk.type === 'text') {
+          const last = segments[segments.length - 1]
+          if (last?.type === 'text') {
+            last.content += chunk.content
+          } else {
+            segments.push({ type: 'text', content: chunk.content })
+          }
+        } else if (chunk.type === 'tool_use') {
+          segments.push({ type: 'tool', toolUseId: chunk.toolUseId, toolName: chunk.toolName, toolInput: chunk.toolInput })
+        } else if (chunk.type === 'tool_result') {
+          const toolSeg = [...segments].reverse().find((s): s is Extract<MessageSegment, { type: 'tool' }> => s.type === 'tool' && s.toolUseId === chunk.toolUseId)
+          if (toolSeg) {
+            toolSeg.result = chunk.content
+            toolSeg.isError = chunk.isError
+          }
+        }
+        onChunk(chunk)
+      }
+
       assistantContent = await this.runAgenticLoop(
         llmMessages,
         options,
         allTools,
-        onChunk,
+        trackingOnChunk,
         signal,
         gateway.streamChatRaw.bind(gateway)
       )
@@ -317,6 +370,7 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
       role: 'assistant',
       content: assistantContent,
       attachments: [],
+      segments: segments.length > 0 ? segments : undefined,
       createdAt: new Date()
     }
 

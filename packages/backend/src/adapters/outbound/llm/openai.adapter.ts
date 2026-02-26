@@ -98,6 +98,10 @@ export class OpenAIAdapter implements LLMGateway {
       openaiMessages.push({ role: m.role, content: text })
     }
 
+    if (options.tools && options.tools.length > 0) {
+      logger.warn({ model: options.model, toolCount: options.tools.length }, 'OpenAI streamChatRaw: tools provided but not supported, ignored')
+    }
+
     logger.debug({ model: options.model, messageCount: messages.length }, 'OpenAI streamChatRaw start (text-only)')
 
     let textContent = ''

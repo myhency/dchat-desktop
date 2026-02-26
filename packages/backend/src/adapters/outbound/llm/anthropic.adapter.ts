@@ -105,7 +105,7 @@ export class AnthropicAdapter implements LLMGateway {
       input_schema: t.inputSchema as Anthropic.Tool.InputSchema
     }))
 
-    logger.debug({ model: options.model, messageCount: messages.length, toolCount: tools?.length }, 'Anthropic streamChatRaw start')
+    logger.debug({ model: options.model, messageCount: messages.length, toolCount: tools?.length, toolNames: tools?.map(t => t.name) }, 'Anthropic streamChatRaw start')
 
     let textContent = ''
     const toolUseBlocks: Array<{ id: string; name: string; input: Record<string, unknown> }> = []
@@ -149,6 +149,7 @@ export class AnthropicAdapter implements LLMGateway {
             try {
               input = activeToolJson ? JSON.parse(activeToolJson) : {}
             } catch {
+              logger.warn({ toolName: activeToolName, toolId: activeToolId, jsonLength: activeToolJson.length }, 'Failed to parse tool input JSON, using empty input')
               input = {}
             }
             toolUseBlocks.push({ id: activeToolId, name: activeToolName, input })

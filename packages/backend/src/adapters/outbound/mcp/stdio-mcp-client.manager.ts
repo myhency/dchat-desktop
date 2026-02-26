@@ -106,10 +106,12 @@ export class StdioMcpClientManager implements McpClientGateway {
   async callTool(serverId: string, toolName: string, args: Record<string, unknown>): Promise<{ content: string; isError: boolean }> {
     const entry = this.servers.get(serverId)
     if (!entry || entry.status !== 'running') {
+      logger.warn({ serverId, toolName }, 'MCP tool call: server not running')
       return { content: `MCP server ${serverId} is not running`, isError: true }
     }
 
     try {
+      logger.debug({ serverId, toolName }, 'MCP tool call start')
       const result = await entry.client.callTool({ name: toolName, arguments: args })
 
       // Extract text content from result
@@ -122,10 +124,12 @@ export class StdioMcpClientManager implements McpClientGateway {
         }
       }
 
-      return {
+      const callResult = {
         content: textParts.join('\n') || JSON.stringify(result.content),
         isError: result.isError === true
       }
+      logger.debug({ serverId, toolName, isError: callResult.isError }, 'MCP tool call completed')
+      return callResult
     } catch (error) {
       logger.error({ err: error, serverId, toolName }, 'MCP tool call failed')
       return {

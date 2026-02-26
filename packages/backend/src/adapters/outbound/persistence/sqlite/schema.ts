@@ -69,6 +69,12 @@ export function initSchema(db: Database.Database): void {
   }
 
   try {
+    db.exec(`ALTER TABLE messages ADD COLUMN segments TEXT DEFAULT NULL`)
+  } catch {
+    // column already exists
+  }
+
+  try {
     db.exec(`ALTER TABLE projects ADD COLUMN memory_content TEXT NOT NULL DEFAULT ''`)
   } catch {
     // column already exists

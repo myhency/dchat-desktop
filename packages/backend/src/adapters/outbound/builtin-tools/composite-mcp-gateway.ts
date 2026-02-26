@@ -1,5 +1,6 @@
 import type { McpClientGateway, McpToolDefinition } from '../../../domain/ports/outbound/mcp-client.gateway'
 import type { BuiltInToolProvider, ConfirmationHandler } from './builtin-tool-provider'
+import logger from '../../../logger'
 
 export class CompositeMcpClientGateway implements McpClientGateway {
   constructor(
@@ -36,6 +37,7 @@ export class CompositeMcpClientGateway implements McpClientGateway {
   // ── Tool execution ──
 
   async callTool(serverId: string, toolName: string, args: Record<string, unknown>, toolUseId?: string): Promise<{ content: string; isError: boolean }> {
+    logger.debug({ serverId, toolName, toolUseId }, 'Routing tool call')
     if (serverId === '__builtin__') {
       return this.builtIn.callTool(toolName, args, toolUseId)
     }

@@ -121,18 +121,52 @@ export function MessageList(): React.JSX.Element {
           </div>
         )}
 
-        {messages.map((msg) => (
-          <MessageBubble
-            key={msg.id}
-            id={msg.id}
-            role={msg.role}
-            content={msg.content}
-            createdAt={msg.createdAt}
-            onRegenerate={regenerateMessage}
-            onEdit={editMessage}
-            attachments={msg.attachments}
-          />
-        ))}
+        {messages.map((msg) => {
+          if (msg.role === 'assistant' && msg.segments?.length) {
+            return (
+              <div key={msg.id} className="space-y-2">
+                {msg.segments.map((seg, i) => {
+                  if (seg.type === 'text') {
+                    const isLastText = !msg.segments!.slice(i + 1).some((s) => s.type === 'text')
+                    return (
+                      <MessageBubble
+                        key={`${msg.id}-seg-${i}`}
+                        role="assistant"
+                        content={seg.content}
+                        {...(isLastText ? { id: msg.id, createdAt: msg.createdAt, onRegenerate: regenerateMessage } : {})}
+                      />
+                    )
+                  }
+                  return (
+                    <ToolCallBlock
+                      key={`${msg.id}-seg-${i}`}
+                      toolCall={{
+                        toolUseId: seg.toolUseId,
+                        toolName: seg.toolName,
+                        toolInput: seg.toolInput,
+                        status: seg.isError ? 'error' : 'done',
+                        result: seg.result,
+                        isError: seg.isError
+                      }}
+                    />
+                  )
+                })}
+              </div>
+            )
+          }
+          return (
+            <MessageBubble
+              key={msg.id}
+              id={msg.id}
+              role={msg.role}
+              content={msg.content}
+              createdAt={msg.createdAt}
+              onRegenerate={regenerateMessage}
+              onEdit={editMessage}
+              attachments={msg.attachments}
+            />
+          )
+        })}
 
         {isStreaming && streamingSegments.length > 0 && streamingSegments.map((seg, i) => {
           if (seg.type === 'text') {

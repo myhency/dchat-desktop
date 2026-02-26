@@ -102,6 +102,7 @@ export class BuiltInToolProvider {
     const tools = await this.getActiveTools()
     const tool = tools.find((t) => t.name === toolName)
     if (!tool) {
+      logger.warn({ toolName, toolUseId }, 'Built-in tool not found')
       return { content: `Built-in tool "${toolName}" not found`, isError: true }
     }
 
@@ -109,15 +110,19 @@ export class BuiltInToolProvider {
     const permission = this.getToolPermission(permissions, toolName, tool.isDangerous)
 
     if (permission === 'blocked') {
+      logger.info({ toolName, toolUseId }, 'Built-in tool blocked by settings')
       return { content: `Tool "${toolName}" is blocked by user settings.`, isError: true }
     }
 
     if (permission === 'confirm' && this.confirmFn && toolUseId) {
       try {
+        logger.debug({ toolName, toolUseId }, 'Awaiting user confirmation')
         const approved = await this.confirmFn(toolUseId, toolName, args)
         if (!approved) {
+          logger.info({ toolName, toolUseId }, 'Tool denied by user')
           return { content: 'User denied the tool execution.', isError: true }
         }
+        logger.debug({ toolName, toolUseId }, 'Tool approved by user')
       } catch (err) {
         logger.error({ err, toolName, toolUseId }, 'Tool confirmation error')
         return { content: 'Tool confirmation failed.', isError: true }
@@ -133,7 +138,10 @@ export class BuiltInToolProvider {
     const config: ToolConfig = { allowedDirectories, shellTimeout }
 
     try {
-      return await tool.execute(args, config)
+      logger.debug({ toolName, toolUseId }, 'Executing built-in tool')
+      const result = await tool.execute(args, config)
+      logger.debug({ toolName, toolUseId, isError: result.isError, contentLength: result.content.length }, 'Built-in tool completed')
+      return result
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Tool execution failed'
       logger.error({ err, toolName }, 'Built-in tool execution error')

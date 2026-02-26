@@ -5,6 +5,20 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+
+// Mock logger to prevent test output noise and allow log call assertions
+vi.mock('../logger', () => {
+  const noop = vi.fn()
+  const loggerMock = {
+    info: vi.fn(),
+    warn: vi.fn(),
+    debug: vi.fn(),
+    error: vi.fn(),
+    child: vi.fn(() => loggerMock)
+  }
+  return { default: loggerMock, createLogger: () => loggerMock }
+})
+
 import * as fs from 'fs/promises'
 import * as path from 'path'
 import * as os from 'os'
@@ -573,6 +587,63 @@ describe('BuiltInToolProvider', () => {
       confirmFn.mockClear()
       await provider.callTool('list_directory', { path: providerDir }, 'tool-7')
       expect(confirmFn).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('tool call logging', () => {
+    let loggerMock: any
+
+    beforeEach(async () => {
+      loggerMock = (await import('../logger')).default
+      vi.clearAllMocks()
+    })
+
+    it('logs warning when tool not found', async () => {
+      const result = await provider.callTool('nonexistent_tool', {}, 'tool-log-1')
+      expect(result.isError).toBe(true)
+      expect(loggerMock.warn).toHaveBeenCalledWith(
+        expect.objectContaining({ toolName: 'nonexistent_tool', toolUseId: 'tool-log-1' }),
+        'Built-in tool not found'
+      )
+    })
+
+    it('logs info when tool is blocked', async () => {
+      const perms = { read_text_file: 'blocked' }
+      settingsRepo.get = vi.fn(async (key: string) => {
+        if (key === 'builtin_tools_allowed_dirs') return JSON.stringify([providerDir])
+        if (key === 'builtin_tools_permissions') return JSON.stringify(perms)
+        return null
+      })
+
+      const result = await provider.callTool('read_text_file', { path: '/any' }, 'tool-log-2')
+      // blocked tool is filtered from getActiveTools, so it's "not found"
+      expect(result.isError).toBe(true)
+    })
+
+    it('logs debug for tool execution lifecycle', async () => {
+      const filePath = path.join(providerDir, 'log-test.txt')
+      await fs.writeFile(filePath, 'content')
+
+      await provider.callTool('read_text_file', { path: filePath }, 'tool-log-3')
+      expect(loggerMock.debug).toHaveBeenCalledWith(
+        expect.objectContaining({ toolName: 'read_text_file', toolUseId: 'tool-log-3' }),
+        'Executing built-in tool'
+      )
+      expect(loggerMock.debug).toHaveBeenCalledWith(
+        expect.objectContaining({ toolName: 'read_text_file', toolUseId: 'tool-log-3', isError: false }),
+        'Built-in tool completed'
+      )
+    })
+
+    it('logs denial when user rejects confirmation', async () => {
+      provider.setConfirmationHandler(async () => false)
+
+      const filePath = path.join(providerDir, 'denied.txt')
+      await provider.callTool('write_file', { path: filePath, content: 'hi' }, 'tool-log-4')
+      expect(loggerMock.info).toHaveBeenCalledWith(
+        expect.objectContaining({ toolName: 'write_file', toolUseId: 'tool-log-4' }),
+        'Tool denied by user'
+      )
     })
   })
 
