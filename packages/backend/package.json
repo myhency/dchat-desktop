@@ -15,13 +15,18 @@
     "@anthropic-ai/sdk": "^0.39.0",
     "@dchat/shared": "*",
     "@modelcontextprotocol/sdk": "^1.26.0",
+    "adm-zip": "^0.5.16",
     "better-sqlite3": "^11.7.0",
     "cors": "^2.8.5",
     "express": "^4.21.0",
+    "mammoth": "^1.11.0",
     "openai": "^4.78.0",
-    "pino": "^10.3.1"
+    "pdf-parse": "^2.4.5",
+    "pino": "^10.3.1",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@types/adm-zip": "^0.5.7",
     "@types/better-sqlite3": "^7.6.12",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
