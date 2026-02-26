@@ -105,6 +105,7 @@ MCP 서버 설정은 SQLite가 아닌 JSON 파일로 관리. 사용자가 직접
 }
 ```
 
+- **기본 시드**: `ensureFile()`에서 config 파일이 없을 때(최초 설치) `DEFAULT_MCP_SERVERS` 상수로 `fetch`, `sequential-thinking` 서버를 포함하여 생성. 기존 파일이 있으면 건드리지 않음. 기본 서버 목록 변경 시 이 상수만 수정하면 됨 (기존 사용자에게는 영향 없음, 신규 설치에만 적용)
 - 서버 `id` = JSON 키 (server-name). 별도 ID 필드 없음
 - `enabled` 필드 없음 — JSON에 존재하면 enabled, 삭제하면 disabled
 - `createdAt`/`updatedAt`는 파일 mtime에서 도출 (DB 저장하지 않음)
