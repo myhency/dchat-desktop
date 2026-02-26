@@ -297,6 +297,7 @@ if (nearBottom) {
 - **상태 표시**: `builtinStatus` 상태로 `settingsApi.getBuiltinToolsStatus()` fetch → Filesystem 카드에 색상 dot + 라벨 (`실행 중`/`오류`/`비활성화`). `handleSave` 후에도 재fetch (`fetchBuiltinStatus()`).
 - **에러 배너**: `builtinStatus.errors`가 있으면 filesystem 설정 뷰에서 접근 불가 디렉토리 목록을 빨간 배너로 표시
 - **에러 핸들링**: `useEffect`의 `Promise.all([...]).catch(() => { setLoaded(true) })` — API 실패 시에도 loaded 상태 설정하여 무한 로딩 방지
+- **dirty 추적 (Save 가드)**: `loadedDirsRef`에 API에서 로드된 원본 디렉토리를 저장. `isDirsDirty = JSON.stringify(현재) !== JSON.stringify(loadedDirsRef)`로 비교. Save 버튼은 `disabled={saving || !loaded || !isDirsDirty}`로 변경 전/로드 전 저장을 차단. `handleSave` 성공 후 `loadedDirsRef`를 동기화하여 dirty 플래그 리셋. 이 가드가 없으면 컴포넌트 마운트 시 `directories = []`인 상태에서 Save가 가능하여 기존 설정이 빈 배열로 덮어써짐
 
 ## MessageList 전송 시 스크롤: 사용자 메시지를 뷰포트 상단에 정렬
 
