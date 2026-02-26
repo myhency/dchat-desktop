@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { setMaxListeners } from 'node:events'
 import type { Request, Response, NextFunction } from 'express'
 import type { SendMessageUseCase } from '../../../domain/ports/inbound/send-message.usecase'
 import type { RegenerateMessageUseCase } from '../../../domain/ports/inbound/regenerate-message.usecase'
@@ -95,6 +96,7 @@ export function createChatRoutes(
     res.flushHeaders()
 
     const abortController = new AbortController()
+    setMaxListeners(30, abortController.signal)
     activeStreams.set(sessionId, abortController)
     stoppedContents.delete(sessionId)
     lastAssistantMessageIds.delete(sessionId)
@@ -212,6 +214,7 @@ export function createChatRoutes(
     res.flushHeaders()
 
     const abortController = new AbortController()
+    setMaxListeners(30, abortController.signal)
     activeStreams.set(sessionId, abortController)
     stoppedContents.delete(sessionId)
     lastAssistantMessageIds.delete(sessionId)
@@ -311,6 +314,7 @@ export function createChatRoutes(
     res.flushHeaders()
 
     const abortController = new AbortController()
+    setMaxListeners(30, abortController.signal)
     activeStreams.set(sessionId, abortController)
     stoppedContents.delete(sessionId)
     lastAssistantMessageIds.delete(sessionId)
