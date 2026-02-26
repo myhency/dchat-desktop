@@ -264,6 +264,23 @@ const keepCount = target.role === 'user' ? targetIndex + 1 : targetIndex
 - **에러 배너**: `builtinStatus.errors`가 있으면 filesystem 설정 뷰에서 접근 불가 디렉토리 목록을 빨간 배너로 표시
 - **에러 핸들링**: `useEffect`의 `Promise.all([...]).catch(() => { setLoaded(true) })` — API 실패 시에도 loaded 상태 설정하여 무한 로딩 방지
 
+## 저장된 도구 블록 렌더링 (MessageList segments)
+
+DB에서 불러온 메시지에 `segments` 필드가 있으면, 스트리밍이 끝난 후에도 텍스트와 도구 블록을 인터리브로 표시:
+
+```tsx
+// MessageList.tsx — messages.map 내부
+if (msg.role === 'assistant' && msg.segments?.length) {
+  // segments 순회하며 text → MessageBubble, tool → ToolCallBlock 교차 렌더링
+  // 마지막 text 세그먼트에만 regenerate 액션 표시
+}
+```
+
+- **스트리밍 중**: 기존 `streamingSegments` (스토어의 `StreamingSegment[]`)로 렌더링 — `status`가 `calling`/`confirming` 등 실시간 상태
+- **스트리밍 후**: DB에서 재조회된 `msg.segments` (`MessageSegment[]`)로 렌더링 — `status`는 `done`/`error`만
+- **segments 없는 메시지**: 기존처럼 단일 `MessageBubble`로 렌더링 (하위 호환)
+- **수정 시 주의**: `ToolCallBlock`의 `ToolCallInfo.status`는 스트리밍 중 4가지(`calling`/`done`/`error`/`confirming`), segments에서는 2가지(`done`/`error`)만 사용. segments 렌더링에서 `confirming`/`calling`은 발생하지 않음.
+
 ## 도구 확인 UI (ToolCallBlock)
 
 `ToolCallBlock.tsx` — 위험한 도구 실행 시 사용자 승인/거부 UI:
