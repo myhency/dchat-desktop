@@ -66,12 +66,12 @@ export function MessageList(): React.JSX.Element {
       return
     }
 
-    if (scrolledUp) {
-      isNearBottomRef.current = false
-      setShowScrollButton(true)
-    } else if (nearBottom) {
+    if (nearBottom) {
       isNearBottomRef.current = true
       setShowScrollButton(false)
+    } else if (scrolledUp) {
+      isNearBottomRef.current = false
+      setShowScrollButton(true)
     }
   }, [])
 

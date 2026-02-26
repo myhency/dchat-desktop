@@ -257,26 +257,35 @@ export const useSessionStore = create<ChatState>((set, get) => ({
         if (!state.streamingSessionIds.has(sessionId)) return
         const isCurrentSession = sessionId === state.currentSessionId
 
-        set((s) => {
-          const newIds = new Set(s.streamingSessionIds)
-          newIds.delete(sessionId)
-          const { [sessionId]: _, ...rest } = s.streamingSegments
-          return {
-            streamingSessionIds: newIds,
-            streamingSegments: rest
-          }
-        })
-
-        // Sync messages from backend
         if (isCurrentSession) {
+          // Current session: fetch messages first, then clear streaming in one atomic set()
+          // to avoid intermediate state where streaming content is removed but messages aren't loaded yet
           chatApi.getMessages(sessionId).then((msgs) => {
-            if (get().currentSessionId === sessionId) {
-              set({ messages: msgs })
+            set((s) => {
+              const newIds = new Set(s.streamingSessionIds)
+              newIds.delete(sessionId)
+              const { [sessionId]: _, ...rest } = s.streamingSegments
+              return {
+                ...(get().currentSessionId === sessionId ? { messages: msgs } : {}),
+                streamingSessionIds: newIds,
+                streamingSegments: rest
+              }
+            })
+            activeControllers.delete(sessionId)
+          })
+        } else {
+          // Different session: clear immediately (no scroll impact)
+          set((s) => {
+            const newIds = new Set(s.streamingSessionIds)
+            newIds.delete(sessionId)
+            const { [sessionId]: _, ...rest } = s.streamingSegments
+            return {
+              streamingSessionIds: newIds,
+              streamingSegments: rest
             }
           })
+          activeControllers.delete(sessionId)
         }
-
-        activeControllers.delete(sessionId)
       },
       onError: (error) => {
         const state = get()
