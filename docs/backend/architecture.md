@@ -151,6 +151,19 @@ MCP 서버 설정은 SQLite가 아닌 JSON 파일로 관리. 사용자가 직접
 - **ChatService 생성자 6번째 인자**: `mcpClient?: McpClientGateway` (optional, container.ts에서 주입)
 - **ChatService 생성자 7번째 인자**: `memoryService?: MemoryService` (optional, container.ts에서 주입)
 
+### Tool SSE 이벤트 라이프사이클
+
+LLM이 tool_use content block을 생성할 때 3단계 SSE 이벤트가 순서대로 전송됨:
+
+1. **`tool_start`** — `content_block_start` 시점에 즉시 yield. `toolUseId` + `toolName`만 포함 (input 없음). 프론트엔드에서 즉시 스피너 표시용.
+2. **`tool_use`** — `content_block_stop` 시점에 yield. 누적된 JSON input이 파싱된 후 전송. `toolUseId` + `toolName` + `toolInput` 포함.
+3. **`tool_result`** — 도구 실행 완료 후 전송. `toolUseId` + `toolName` + `content` + `isError` 포함.
+
+- **`tool_start`가 필요한 이유**: `input_json_delta`로 토큰 단위 JSON 누적이 수 초 걸리는 도구(예: `sequentialthinking`)에서, `tool_use`만으로는 프론트엔드에 무응답 구간이 발생.
+- **`chat.service.ts`에서의 처리**: `trackingOnChunk` 래퍼는 `tool_start`를 별도 처리하지 않음. DB 세그먼트 추적은 `tool_use` 기준. `tool_start`는 `onChunk(chunk)`로 SSE 라우트까지 투과.
+- **OpenAI 어댑터**: tool use 미지원 상태이므로 `tool_start` 미발생.
+- **수정 시 주의**: `sendChunkSSE`에서 `tool_start` → `tool_use` → `tool_result` 순서로 분기. 새 chunk 타입 추가 시 `ExtendedStreamChunk` union과 `sendChunkSSE` 양쪽에 추가 필요.
+
 ### 세그먼트 추적 (MessageSegment)
 
 도구 사용이 있는 대화에서 텍스트와 도구 블록의 인터리브 순서를 DB에 보존하기 위한 구조.

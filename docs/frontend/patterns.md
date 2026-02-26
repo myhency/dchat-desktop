@@ -281,6 +281,16 @@ if (msg.role === 'assistant' && msg.segments?.length) {
 - **segments 없는 메시지**: 기존처럼 단일 `MessageBubble`로 렌더링 (하위 호환)
 - **수정 시 주의**: `ToolCallBlock`의 `ToolCallInfo.status`는 스트리밍 중 4가지(`calling`/`done`/`error`/`confirming`), segments에서는 2가지(`done`/`error`)만 사용. segments 렌더링에서 `confirming`/`calling`은 발생하지 않음.
 
+## 도구 블록 즉시 표시 패턴 (tool_start → tool_use 폴백)
+
+`session.store.ts`의 `sendMessage` 콜백에서 `onToolStart`와 `onToolUse`가 협력하여 도구 블록을 즉시 표시:
+
+- **`onToolStart`**: 빈 input(`{}`)으로 tool 세그먼트를 즉시 생성 → UI에 스피너 즉시 표시
+- **`onToolUse`**: 동일 `toolUseId`의 세그먼트가 이미 존재하면 `updateToolInSegments`로 `toolInput`만 업데이트. 존재하지 않으면(폴백) 새 세그먼트 생성.
+- **폴백이 필요한 이유**: `tool_start`를 보내지 않는 LLM 어댑터(OpenAI 등)에서도 `onToolUse`만으로 기존 동작 유지.
+- **ToolCallBlock 빈 input 처리**: `Object.keys(toolInput).length === 0`이면 "입력 생성 중..." 텍스트 표시. `tool_use` 수신 시 실제 JSON으로 교체.
+- **수정 시 주의**: `onToolStart`와 `onToolUse`에서 세그먼트 존재 여부 확인이 `toolUseId` 기준. ID 체계가 변경되면 양쪽 모두 수정 필요.
+
 ## 도구 확인 UI (ToolCallBlock)
 
 `ToolCallBlock.tsx` — 위험한 도구 실행 시 사용자 승인/거부 UI:
