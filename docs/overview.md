@@ -104,7 +104,8 @@ packages/
 │               └── llm/                         # LLM 어댑터
 │                   ├── llm-adapter.factory.ts   # → LLMGatewayResolver
 │                   ├── anthropic.adapter.ts     # → LLMGateway (+ streamChatRaw for tool use)
-│                   └── openai.adapter.ts        # → LLMGateway (+ streamChatRaw for tool use)
+│                   ├── openai.adapter.ts        # → LLMGateway (+ streamChatRaw for tool use)
+│                   └── document-text-extractor.ts  # 문서 텍스트 추출 (PDF, DOCX, XLSX, PPTX, CSV)
 ├── frontend/                                    # React SPA (Vite, FSD 아키텍처)
 │   ├── vite.config.ts                           # Vite 설정 (proxy → localhost:3131, @ alias)
 │   ├── index.html                               # 진입점: /src/app/main.tsx
@@ -283,7 +284,7 @@ Electron의 `ipcMain.handle()`로 등록, preload의 `contextBridge`를 통해 `
 
 | 채널 | 인자 | 반환 | 설명 |
 |------|------|------|------|
-| `native:pick-image` | — | `ImageAttachment[]` | 파일 다이얼로그 (png, jpg, gif, webp) → base64 인코딩 |
+| `native:pick-image` | — | `ImageAttachment[]` | 파일 다이얼로그 (이미지 + 문서) → base64 인코딩. 기본 필터 "All Supported Files"로 이미지와 문서 모두 선택 가능 |
 | `native:open-in-browser` | `htmlContent: string` | `void` | HTML을 temp 파일로 쓰고 시스템 브라우저에서 열기 |
 | `native:open-file` | `filePath: string` | `void` | 파일을 시스템 기본 앱으로 열기 (MCP 설정 파일 편집용) |
 | `native:get-api-url` / `native:get-api-url-sync` | — | `string` | `http://localhost:${backendPort}` 반환 |

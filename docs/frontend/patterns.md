@@ -378,6 +378,24 @@ if (msg.role === 'assistant' && msg.segments?.length) {
 - 응답으로 `onMemoryChange(content)` 콜백 → 부모의 `memoryData` 갱신
 - 로딩 중 Escape/오버레이 닫기 비활성화
 
+## 첨부파일 미리보기: 이미지 vs 문서 분기
+
+`MessageBubble.tsx`의 `AttachmentPreview` 컴포넌트와 `PromptInput.tsx`에서 첨부파일 타입에 따라 렌더링을 분기:
+
+- **이미지** (`mimeType.startsWith('image/')`) → `<img>` 태그로 base64 미리보기
+- **문서** (PDF, DOCX 등) → `FileText` 아이콘 + 파일명 텍스트
+
+```tsx
+// MessageBubble.tsx — AttachmentPreview 컴포넌트
+if (attachment.mimeType.startsWith('image/')) {
+  return <img src={`data:${mimeType};base64,${base64Data}`} ... />
+}
+return <div><FileText /><span>{attachment.fileName}</span></div>
+```
+
+- **수정 시 주의**: `PromptInput.tsx`에도 동일한 분기가 인라인으로 존재. 새 파일 타입 추가 시 양쪽 모두 수정 필요.
+- **웹 모드 파일 선택** (`native.ts`): `input.accept`에 문서 MIME 타입 포함. `MIME_FALLBACK` 맵으로 확장자 기반 폴백 MIME 감지 (브라우저가 비이미지 파일의 `file.type`을 비워두는 경우 대비).
+
 ## 백업 가져오기 후 스토어 갱신
 
 `SettingsScreen`의 `PrivacyContent`에서 백업 가져오기(import) 성공 후 반드시 `loadSettings()` + `loadSessions()`를 순서대로 호출해야 함.
