@@ -22,6 +22,7 @@ CREATE TABLE messages (
   role TEXT NOT NULL CHECK(role IN ('user', 'assistant')),
   content TEXT NOT NULL,
   attachments TEXT NOT NULL DEFAULT '[]',
+  segments TEXT DEFAULT NULL,
   created_at TEXT NOT NULL,
   FOREIGN KEY (session_id) REFERENCES sessions(id)
 );
@@ -142,12 +143,45 @@ MCP 서버 설정은 SQLite가 아닌 JSON 파일로 관리. 사용자가 직접
 2. LLM이 `tool_use`로 응답하면 → `mcpClient.callTool(serverId, toolName, input)` 실행
 3. `tool_result`를 메시지 히스토리에 추가 → 다시 LLM 호출
 4. `MAX_TOOL_ITERATIONS = 25`로 무한 루프 방지
-5. `stopReason !== 'tool_use'`이면 루프 종료
+5. `stopReason === 'max_tokens'`이면 assistant 텍스트를 히스토리에 추가 + "Continue" 요청으로 이어서 생성
+6. `stopReason !== 'tool_use'`이면 루프 종료
 
 - `streamChatRaw`는 `LLMGateway`의 선택적 메서드. 구현되지 않은 어댑터는 tool use 미지원 (일반 `streamChat` 폴백)
 - `LLMMessage.content`는 `string | LLMContentBlock[]` — tool use 시 배열 형태
 - **ChatService 생성자 6번째 인자**: `mcpClient?: McpClientGateway` (optional, container.ts에서 주입)
 - **ChatService 생성자 7번째 인자**: `memoryService?: MemoryService` (optional, container.ts에서 주입)
+
+### Tool SSE 이벤트 라이프사이클
+
+LLM이 tool_use content block을 생성할 때 3단계 SSE 이벤트가 순서대로 전송됨:
+
+1. **`tool_start`** — `content_block_start` 시점에 즉시 yield. `toolUseId` + `toolName`만 포함 (input 없음). 프론트엔드에서 즉시 스피너 표시용.
+2. **`tool_use`** — `content_block_stop` 시점에 yield. 누적된 JSON input이 파싱된 후 전송. `toolUseId` + `toolName` + `toolInput` 포함.
+3. **`tool_result`** — 도구 실행 완료 후 전송. `toolUseId` + `toolName` + `content` + `isError` 포함.
+
+- **`tool_start`가 필요한 이유**: `input_json_delta`로 토큰 단위 JSON 누적이 수 초 걸리는 도구(예: `sequentialthinking`)에서, `tool_use`만으로는 프론트엔드에 무응답 구간이 발생.
+- **`chat.service.ts`에서의 처리**: `trackingOnChunk` 래퍼는 `tool_start`를 별도 처리하지 않음. DB 세그먼트 추적은 `tool_use` 기준. `tool_start`는 `onChunk(chunk)`로 SSE 라우트까지 투과.
+- **OpenAI 어댑터**: tool use 미지원 상태이므로 `tool_start` 미발생.
+- **수정 시 주의**: `sendChunkSSE`에서 `tool_start` → `tool_use` → `tool_result` 순서로 분기. 새 chunk 타입 추가 시 `ExtendedStreamChunk` union과 `sendChunkSSE` 양쪽에 추가 필요.
+
+### 세그먼트 추적 (MessageSegment)
+
+도구 사용이 있는 대화에서 텍스트와 도구 블록의 인터리브 순서를 DB에 보존하기 위한 구조.
+
+- **`MessageSegment`** 타입: `{ type: 'text'; content: string }` 또는 `{ type: 'tool'; toolUseId, toolName, toolInput, result?, isError? }`
+- **타입 정의 위치**: `packages/shared/src/entities/message.ts` (프론트엔드용) + `packages/backend/src/domain/entities/message.ts` (백엔드용). 동일 구조를 양쪽에 유지.
+- **저장**: `messages.segments` 컬럼 (JSON TEXT, nullable). 도구 사용이 없으면 `NULL`.
+- **추적 방식**: `ChatService.execute()`/`regenerate()`에서 `onChunk` 콜백을 `trackingOnChunk`로 래핑. text 청크는 직전 text 세그먼트에 누적, tool_use/tool_result는 별도 세그먼트로 추가. 래핑은 agentic path (도구가 있을 때)에서만 적용.
+- **프론트엔드 렌더링**: `MessageList.tsx`에서 `msg.segments`가 있으면 `MessageBubble`과 `ToolCallBlock`을 인터리브로 렌더링. 없으면 기존 단일 텍스트 버블.
+- **수정 시 주의**: `content` 필드는 여전히 전체 텍스트를 누적 저장 (하위 호환). `segments`는 추가 정보로만 사용. `segments`가 `NULL`인 기존 메시지도 정상 렌더링됨.
+
+### 세션 스코프 도구 허용 (Session Tool Permissions)
+
+`chat.routes.ts`의 `sessionToolPermissions` Map (`Map<string, Set<string>>`) — 세션별로 "항상 허용"된 도구 이름 집합을 메모리에 보관.
+
+- **동작**: 사용자가 도구 확인 시 `alwaysAllow: true`로 승인하면, 해당 세션+도구 이름이 Map에 등록. 이후 같은 세션에서 같은 도구는 확인 없이 자동 승인.
+- **수명**: 서버 재시작 시 초기화 (DB 미저장). 의도적으로 영구 저장하지 않음.
+- **수정 시 주의**: `sessionToolPermissions`는 `export`로 노출됨 (테스트에서 접근 필요). 확인 핸들러 내부에서 Map 체크가 `pendingConfirmations` 등록보다 먼저 수행되어야 함.
 
 ## SSE 비동기 작업 패턴
 
@@ -201,6 +235,7 @@ const stream = await this.client.chat.completions.create(
 - `POST /api/chat/:sessionId/stop` → per-session `AbortController.abort()`
 - abort 시에도 반드시 SSE `end` 이벤트 전송 (catch 블록에서 부분 content 저장)
 - UI가 스트리밍 상태에서 빠져나올 수 있도록 보장
+- **maxListeners**: `AbortController` 생성 직후 `setMaxListeners(30, abortController.signal)` 호출 필수. agentic loop에서 동일 signal을 매 `streamChatRaw()` 호출마다 SDK에 전달하므로, 11회 이상 반복 시 Node.js 기본 `maxListeners=10` 초과 경고 발생. 3개 SSE 라우트(send, regenerate, edit) 모두 동일 적용.
 
 ## 시스템 프롬프트 구성 (ChatService.buildSystemPrompt)
 

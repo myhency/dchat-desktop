@@ -220,6 +220,124 @@ describe('ChatService', () => {
     }
   })
 
+  it('max_tokens 시 연속 생성: 첫 응답이 잘려도 이어서 생성됨', async () => {
+    let callCount = 0
+    const rawGateway: LLMGateway = {
+      async *streamChat() {},
+      async *streamChatRaw(_messages: LLMMessage[], _options: ChatOptions): AsyncGenerator<ExtendedStreamChunk, LLMStreamResult> {
+        callCount++
+        if (callCount === 1) {
+          yield { type: 'text', content: '첫 번째 부분. ' }
+          return { textContent: '첫 번째 부분. ', toolUseBlocks: [], stopReason: 'max_tokens' }
+        }
+        yield { type: 'text', content: '두 번째 부분.' }
+        return { textContent: '두 번째 부분.', toolUseBlocks: [], stopReason: 'end_turn' }
+      },
+      listModels: () => []
+    }
+
+    const mcpClient: McpClientGateway = {
+      startServer: vi.fn(async () => {}),
+      stopServer: vi.fn(async () => {}),
+      getServerStatus: vi.fn(() => 'running' as const),
+      getServerTools: vi.fn(() => []),
+      getAllTools: vi.fn(() => [{ name: 'read_file', description: 'Read a file', inputSchema: {}, serverId: 'fs' }]),
+      callTool: vi.fn(async () => ({ content: '', isError: false })),
+      getServerLogs: vi.fn(() => []),
+      shutdownAll: vi.fn(async () => {})
+    }
+
+    llmResolver = { getGateway: () => rawGateway, listAllModels: () => [], configureProvider: () => {}, testConnection: async () => {} }
+    chatService = new ChatService(messageRepo, sessionRepo, llmResolver, settingsRepo, projectRepo, mcpClient)
+
+    const onChunk = vi.fn()
+    const result = await chatService.execute('s1', 'Hello', [], onChunk)
+
+    expect(result.content).toBe('첫 번째 부분. 두 번째 부분.')
+    expect(callCount).toBe(2)
+  })
+
+  it('max_tokens가 MAX_TOOL_ITERATIONS번 반복되면 결국 종료됨', async () => {
+    let callCount = 0
+    const rawGateway: LLMGateway = {
+      async *streamChat() {},
+      async *streamChatRaw(_messages: LLMMessage[], _options: ChatOptions): AsyncGenerator<ExtendedStreamChunk, LLMStreamResult> {
+        callCount++
+        yield { type: 'text', content: `part${callCount} ` }
+        return { textContent: `part${callCount} `, toolUseBlocks: [], stopReason: 'max_tokens' }
+      },
+      listModels: () => []
+    }
+
+    const mcpClient: McpClientGateway = {
+      startServer: vi.fn(async () => {}),
+      stopServer: vi.fn(async () => {}),
+      getServerStatus: vi.fn(() => 'running' as const),
+      getServerTools: vi.fn(() => []),
+      getAllTools: vi.fn(() => [{ name: 'read_file', description: 'Read a file', inputSchema: {}, serverId: 'fs' }]),
+      callTool: vi.fn(async () => ({ content: '', isError: false })),
+      getServerLogs: vi.fn(() => []),
+      shutdownAll: vi.fn(async () => {})
+    }
+
+    llmResolver = { getGateway: () => rawGateway, listAllModels: () => [], configureProvider: () => {}, testConnection: async () => {} }
+    chatService = new ChatService(messageRepo, sessionRepo, llmResolver, settingsRepo, projectRepo, mcpClient)
+
+    const onChunk = vi.fn()
+    const result = await chatService.execute('s1', 'Hello', [], onChunk)
+
+    // MAX_TOOL_ITERATIONS = 25이므로 25번 호출 후 종료
+    expect(callCount).toBe(25)
+    // 모든 부분이 누적됨
+    expect(result.content).toContain('part1')
+    expect(result.content).toContain('part25')
+  })
+
+  it('max_tokens + toolUseBlocks > 0 (불완전 도구 호출) 시에도 연속 생성 처리됨', async () => {
+    let callCount = 0
+    const rawGateway: LLMGateway = {
+      async *streamChat() {},
+      async *streamChatRaw(_messages: LLMMessage[], _options: ChatOptions): AsyncGenerator<ExtendedStreamChunk, LLMStreamResult> {
+        callCount++
+        if (callCount === 1) {
+          yield { type: 'text', content: '도구를 호출하려고 했는데 ' }
+          // max_tokens로 잘렸지만 불완전한 tool_use 블록이 있음
+          return {
+            textContent: '도구를 호출하려고 했는데 ',
+            toolUseBlocks: [{ id: 'tu1', name: 'read_file', input: { path: '/tmp' } }],
+            stopReason: 'max_tokens'
+          }
+        }
+        yield { type: 'text', content: '이어서 완료합니다.' }
+        return { textContent: '이어서 완료합니다.', toolUseBlocks: [], stopReason: 'end_turn' }
+      },
+      listModels: () => []
+    }
+
+    const mcpClient: McpClientGateway = {
+      startServer: vi.fn(async () => {}),
+      stopServer: vi.fn(async () => {}),
+      getServerStatus: vi.fn(() => 'running' as const),
+      getServerTools: vi.fn(() => []),
+      getAllTools: vi.fn(() => [{ name: 'read_file', description: 'Read a file', inputSchema: {}, serverId: 'fs' }]),
+      callTool: vi.fn(async () => ({ content: 'file contents', isError: false })),
+      getServerLogs: vi.fn(() => []),
+      shutdownAll: vi.fn(async () => {})
+    }
+
+    llmResolver = { getGateway: () => rawGateway, listAllModels: () => [], configureProvider: () => {}, testConnection: async () => {} }
+    chatService = new ChatService(messageRepo, sessionRepo, llmResolver, settingsRepo, projectRepo, mcpClient)
+
+    const onChunk = vi.fn()
+    const result = await chatService.execute('s1', 'Hello', [], onChunk)
+
+    // 불완전한 도구 호출은 무시되고 연속 생성으로 전환됨
+    expect(result.content).toBe('도구를 호출하려고 했는데 이어서 완료합니다.')
+    expect(callCount).toBe(2)
+    // callTool은 호출되지 않아야 함 (불완전한 도구 호출이므로)
+    expect(mcpClient.callTool).not.toHaveBeenCalled()
+  })
+
   it('MCP tool use: 모든 iteration의 텍스트가 누적되어 저장됨', async () => {
     // streamChatRaw: 1회차 → text + tool_use, 2회차 → text + end
     let callCount = 0
@@ -261,5 +379,74 @@ describe('ChatService', () => {
     // DB에 저장된 assistant 메시지도 동일
     const savedAssistant = savedMessages.find((m) => m.role === 'assistant')
     expect(savedAssistant?.content).toBe('파일을 읽어볼게요. 결과는 이렇습니다.')
+  })
+
+  it('도구 사용 시 segments가 메시지에 포함되어 저장됨', async () => {
+    let callCount = 0
+    const rawGateway: LLMGateway = {
+      async *streamChat() {},
+      async *streamChatRaw(_messages: LLMMessage[], _options: ChatOptions): AsyncGenerator<ExtendedStreamChunk, LLMStreamResult> {
+        callCount++
+        if (callCount === 1) {
+          yield { type: 'text', content: '게임을 만들겠습니다. ' }
+          yield { type: 'tool_use', toolUseId: 'tu1', toolName: 'write_file', toolInput: { path: '/tmp/game.py', content: 'print("hi")' } }
+          return { textContent: '게임을 만들겠습니다. ', toolUseBlocks: [{ id: 'tu1', name: 'write_file', input: { path: '/tmp/game.py', content: 'print("hi")' } }], stopReason: 'tool_use' }
+        }
+        yield { type: 'text', content: '완성했습니다!' }
+        return { textContent: '완성했습니다!', toolUseBlocks: [], stopReason: 'end_turn' }
+      },
+      listModels: () => []
+    }
+
+    const mcpClient: McpClientGateway = {
+      startServer: vi.fn(async () => {}),
+      stopServer: vi.fn(async () => {}),
+      getServerStatus: vi.fn(() => 'running' as const),
+      getServerTools: vi.fn(() => []),
+      getAllTools: vi.fn(() => [{ name: 'write_file', description: 'Write a file', inputSchema: {}, serverId: 'fs' }]),
+      callTool: vi.fn(async () => ({ content: 'File written successfully', isError: false })),
+      getServerLogs: vi.fn(() => []),
+      shutdownAll: vi.fn(async () => {})
+    }
+
+    llmResolver = { getGateway: () => rawGateway, listAllModels: () => [], configureProvider: () => {}, testConnection: async () => {} }
+    chatService = new ChatService(messageRepo, sessionRepo, llmResolver, settingsRepo, projectRepo, mcpClient)
+
+    const onChunk = vi.fn()
+    const result = await chatService.execute('s1', 'Hello', [], onChunk)
+
+    // segments가 존재해야 함
+    expect(result.segments).toBeDefined()
+    expect(result.segments).toHaveLength(3) // text, tool, text
+
+    // 첫 번째: text
+    expect(result.segments![0]).toEqual({ type: 'text', content: '게임을 만들겠습니다. ' })
+
+    // 두 번째: tool (result 포함)
+    expect(result.segments![1]).toEqual({
+      type: 'tool',
+      toolUseId: 'tu1',
+      toolName: 'write_file',
+      toolInput: { path: '/tmp/game.py', content: 'print("hi")' },
+      result: 'File written successfully',
+      isError: false
+    })
+
+    // 세 번째: text
+    expect(result.segments![2]).toEqual({ type: 'text', content: '완성했습니다!' })
+
+    // DB에 저장된 메시지에도 segments가 포함됨
+    const savedAssistant = savedMessages.find((m) => m.role === 'assistant')
+    expect(savedAssistant?.segments).toEqual(result.segments)
+  })
+
+  it('도구 없는 일반 대화에서는 segments가 undefined', async () => {
+    const onChunk = vi.fn()
+    const result = await chatService.execute('s1', 'Hello', [], onChunk)
+
+    expect(result.segments).toBeUndefined()
+
+    const savedAssistant = savedMessages.find((m) => m.role === 'assistant')
+    expect(savedAssistant?.segments).toBeUndefined()
   })
 })

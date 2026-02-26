@@ -1665,6 +1665,7 @@ function ExtensionsContent({ onNavigate }: { onNavigate: (tab: Tab) => void }): 
   const [shellEnabled, setShellEnabled] = useState(false)
   const [saving, setSaving] = useState(false)
   const [loaded, setLoaded] = useState(false)
+  const loadedDirsRef = useRef<string[]>([])
   const [toolPermissions, setToolPermissions] = useState<Record<string, ToolPermission>>({ ...DEFAULT_PERMISSIONS })
   const [builtinStatus, setBuiltinStatus] = useState<{ status: 'running' | 'error' | 'disabled'; toolCount: number; directories: string[]; errors: string[] } | null>(null)
 
@@ -1680,7 +1681,11 @@ function ExtensionsContent({ onNavigate }: { onNavigate: (tab: Tab) => void }): 
       settingsApi.get('builtin_tools_permissions')
     ]).then(([dirsVal, shellVal, permsVal]) => {
       if (dirsVal) {
-        try { setDirectories(JSON.parse(dirsVal)) } catch { /* ignore */ }
+        try {
+          const parsed = JSON.parse(dirsVal)
+          setDirectories(parsed)
+          loadedDirsRef.current = parsed
+        } catch { /* ignore */ }
       }
       setShellEnabled(shellVal === 'true')
       if (permsVal) {
@@ -1722,11 +1727,13 @@ function ExtensionsContent({ onNavigate }: { onNavigate: (tab: Tab) => void }): 
   }
 
   const handleSave = async (): Promise<void> => {
+    if (!loaded) return
     const validDirs = directories.filter((d) => d.trim())
     setSaving(true)
     try {
       await settingsApi.set('builtin_tools_allowed_dirs', JSON.stringify(validDirs))
       setDirectories(validDirs)
+      loadedDirsRef.current = validDirs
       fetchBuiltinStatus()
     } finally {
       setSaving(false)
@@ -1739,6 +1746,7 @@ function ExtensionsContent({ onNavigate }: { onNavigate: (tab: Tab) => void }): 
   }
 
   const hasDirectories = directories.filter((d) => d.trim()).length > 0
+  const isDirsDirty = JSON.stringify(directories.filter(d => d.trim())) !== JSON.stringify(loadedDirsRef.current)
 
   // ── List View ──
   if (view === 'list') {
@@ -1954,7 +1962,7 @@ function ExtensionsContent({ onNavigate }: { onNavigate: (tab: Tab) => void }): 
       <div className="flex justify-end">
         <button
           type="button"
-          disabled={saving}
+          disabled={saving || !loaded || !isDirsDirty}
           onClick={handleSave}
           className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-600 transition-colors disabled:opacity-50"
         >

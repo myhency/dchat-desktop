@@ -21,7 +21,13 @@ export interface ToolResultChunk {
   isError: boolean
 }
 
-export type ExtendedStreamChunk = StreamChunk | ToolUseChunk | ToolResultChunk
+export interface ToolStartChunk {
+  type: 'tool_start'
+  toolUseId: string
+  toolName: string
+}
+
+export type ExtendedStreamChunk = StreamChunk | ToolStartChunk | ToolUseChunk | ToolResultChunk
 
 export interface ToolDefinition {
   name: string

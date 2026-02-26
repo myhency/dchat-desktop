@@ -11,6 +11,12 @@ import type {
 } from '../../../domain/ports/outbound/llm.gateway'
 import logger from '../../../logger'
 
+const ANTHROPIC_MAX_TOKENS: Record<string, number> = {
+  'claude-opus-4-6': 128_000,
+  'claude-sonnet-4-6': 64_000,
+  'claude-haiku-4-5': 64_000,
+}
+
 export class AnthropicAdapter implements LLMGateway {
   private client: Anthropic
 
@@ -42,7 +48,7 @@ export class AnthropicAdapter implements LLMGateway {
       const stream = this.client.messages.stream(
         {
           model: options.model,
-          max_tokens: options.maxTokens ?? 4096,
+          max_tokens: options.maxTokens ?? ANTHROPIC_MAX_TOKENS[options.model] ?? 4096,
           messages: anthropicMessages,
           ...(options.systemPrompt ? { system: options.systemPrompt } : {}),
           ...(options.temperature != null ? { temperature: options.temperature } : {})
@@ -105,7 +111,7 @@ export class AnthropicAdapter implements LLMGateway {
       input_schema: t.inputSchema as Anthropic.Tool.InputSchema
     }))
 
-    logger.debug({ model: options.model, messageCount: messages.length, toolCount: tools?.length }, 'Anthropic streamChatRaw start')
+    logger.debug({ model: options.model, messageCount: messages.length, toolCount: tools?.length, toolNames: tools?.map(t => t.name) }, 'Anthropic streamChatRaw start')
 
     let textContent = ''
     const toolUseBlocks: Array<{ id: string; name: string; input: Record<string, unknown> }> = []
@@ -115,7 +121,7 @@ export class AnthropicAdapter implements LLMGateway {
       const stream = this.client.messages.stream(
         {
           model: options.model,
-          max_tokens: options.maxTokens ?? 4096,
+          max_tokens: options.maxTokens ?? ANTHROPIC_MAX_TOKENS[options.model] ?? 4096,
           messages: anthropicMessages,
           ...(options.systemPrompt ? { system: options.systemPrompt } : {}),
           ...(options.temperature != null ? { temperature: options.temperature } : {}),
@@ -135,6 +141,11 @@ export class AnthropicAdapter implements LLMGateway {
             activeToolId = event.content_block.id
             activeToolName = event.content_block.name
             activeToolJson = ''
+            yield {
+              type: 'tool_start',
+              toolUseId: event.content_block.id,
+              toolName: event.content_block.name
+            }
           }
         } else if (event.type === 'content_block_delta') {
           if (event.delta.type === 'text_delta') {
@@ -149,6 +160,7 @@ export class AnthropicAdapter implements LLMGateway {
             try {
               input = activeToolJson ? JSON.parse(activeToolJson) : {}
             } catch {
+              logger.warn({ toolName: activeToolName, toolId: activeToolId, jsonLength: activeToolJson.length }, 'Failed to parse tool input JSON, using empty input')
               input = {}
             }
             toolUseBlocks.push({ id: activeToolId, name: activeToolName, input })

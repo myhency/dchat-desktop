@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { setMaxListeners } from 'node:events'
 import type { Request, Response, NextFunction } from 'express'
 import type { SendMessageUseCase } from '../../../domain/ports/inbound/send-message.usecase'
 import type { RegenerateMessageUseCase } from '../../../domain/ports/inbound/regenerate-message.usecase'
@@ -35,12 +36,21 @@ const lastAssistantMessageIds = new Map<string, string>()
 const CONFIRM_TIMEOUT_MS = 60_000
 const pendingConfirmations = new Map<string, { resolve: (approved: boolean) => void; toolName: string }>()
 
+// Session-scoped "always allow" permissions (cleared on server restart)
+export const sessionToolPermissions = new Map<string, Set<string>>()
+
 function sendSSE(res: Response, event: string, data: unknown): void {
   res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
 }
 
 function sendChunkSSE(res: Response, chunk: ExtendedStreamChunk): void {
-  if (chunk.type === 'tool_use') {
+  if (chunk.type === 'tool_start') {
+    sendSSE(res, 'tool_start', {
+      type: 'tool_start',
+      toolUseId: chunk.toolUseId,
+      toolName: chunk.toolName
+    })
+  } else if (chunk.type === 'tool_use') {
     sendSSE(res, 'tool_use', {
       type: 'tool_use',
       toolUseId: chunk.toolUseId,
@@ -92,21 +102,29 @@ export function createChatRoutes(
     res.flushHeaders()
 
     const abortController = new AbortController()
+    setMaxListeners(30, abortController.signal)
     activeStreams.set(sessionId, abortController)
     stoppedContents.delete(sessionId)
     lastAssistantMessageIds.delete(sessionId)
 
     logger.info({ sessionId }, 'SSE stream started')
 
+    const log = logger.child({ sessionId })
+
     // Set up tool confirmation handler
     if (mcpGateway) {
       mcpGateway.setConfirmationHandler((toolUseId, toolName, toolInput) => {
+        // Session-scoped "always allow" check
+        if (sessionToolPermissions.get(sessionId)?.has(toolName)) {
+          return Promise.resolve(true)
+        }
         return new Promise<boolean>((resolve) => {
           sendSSE(res, 'tool_confirm', { type: 'tool_confirm', toolUseId, toolName, toolInput })
           pendingConfirmations.set(toolUseId, { resolve, toolName })
           // Auto-deny after timeout
           setTimeout(() => {
             if (pendingConfirmations.has(toolUseId)) {
+              log.warn({ toolUseId, toolName }, 'Tool confirmation timed out, auto-denying')
               pendingConfirmations.get(toolUseId)!.resolve(false)
               pendingConfirmations.delete(toolUseId)
             }
@@ -119,6 +137,9 @@ export function createChatRoutes(
     res.on('close', () => {
       abortController.abort()
       activeStreams.delete(sessionId)
+      if (pendingConfirmations.size > 0) {
+        log.warn({ pendingCount: pendingConfirmations.size }, 'Client disconnected with pending confirmations')
+      }
       // Auto-deny all pending confirmations
       pendingConfirmations.forEach((pending, id) => {
         pending.resolve(false)
@@ -128,11 +149,20 @@ export function createChatRoutes(
 
     try {
       let titlePromise: Promise<void> | null = null
+      let toolIteration = 0
       const message = await sendMessage.execute(
         sessionId,
         content,
         attachments ?? [],
         (chunk) => {
+          if (chunk.type === 'tool_use') {
+            toolIteration++
+            log.info({ toolName: chunk.toolName, toolUseId: chunk.toolUseId, iteration: toolIteration }, 'Tool use requested by LLM')
+            log.debug({ toolName: chunk.toolName, toolInput: chunk.toolInput }, 'Tool use input')
+          } else if (chunk.type === 'tool_result') {
+            log.info({ toolName: chunk.toolName, toolUseId: chunk.toolUseId, isError: chunk.isError, contentLength: chunk.content.length }, 'Tool result received')
+            log.debug({ toolName: chunk.toolName, content: chunk.content.slice(0, 500) }, 'Tool result content')
+          }
           sendChunkSSE(res, chunk)
 
           if (!titlePromise) {
@@ -190,20 +220,28 @@ export function createChatRoutes(
     res.flushHeaders()
 
     const abortController = new AbortController()
+    setMaxListeners(30, abortController.signal)
     activeStreams.set(sessionId, abortController)
     stoppedContents.delete(sessionId)
     lastAssistantMessageIds.delete(sessionId)
+
+    const log = logger.child({ sessionId })
 
     logger.info({ sessionId }, 'SSE regenerate stream started')
 
     // Set up tool confirmation handler
     if (mcpGateway) {
       mcpGateway.setConfirmationHandler((toolUseId, toolName, toolInput) => {
+        // Session-scoped "always allow" check
+        if (sessionToolPermissions.get(sessionId)?.has(toolName)) {
+          return Promise.resolve(true)
+        }
         return new Promise<boolean>((resolve) => {
           sendSSE(res, 'tool_confirm', { type: 'tool_confirm', toolUseId, toolName, toolInput })
           pendingConfirmations.set(toolUseId, { resolve, toolName })
           setTimeout(() => {
             if (pendingConfirmations.has(toolUseId)) {
+              log.warn({ toolUseId, toolName }, 'Tool confirmation timed out, auto-denying')
               pendingConfirmations.get(toolUseId)!.resolve(false)
               pendingConfirmations.delete(toolUseId)
             }
@@ -215,6 +253,9 @@ export function createChatRoutes(
     res.on('close', () => {
       abortController.abort()
       activeStreams.delete(sessionId)
+      if (pendingConfirmations.size > 0) {
+        log.warn({ pendingCount: pendingConfirmations.size }, 'Client disconnected with pending confirmations')
+      }
       pendingConfirmations.forEach((pending, id) => {
         pending.resolve(false)
         pendingConfirmations.delete(id)
@@ -222,10 +263,19 @@ export function createChatRoutes(
     })
 
     try {
+      let toolIteration = 0
       const message = await regenerateMessage.regenerate(
         sessionId,
         messageId,
         (chunk) => {
+          if (chunk.type === 'tool_use') {
+            toolIteration++
+            log.info({ toolName: chunk.toolName, toolUseId: chunk.toolUseId, iteration: toolIteration }, 'Tool use requested by LLM')
+            log.debug({ toolName: chunk.toolName, toolInput: chunk.toolInput }, 'Tool use input')
+          } else if (chunk.type === 'tool_result') {
+            log.info({ toolName: chunk.toolName, toolUseId: chunk.toolUseId, isError: chunk.isError, contentLength: chunk.content.length }, 'Tool result received')
+            log.debug({ toolName: chunk.toolName, content: chunk.content.slice(0, 500) }, 'Tool result content')
+          }
           sendChunkSSE(res, chunk)
         },
         abortController.signal
@@ -270,20 +320,28 @@ export function createChatRoutes(
     res.flushHeaders()
 
     const abortController = new AbortController()
+    setMaxListeners(30, abortController.signal)
     activeStreams.set(sessionId, abortController)
     stoppedContents.delete(sessionId)
     lastAssistantMessageIds.delete(sessionId)
+
+    const log = logger.child({ sessionId })
 
     logger.info({ sessionId, messageId }, 'SSE edit stream started')
 
     // Set up tool confirmation handler
     if (mcpGateway) {
       mcpGateway.setConfirmationHandler((toolUseId, toolName, toolInput) => {
+        // Session-scoped "always allow" check
+        if (sessionToolPermissions.get(sessionId)?.has(toolName)) {
+          return Promise.resolve(true)
+        }
         return new Promise<boolean>((resolve) => {
           sendSSE(res, 'tool_confirm', { type: 'tool_confirm', toolUseId, toolName, toolInput })
           pendingConfirmations.set(toolUseId, { resolve, toolName })
           setTimeout(() => {
             if (pendingConfirmations.has(toolUseId)) {
+              log.warn({ toolUseId, toolName }, 'Tool confirmation timed out, auto-denying')
               pendingConfirmations.get(toolUseId)!.resolve(false)
               pendingConfirmations.delete(toolUseId)
             }
@@ -295,6 +353,9 @@ export function createChatRoutes(
     res.on('close', () => {
       abortController.abort()
       activeStreams.delete(sessionId)
+      if (pendingConfirmations.size > 0) {
+        log.warn({ pendingCount: pendingConfirmations.size }, 'Client disconnected with pending confirmations')
+      }
       pendingConfirmations.forEach((pending, id) => {
         pending.resolve(false)
         pendingConfirmations.delete(id)
@@ -304,10 +365,19 @@ export function createChatRoutes(
     try {
       await manageMessages.updateMessageContent(messageId, content)
 
+      let toolIteration = 0
       const message = await regenerateMessage.regenerate(
         sessionId,
         messageId,
         (chunk) => {
+          if (chunk.type === 'tool_use') {
+            toolIteration++
+            log.info({ toolName: chunk.toolName, toolUseId: chunk.toolUseId, iteration: toolIteration }, 'Tool use requested by LLM')
+            log.debug({ toolName: chunk.toolName, toolInput: chunk.toolInput }, 'Tool use input')
+          } else if (chunk.type === 'tool_result') {
+            log.info({ toolName: chunk.toolName, toolUseId: chunk.toolUseId, isError: chunk.isError, contentLength: chunk.content.length }, 'Tool result received')
+            log.debug({ toolName: chunk.toolName, content: chunk.content.slice(0, 500) }, 'Tool result content')
+          }
           sendChunkSSE(res, chunk)
         },
         abortController.signal
@@ -345,14 +415,18 @@ export function createChatRoutes(
     const { toolUseId, approved, alwaysAllow } = req.body as ToolConfirmRequest
     const pending = pendingConfirmations.get(toolUseId)
     if (pending) {
-      if (approved && alwaysAllow && settingsService) {
-        const json = await settingsService.get('builtin_tools_permissions')
-        const perms: Record<string, string> = json ? JSON.parse(json) : {}
-        perms[pending.toolName] = 'always'
-        await settingsService.set('builtin_tools_permissions', JSON.stringify(perms))
+      logger.info({ sessionId: req.params.sessionId, toolUseId, toolName: pending.toolName, approved }, 'Tool confirmation received')
+      if (approved && alwaysAllow) {
+        const { sessionId } = req.params
+        if (!sessionToolPermissions.has(sessionId)) {
+          sessionToolPermissions.set(sessionId, new Set())
+        }
+        sessionToolPermissions.get(sessionId)!.add(pending.toolName)
       }
       pending.resolve(approved)
       pendingConfirmations.delete(toolUseId)
+    } else {
+      logger.warn({ sessionId: req.params.sessionId, toolUseId }, 'Tool confirmation for unknown toolUseId')
     }
     res.json({ ok: true })
   }))

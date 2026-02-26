@@ -1,5 +1,5 @@
 import { apiFetch, apiSSE } from '@/shared/api/client'
-import type { SSEToolUseData, SSEToolResultData, SSEToolConfirmData } from '@/shared/api/client'
+import type { SSEToolStartData, SSEToolUseData, SSEToolResultData, SSEToolConfirmData } from '@/shared/api/client'
 import type { Message, ImageAttachment } from '@dchat/shared'
 
 export interface StreamCallbacks {
@@ -7,6 +7,7 @@ export interface StreamCallbacks {
   onTitle: (sessionId: string, title: string) => void
   onEnd: (message: Message) => void
   onError: (error: string) => void
+  onToolStart?: (data: SSEToolStartData) => void
   onToolUse?: (data: SSEToolUseData) => void
   onToolResult?: (data: SSEToolResultData) => void
   onToolConfirm?: (data: SSEToolConfirmData) => void
@@ -22,6 +23,7 @@ function buildSSECallbacks(callbacks: StreamCallbacks) {
     onTitle: (data: { sessionId: string; title: string }) => callbacks.onTitle(data.sessionId, data.title),
     onEnd: (data: any) => callbacks.onEnd(data as Message),
     onError: (data: { message: string }) => callbacks.onError(data.message),
+    onToolStart: callbacks.onToolStart,
     onToolUse: callbacks.onToolUse,
     onToolResult: callbacks.onToolResult,
     onToolConfirm: callbacks.onToolConfirm

@@ -19,6 +19,7 @@ export function MessageList(): React.JSX.Element {
 
   const bottomRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const lastUserMsgRef = useRef<HTMLDivElement>(null)
   const isNearBottomRef = useRef(true)
   const isProgrammaticScrollRef = useRef(false)
   const [showScrollButton, setShowScrollButton] = useState(false)
@@ -66,12 +67,12 @@ export function MessageList(): React.JSX.Element {
       return
     }
 
-    if (scrolledUp) {
-      isNearBottomRef.current = false
-      setShowScrollButton(true)
-    } else if (nearBottom) {
+    if (nearBottom) {
       isNearBottomRef.current = true
       setShowScrollButton(false)
+    } else if (scrolledUp) {
+      isNearBottomRef.current = false
+      setShowScrollButton(true)
     }
   }, [])
 
@@ -94,7 +95,7 @@ export function MessageList(): React.JSX.Element {
         isProgrammaticScrollRef.current = true
         isNearBottomRef.current = true
         setShowScrollButton(false)
-        bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+        lastUserMsgRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       }
     }
     prevMessagesLengthRef.current = messages.length
@@ -121,18 +122,54 @@ export function MessageList(): React.JSX.Element {
           </div>
         )}
 
-        {messages.map((msg) => (
-          <MessageBubble
-            key={msg.id}
-            id={msg.id}
-            role={msg.role}
-            content={msg.content}
-            createdAt={msg.createdAt}
-            onRegenerate={regenerateMessage}
-            onEdit={editMessage}
-            attachments={msg.attachments}
-          />
-        ))}
+        {messages.map((msg, index) => {
+          if (msg.role === 'assistant' && msg.segments?.length) {
+            return (
+              <div key={msg.id} className="space-y-2">
+                {msg.segments.map((seg, i) => {
+                  if (seg.type === 'text') {
+                    const isLastText = !msg.segments!.slice(i + 1).some((s) => s.type === 'text')
+                    return (
+                      <MessageBubble
+                        key={`${msg.id}-seg-${i}`}
+                        role="assistant"
+                        content={seg.content}
+                        {...(isLastText ? { id: msg.id, createdAt: msg.createdAt, onRegenerate: regenerateMessage } : {})}
+                      />
+                    )
+                  }
+                  return (
+                    <ToolCallBlock
+                      key={`${msg.id}-seg-${i}`}
+                      toolCall={{
+                        toolUseId: seg.toolUseId,
+                        toolName: seg.toolName,
+                        toolInput: seg.toolInput,
+                        status: seg.isError ? 'error' : 'done',
+                        result: seg.result,
+                        isError: seg.isError
+                      }}
+                    />
+                  )
+                })}
+              </div>
+            )
+          }
+          const isLastUserMsg = index === messages.length - 1 && msg.role === 'user'
+          return (
+            <div key={msg.id} ref={isLastUserMsg ? lastUserMsgRef : undefined}>
+              <MessageBubble
+                id={msg.id}
+                role={msg.role}
+                content={msg.content}
+                createdAt={msg.createdAt}
+                onRegenerate={regenerateMessage}
+                onEdit={editMessage}
+                attachments={msg.attachments}
+              />
+            </div>
+          )
+        })}
 
         {isStreaming && streamingSegments.length > 0 && streamingSegments.map((seg, i) => {
           if (seg.type === 'text') {

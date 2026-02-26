@@ -58,6 +58,12 @@ export interface SSEToolResultData {
   isError: boolean
 }
 
+export interface SSEToolStartData {
+  type: 'tool_start'
+  toolUseId: string
+  toolName: string
+}
+
 export interface SSEToolConfirmData {
   type: 'tool_confirm'
   toolUseId: string
@@ -70,6 +76,7 @@ export interface SSECallbacks {
   onTitle?: (data: { sessionId: string; title: string }) => void
   onEnd?: (data: any) => void
   onError?: (data: { message: string }) => void
+  onToolStart?: (data: SSEToolStartData) => void
   onToolUse?: (data: SSEToolUseData) => void
   onToolResult?: (data: SSEToolResultData) => void
   onToolConfirm?: (data: SSEToolConfirmData) => void
@@ -124,6 +131,9 @@ export function apiSSE(
                 break
               case 'error':
                 callbacks.onError?.(data)
+                break
+              case 'tool_start':
+                callbacks.onToolStart?.(data)
                 break
               case 'tool_use':
                 callbacks.onToolUse?.(data)

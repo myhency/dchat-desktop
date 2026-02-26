@@ -249,6 +249,40 @@ const keepCount = target.role === 'user' ? targetIndex + 1 : targetIndex
 - **`onEnd` 수정 시**: re-fetch 로직 제거 금지. 제거 시 user 재생성이 깨짐
 - **assistant 메시지**: SSE `end` 이벤트로 백엔드 ID가 직접 전달되므로 불일치 없음
 
+## sendMessage onEnd: 스트리밍 클리어와 메시지 로드의 원자적 업데이트
+
+`sendMessage`의 `onEnd` 핸들러에서 현재 세션인 경우, 스트리밍 상태 클리어(`streamingSessionIds`, `streamingSegments`)와 DB 메시지 로드(`messages`)를 **반드시 한 번의 `set()` 호출**로 처리해야 함.
+
+```typescript
+// ❌ 2단계 set → 중간 상태에서 스트리밍 콘텐츠가 DOM에서 제거되어 스크롤 점프 발생
+set({ streamingSessionIds: newIds, streamingSegments: rest })  // 콘텐츠 사라짐
+chatApi.getMessages(sessionId).then((msgs) => set({ messages: msgs }))  // 뒤늦게 복원
+
+// ✅ fetch 완료 후 한번에 set → 콘텐츠 높이가 유지됨
+chatApi.getMessages(sessionId).then((msgs) => {
+  set({ messages: msgs, streamingSessionIds: newIds, streamingSegments: rest })
+})
+```
+
+**원인**: 1차 `set()`으로 `isStreaming`이 `false`가 되면 `MessageList`의 `{isStreaming && streamingSegments...}` 블록이 DOM에서 제거됨 → 콘텐츠 높이 급감 → 브라우저 scroll 이벤트가 "유저 위로 스크롤"로 오인 → `isNearBottom = false` → 2차 `set()` 후 auto-scroll 비활성화 → 사용자가 최상단에 고정됨.
+
+**예외**: `regenerateMessage`/`editMessage`의 `onEnd`는 atomic `set()` 내에서 `messages: [...s.messages, message]`로 스트리밍 콘텐츠를 즉시 대체하므로 높이 급감이 없음. `stopStream`은 사용자 의도적 중단이므로 스크롤 위치 변경은 기대 동작.
+
+## MessageList handleScroll: nearBottom 우선 체크
+
+`handleScroll`에서 `nearBottom`을 `scrolledUp`보다 **먼저** 체크해야 함:
+
+```typescript
+// ✅ nearBottom 우선 → 콘텐츠 높이 변화로 scrollTop이 줄어도 하단이면 isNearBottom 유지
+if (nearBottom) {
+  isNearBottomRef.current = true
+} else if (scrolledUp) {
+  isNearBottomRef.current = false
+}
+```
+
+`scrolledUp`을 먼저 체크하면 콘텐츠 높이가 변할 때(메시지 교체, 이미지 로드 등) `scrollTop` 감소를 "유저 스크롤업"으로 오인하여 auto-scroll이 꺼짐. `nearBottom` 우선 체크는 이에 대한 방어.
+
 ## 내장 도구 설정 (ExtensionsContent)
 
 `SettingsScreen.tsx`의 `ExtensionsContent` — 내장 도구(Filesystem & Shell) 설정 UI:
@@ -263,6 +297,48 @@ const keepCount = target.role === 'user' ? targetIndex + 1 : targetIndex
 - **상태 표시**: `builtinStatus` 상태로 `settingsApi.getBuiltinToolsStatus()` fetch → Filesystem 카드에 색상 dot + 라벨 (`실행 중`/`오류`/`비활성화`). `handleSave` 후에도 재fetch (`fetchBuiltinStatus()`).
 - **에러 배너**: `builtinStatus.errors`가 있으면 filesystem 설정 뷰에서 접근 불가 디렉토리 목록을 빨간 배너로 표시
 - **에러 핸들링**: `useEffect`의 `Promise.all([...]).catch(() => { setLoaded(true) })` — API 실패 시에도 loaded 상태 설정하여 무한 로딩 방지
+- **dirty 추적 (Save 가드)**: `loadedDirsRef`에 API에서 로드된 원본 디렉토리를 저장. `isDirsDirty = JSON.stringify(현재) !== JSON.stringify(loadedDirsRef)`로 비교. Save 버튼은 `disabled={saving || !loaded || !isDirsDirty}`로 변경 전/로드 전 저장을 차단. `handleSave` 성공 후 `loadedDirsRef`를 동기화하여 dirty 플래그 리셋. 이 가드가 없으면 컴포넌트 마운트 시 `directories = []`인 상태에서 Save가 가능하여 기존 설정이 빈 배열로 덮어써짐
+
+## MessageList 전송 시 스크롤: 사용자 메시지를 뷰포트 상단에 정렬
+
+메시지 전송 시 force-scroll은 목록 최하단(`bottomRef`)이 아닌 **마지막 user 메시지**(`lastUserMsgRef`)의 상단 edge를 뷰포트 상단에 정렬:
+
+```typescript
+// force-scroll effect (messages.length 변경 시)
+lastUserMsgRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+```
+
+- **목적**: 사용자 메시지가 뷰포트 상단에 위치하면 스트리밍 응답이 아래로 자연스럽게 채워지는 UX
+- **auto-scroll 연계**: force-scroll 시 `isNearBottomRef = true`로 설정하므로, 스트리밍 중 auto-scroll(`el.scrollTo({ top: el.scrollHeight })`)이 정상 작동
+- **래퍼 div**: 비-segment 메시지는 `<div key={msg.id}>` 래퍼로 감싸여 있음. 마지막 user 메시지에만 `lastUserMsgRef` 할당. 이 래퍼를 제거하면 ref 할당 불가
+- **"아래로 스크롤" 버튼**: 여전히 `bottomRef`를 사용하여 목록 최하단으로 스크롤 (변경 없음)
+
+## 저장된 도구 블록 렌더링 (MessageList segments)
+
+DB에서 불러온 메시지에 `segments` 필드가 있으면, 스트리밍이 끝난 후에도 텍스트와 도구 블록을 인터리브로 표시:
+
+```tsx
+// MessageList.tsx — messages.map 내부
+if (msg.role === 'assistant' && msg.segments?.length) {
+  // segments 순회하며 text → MessageBubble, tool → ToolCallBlock 교차 렌더링
+  // 마지막 text 세그먼트에만 regenerate 액션 표시
+}
+```
+
+- **스트리밍 중**: 기존 `streamingSegments` (스토어의 `StreamingSegment[]`)로 렌더링 — `status`가 `calling`/`confirming` 등 실시간 상태
+- **스트리밍 후**: DB에서 재조회된 `msg.segments` (`MessageSegment[]`)로 렌더링 — `status`는 `done`/`error`만
+- **segments 없는 메시지**: 기존처럼 단일 `MessageBubble`로 렌더링 (하위 호환)
+- **수정 시 주의**: `ToolCallBlock`의 `ToolCallInfo.status`는 스트리밍 중 4가지(`calling`/`done`/`error`/`confirming`), segments에서는 2가지(`done`/`error`)만 사용. segments 렌더링에서 `confirming`/`calling`은 발생하지 않음.
+
+## 도구 블록 즉시 표시 패턴 (tool_start → tool_use 폴백)
+
+`session.store.ts`의 `sendMessage` 콜백에서 `onToolStart`와 `onToolUse`가 협력하여 도구 블록을 즉시 표시:
+
+- **`onToolStart`**: 빈 input(`{}`)으로 tool 세그먼트를 즉시 생성 → UI에 스피너 즉시 표시
+- **`onToolUse`**: 동일 `toolUseId`의 세그먼트가 이미 존재하면 `updateToolInSegments`로 `toolInput`만 업데이트. 존재하지 않으면(폴백) 새 세그먼트 생성.
+- **폴백이 필요한 이유**: `tool_start`를 보내지 않는 LLM 어댑터(OpenAI 등)에서도 `onToolUse`만으로 기존 동작 유지.
+- **ToolCallBlock 빈 input 처리**: `Object.keys(toolInput).length === 0`이면 "입력 생성 중..." 텍스트 표시. `tool_use` 수신 시 실제 JSON으로 교체.
+- **수정 시 주의**: `onToolStart`와 `onToolUse`에서 세그먼트 존재 여부 확인이 `toolUseId` 기준. ID 체계가 변경되면 양쪽 모두 수정 필요.
 
 ## 도구 확인 UI (ToolCallBlock)
 
@@ -270,7 +346,7 @@ const keepCount = target.role === 'user' ? targetIndex + 1 : targetIndex
 
 - **`ToolCallInfo.status`**: `'calling' | 'done' | 'error' | 'confirming'` — `confirming`은 승인 대기 상태
 - **`confirming` 스타일**: amber 계열 border/bg (`border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20`), Shield 아이콘
-- **자동 확장**: `confirming` 상태일 때 `expanded` 초기값 `true` (input 확인 + 버튼 즉시 표시)
+- **자동 확장**: `confirming` 상태 전환 시 `useEffect`로 `setExpanded(true)` 호출. `useState(isConfirming)` 초기값만으로는 마운트 이후 `calling → confirming` 전환을 감지하지 못함 (동일 `key`의 컴포넌트 인스턴스이므로 `useState` 초기값 무시됨)
 - **승인/거부 버튼**: `confirmTool(toolUseId, approved)` → `chatApi.confirmTool()` 호출 + UI 상태 갱신
   - 승인 시: `status → 'calling'` (도구 실행 계속)
   - 거부 시: `status → 'error'`, `result: 'User denied the tool execution.'`
