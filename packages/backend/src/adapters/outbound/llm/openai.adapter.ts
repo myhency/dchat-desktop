@@ -11,6 +11,12 @@ import type {
 } from '../../../domain/ports/outbound/llm.gateway'
 import logger from '../../../logger'
 
+const OPENAI_MAX_TOKENS: Record<string, number> = {
+  'gpt-4o': 16_384,
+  'gpt-4o-mini': 16_384,
+  'o3-mini': 100_000,
+}
+
 export class OpenAIAdapter implements LLMGateway {
   private client: OpenAI
 
@@ -52,7 +58,7 @@ export class OpenAIAdapter implements LLMGateway {
       const stream = await this.client.chat.completions.create(
         {
           model: options.model,
-          max_tokens: options.maxTokens ?? 4096,
+          max_tokens: options.maxTokens ?? OPENAI_MAX_TOKENS[options.model] ?? 4096,
           messages: openaiMessages,
           stream: true,
           ...(options.temperature != null ? { temperature: options.temperature } : {})
@@ -110,7 +116,7 @@ export class OpenAIAdapter implements LLMGateway {
       const stream = await this.client.chat.completions.create(
         {
           model: options.model,
-          max_tokens: options.maxTokens ?? 4096,
+          max_tokens: options.maxTokens ?? OPENAI_MAX_TOKENS[options.model] ?? 4096,
           messages: openaiMessages,
           stream: true,
           ...(options.temperature != null ? { temperature: options.temperature } : {})

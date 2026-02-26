@@ -11,6 +11,12 @@ import type {
 } from '../../../domain/ports/outbound/llm.gateway'
 import logger from '../../../logger'
 
+const ANTHROPIC_MAX_TOKENS: Record<string, number> = {
+  'claude-opus-4-6': 128_000,
+  'claude-sonnet-4-6': 64_000,
+  'claude-haiku-4-5': 64_000,
+}
+
 export class AnthropicAdapter implements LLMGateway {
   private client: Anthropic
 
@@ -42,7 +48,7 @@ export class AnthropicAdapter implements LLMGateway {
       const stream = this.client.messages.stream(
         {
           model: options.model,
-          max_tokens: options.maxTokens ?? 4096,
+          max_tokens: options.maxTokens ?? ANTHROPIC_MAX_TOKENS[options.model] ?? 4096,
           messages: anthropicMessages,
           ...(options.systemPrompt ? { system: options.systemPrompt } : {}),
           ...(options.temperature != null ? { temperature: options.temperature } : {})
@@ -115,7 +121,7 @@ export class AnthropicAdapter implements LLMGateway {
       const stream = this.client.messages.stream(
         {
           model: options.model,
-          max_tokens: options.maxTokens ?? 4096,
+          max_tokens: options.maxTokens ?? ANTHROPIC_MAX_TOKENS[options.model] ?? 4096,
           messages: anthropicMessages,
           ...(options.systemPrompt ? { system: options.systemPrompt } : {}),
           ...(options.temperature != null ? { temperature: options.temperature } : {}),
