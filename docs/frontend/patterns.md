@@ -298,6 +298,20 @@ if (nearBottom) {
 - **에러 배너**: `builtinStatus.errors`가 있으면 filesystem 설정 뷰에서 접근 불가 디렉토리 목록을 빨간 배너로 표시
 - **에러 핸들링**: `useEffect`의 `Promise.all([...]).catch(() => { setLoaded(true) })` — API 실패 시에도 loaded 상태 설정하여 무한 로딩 방지
 
+## MessageList 전송 시 스크롤: 사용자 메시지를 뷰포트 상단에 정렬
+
+메시지 전송 시 force-scroll은 목록 최하단(`bottomRef`)이 아닌 **마지막 user 메시지**(`lastUserMsgRef`)의 상단 edge를 뷰포트 상단에 정렬:
+
+```typescript
+// force-scroll effect (messages.length 변경 시)
+lastUserMsgRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+```
+
+- **목적**: 사용자 메시지가 뷰포트 상단에 위치하면 스트리밍 응답이 아래로 자연스럽게 채워지는 UX
+- **auto-scroll 연계**: force-scroll 시 `isNearBottomRef = true`로 설정하므로, 스트리밍 중 auto-scroll(`el.scrollTo({ top: el.scrollHeight })`)이 정상 작동
+- **래퍼 div**: 비-segment 메시지는 `<div key={msg.id}>` 래퍼로 감싸여 있음. 마지막 user 메시지에만 `lastUserMsgRef` 할당. 이 래퍼를 제거하면 ref 할당 불가
+- **"아래로 스크롤" 버튼**: 여전히 `bottomRef`를 사용하여 목록 최하단으로 스크롤 (변경 없음)
+
 ## 저장된 도구 블록 렌더링 (MessageList segments)
 
 DB에서 불러온 메시지에 `segments` 필드가 있으면, 스트리밍이 끝난 후에도 텍스트와 도구 블록을 인터리브로 표시:
