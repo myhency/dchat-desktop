@@ -313,22 +313,30 @@ lastUserMsgRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 - **래퍼 div**: 비-segment 메시지는 `<div key={msg.id}>` 래퍼로 감싸여 있음. 마지막 user 메시지에만 `lastUserMsgRef` 할당. 이 래퍼를 제거하면 ref 할당 불가
 - **"아래로 스크롤" 버튼**: 여전히 `bottomRef`를 사용하여 목록 최하단으로 스크롤 (변경 없음)
 
-## 저장된 도구 블록 렌더링 (MessageList segments)
+## 도구 호출 그룹핑 및 렌더링 (ToolCallGroup + ToolCallBlock)
 
-DB에서 불러온 메시지에 `segments` 필드가 있으면, 스트리밍이 끝난 후에도 텍스트와 도구 블록을 인터리브로 표시:
+연속된 tool 세그먼트를 `ToolCallGroup`으로 묶어 접기/펼치기가 가능한 그룹으로 렌더링. `MessageList.tsx`의 `groupSavedSegments()`/`groupStreamingSegments()` 헬퍼가 연속된 tool 세그먼트를 `toolGroup`으로 그룹핑.
 
-```tsx
-// MessageList.tsx — messages.map 내부
-if (msg.role === 'assistant' && msg.segments?.length) {
-  // segments 순회하며 text → MessageBubble, tool → ToolCallBlock 교차 렌더링
-  // 마지막 text 세그먼트에만 regenerate 액션 표시
-}
+```
+[text] [tool] [tool] [tool] [text] [tool]
+  →  text, toolGroup(3개), text, toolGroup(1개)
 ```
 
-- **스트리밍 중**: 기존 `streamingSegments` (스토어의 `StreamingSegment[]`)로 렌더링 — `status`가 `calling`/`confirming` 등 실시간 상태
-- **스트리밍 후**: DB에서 재조회된 `msg.segments` (`MessageSegment[]`)로 렌더링 — `status`는 `done`/`error`만
+### ToolCallGroup (그룹 컨테이너)
+- **헤더**: 도구 1개면 도구 이름, N개면 `"도구 N개 사용"` + 상태 요약
+- **자동 동작**: 저장된 메시지(allDone)는 접힌 상태로 시작, 스트리밍 중은 펼친 상태. `confirming` 도구 발생 시 자동 펼침, 모든 도구 완료 시 자동 접힘.
+- **스타일**: confirming 도구가 있으면 amber border/bg 적용 (그룹 전체)
+
+### ToolCallBlock (그룹 내 개별 행)
+- **컴팩트 레이아웃**: 왼쪽 첫 글자 원형 아이콘 + 도구 이름 + 상태 배지 (`결과`/`요청 중`/`확인 필요`/`오류`)
+- **커넥터 라인**: `isLast` prop으로 제어. 마지막 아이템이 아니면 원형 아이콘 아래에 세로 라인 표시
+- **펼침**: 클릭 시 입력 JSON, 결과, 확인 버튼 표시 (기존 상세 UI)
+
+### 렌더링 경로
+- **스트리밍 중**: `groupStreamingSegments(streamingSegments)` → `ToolCallGroup` with `isStreaming`
+- **스트리밍 후**: `groupSavedSegments(msg.segments)` → `ToolCallGroup` without `isStreaming`
 - **segments 없는 메시지**: 기존처럼 단일 `MessageBubble`로 렌더링 (하위 호환)
-- **수정 시 주의**: `ToolCallBlock`의 `ToolCallInfo.status`는 스트리밍 중 4가지(`calling`/`done`/`error`/`confirming`), segments에서는 2가지(`done`/`error`)만 사용. segments 렌더링에서 `confirming`/`calling`은 발생하지 않음.
+- **수정 시 주의**: `ToolCallBlock`은 `ToolCallGroup` 내부에서만 사용. `MessageList`는 `ToolCallGroup`만 import. 새 도구 상태 추가 시 `StatusBadge`(ToolCallBlock 내 로컬 컴포넌트)와 `ToolCallGroup` 헤더 상태 요약 양쪽 수정 필요.
 
 ## 도구 블록 즉시 표시 패턴 (tool_start → tool_use 폴백)
 
@@ -342,10 +350,9 @@ if (msg.role === 'assistant' && msg.segments?.length) {
 
 ## 도구 확인 UI (ToolCallBlock)
 
-`ToolCallBlock.tsx` — 위험한 도구 실행 시 사용자 승인/거부 UI:
+`ToolCallBlock.tsx` — 위험한 도구 실행 시 사용자 승인/거부 UI (ToolCallGroup 내부 개별 행의 펼침 상태에서 표시):
 
 - **`ToolCallInfo.status`**: `'calling' | 'done' | 'error' | 'confirming'` — `confirming`은 승인 대기 상태
-- **`confirming` 스타일**: amber 계열 border/bg (`border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20`), Shield 아이콘
 - **자동 확장**: `confirming` 상태 전환 시 `useEffect`로 `setExpanded(true)` 호출. `useState(isConfirming)` 초기값만으로는 마운트 이후 `calling → confirming` 전환을 감지하지 못함 (동일 `key`의 컴포넌트 인스턴스이므로 `useState` 초기값 무시됨)
 - **승인/거부 버튼**: `confirmTool(toolUseId, approved)` → `chatApi.confirmTool()` 호출 + UI 상태 갱신
   - 승인 시: `status → 'calling'` (도구 실행 계속)
