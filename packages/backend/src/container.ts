@@ -59,7 +59,7 @@ export function createContainer(): AppContainer {
   const mcpServerRepo = new JsonFileMcpServerRepository()
   const llmFactory = new LLMAdapterFactory()
   const stdioMcpClient = new StdioMcpClientManager()
-  const builtInTools = new BuiltInToolProvider(settingsRepo)
+  const builtInTools = new BuiltInToolProvider(settingsRepo, skillRepo)
   const mcpClient = new CompositeMcpClientGateway(builtInTools, stdioMcpClient)
 
   // Domain Services

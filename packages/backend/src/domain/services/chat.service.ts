@@ -462,10 +462,10 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
     if (this.skillRepo) {
       const enabledSkills = await this.skillRepo.findEnabled()
       if (enabledSkills.length > 0) {
-        const skillsContent = enabledSkills
-          .map(s => `<skill name="${s.name}">\n${s.content}\n</skill>`)
-          .join('\n\n')
-        parts.push(`<skills>\n${skillsContent}\n</skills>`)
+        const skillsList = enabledSkills
+          .map(s => `<skill name="${s.name}">\n${s.description}\n</skill>`)
+          .join('\n')
+        parts.push(`<available_skills>\n${skillsList}\n</available_skills>\n\n사용 가능한 스킬이 위에 나열되어 있습니다. 관련 스킬이 있으면 consult_skill 도구로 전체 지침을 로드하여 따르세요.`)
       }
     }
 
