@@ -87,6 +87,18 @@ export function initSchema(db: Database.Database): void {
   }
 
   db.exec(`
+    CREATE TABLE IF NOT EXISTS skills (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      content TEXT NOT NULL DEFAULT '',
+      is_enabled INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `)
+
+  db.exec(`
     CREATE TABLE IF NOT EXISTS mcp_servers (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,

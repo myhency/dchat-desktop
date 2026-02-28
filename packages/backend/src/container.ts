@@ -9,6 +9,7 @@ import { SqliteMessageRepository } from './adapters/outbound/persistence/sqlite/
 import { SqliteSessionRepository } from './adapters/outbound/persistence/sqlite/session.repository.impl'
 import { SqliteSettingsRepository } from './adapters/outbound/persistence/sqlite/settings.repository.impl'
 import { SqliteProjectRepository } from './adapters/outbound/persistence/sqlite/project.repository.impl'
+import { SqliteSkillRepository } from './adapters/outbound/persistence/sqlite/skill.repository.impl'
 import { JsonFileMcpServerRepository } from './adapters/outbound/persistence/json/mcp-config.repository'
 import { LLMAdapterFactory } from './adapters/outbound/llm/llm-adapter.factory'
 import { StdioMcpClientManager } from './adapters/outbound/mcp/stdio-mcp-client.manager'
@@ -22,6 +23,7 @@ import { SettingsService } from './domain/services/settings.service'
 import { ProjectService } from './domain/services/project.service'
 import { BackupService } from './domain/services/backup.service'
 import { McpServerService } from './domain/services/mcp-server.service'
+import { SkillService } from './domain/services/skill.service'
 import { MemoryService } from './domain/services/memory.service'
 
 // Domain Ports
@@ -35,11 +37,13 @@ export interface AppContainer {
   backupService: BackupService
   mcpServerService: McpServerService
   memoryService: MemoryService
+  skillService: SkillService
   mcpClient: CompositeMcpClientGateway
   builtInTools: BuiltInToolProvider
   llmFactory: LLMGatewayResolver
   restoreApiKeys(): Promise<void>
   startMcpServers(): Promise<void>
+  seedBuiltInSkills(): Promise<void>
 }
 
 export function createContainer(): AppContainer {
@@ -50,6 +54,7 @@ export function createContainer(): AppContainer {
   const sessionRepo = new SqliteSessionRepository(db)
   const settingsRepo = new SqliteSettingsRepository(db)
   const projectRepo = new SqliteProjectRepository(db)
+  const skillRepo = new SqliteSkillRepository(db)
   const mcpServerRepo = new JsonFileMcpServerRepository()
   const llmFactory = new LLMAdapterFactory()
   const stdioMcpClient = new StdioMcpClientManager()
@@ -58,11 +63,12 @@ export function createContainer(): AppContainer {
 
   // Domain Services
   const memoryService = new MemoryService(messageRepo, settingsRepo, llmFactory, projectRepo)
-  const chatService = new ChatService(messageRepo, sessionRepo, llmFactory, settingsRepo, projectRepo, mcpClient, memoryService)
+  const chatService = new ChatService(messageRepo, sessionRepo, llmFactory, settingsRepo, projectRepo, mcpClient, memoryService, skillRepo)
   const sessionService = new SessionService(sessionRepo, messageRepo)
   const settingsService = new SettingsService(settingsRepo)
   const projectService = new ProjectService(projectRepo)
-  const backupService = new BackupService(messageRepo, sessionRepo, projectRepo, settingsRepo)
+  const skillService = new SkillService(skillRepo)
+  const backupService = new BackupService(messageRepo, sessionRepo, projectRepo, settingsRepo, skillRepo)
   const mcpServerService = new McpServerService(mcpServerRepo, stdioMcpClient)
 
   return {
@@ -73,6 +79,7 @@ export function createContainer(): AppContainer {
     backupService,
     mcpServerService,
     memoryService,
+    skillService,
     mcpClient,
     builtInTools,
     llmFactory,
@@ -89,6 +96,10 @@ export function createContainer(): AppContainer {
 
     async startMcpServers(): Promise<void> {
       await mcpServerService.startEnabledServers()
+    },
+
+    async seedBuiltInSkills(): Promise<void> {
+      await skillService.seedBuiltInSkills()
     }
   }
 }

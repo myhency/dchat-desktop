@@ -20,6 +20,11 @@ async function main(): Promise<void> {
     logger.error({ err }, 'Failed to start MCP servers')
   })
 
+  // Seed built-in skills (non-blocking)
+  container.seedBuiltInSkills().catch((err) => {
+    logger.error({ err }, 'Failed to seed built-in skills')
+  })
+
   // Graceful shutdown
   const shutdown = (): void => {
     logger.info('Shutting down server')

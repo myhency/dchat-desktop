@@ -10,6 +10,7 @@ import type { LLMGatewayResolver } from '../ports/outbound/llm-gateway.resolver'
 import type { SettingsRepository } from '../ports/outbound/settings.repository'
 import type { ProjectRepository } from '../ports/outbound/project.repository'
 import type { McpClientGateway } from '../ports/outbound/mcp-client.gateway'
+import type { SkillRepository } from '../ports/outbound/skill.repository'
 import type { MemoryService } from './memory.service'
 import { generateId } from './id'
 
@@ -23,7 +24,8 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
     private readonly settingsRepo: SettingsRepository,
     private readonly projectRepo: ProjectRepository,
     private readonly mcpClient?: McpClientGateway,
-    private readonly memoryService?: MemoryService
+    private readonly memoryService?: MemoryService,
+    private readonly skillRepo?: SkillRepository
   ) {}
 
   async execute(
@@ -454,6 +456,16 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
       const projectMemoryContext = await this.memoryService.buildProjectMemoryContext(projectId)
       if (projectMemoryContext) {
         parts.push(projectMemoryContext)
+      }
+    }
+
+    if (this.skillRepo) {
+      const enabledSkills = await this.skillRepo.findEnabled()
+      if (enabledSkills.length > 0) {
+        const skillsContent = enabledSkills
+          .map(s => `<skill name="${s.name}">\n${s.content}\n</skill>`)
+          .join('\n\n')
+        parts.push(`<skills>\n${skillsContent}\n</skills>`)
       }
     }
 

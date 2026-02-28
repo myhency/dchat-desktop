@@ -11,6 +11,7 @@ import { createMcpServerRoutes } from './adapters/inbound/http/mcp-server.routes
 import { createMemoryRoutes } from './adapters/inbound/http/memory.routes'
 import { createBuiltinToolsRoutes } from './adapters/inbound/http/builtin-tools.routes'
 import { createErrorReportRoutes } from './adapters/inbound/http/error-report.routes'
+import { createSkillRoutes } from './adapters/inbound/http/skill.routes'
 import logger from './logger'
 
 export function createApp(container: AppContainer): express.Express {
@@ -53,6 +54,7 @@ export function createApp(container: AppContainer): express.Express {
   app.use('/api/mcp', createMcpServerRoutes(container.mcpServerService))
   app.use('/api/memory', createMemoryRoutes(container.memoryService))
   app.use('/api/builtin-tools', createBuiltinToolsRoutes(container.builtInTools))
+  app.use('/api/skills', createSkillRoutes(container.skillService))
   app.use('/api/error-reports', createErrorReportRoutes())
 
   // Global error handler — Express 4 does not catch rejected promises from async handlers
