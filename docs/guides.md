@@ -87,6 +87,18 @@ await vibe.evaluate(
 )
 ```
 
+### React hover 시뮬레이션 (`onMouseEnter/Leave`)
+
+E2E에서 `onMouseEnter`를 트리거하려면 `mouseenter`가 아닌 **`mouseover`**를 dispatch해야 함. React 18은 이벤트 위임(delegation) 방식으로 루트에서 `mouseover`/`mouseout`을 리스닝하여 `mouseenter`/`mouseleave`를 시뮬레이션하기 때문:
+
+```typescript
+// ❌ React가 감지하지 못함 (mouseenter는 bubble하지 않아 루트 리스너에 도달 불가)
+el.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
+
+// ✅ React 이벤트 위임이 감지
+el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, cancelable: true }))
+```
+
 ### 테스트 파일 간 포트 충돌
 
 vibium은 기본적으로 포트 9515를 사용. vitest가 테스트 파일을 병렬 실행하므로, 여러 파일에서 `browser.launch()`를 호출하면 포트 충돌 발생. 두 번째 테스트 파일부터 다른 포트 지정:

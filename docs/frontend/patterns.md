@@ -137,6 +137,7 @@ SearchModal과 동일한 UI 패턴을 따르는 프로젝트 선택 모달:
 
 - **시간대 인사**: `getGreeting()` — 오전(6-12시)/오후(12-18시)/저녁(18-6시) 구분
 - **퀵 액션**: `QUICK_ACTIONS` 배열 — "작성하기", "학습하기", "코드", "일상생활", "Claude의 선택" 프리셋 프롬프트
+- **프로젝트 선택**: `selectedProject: { id, name } | null` 로컬 상태. PromptMenu의 `onProjectSelect` 콜백으로 설정, "+" 버튼 옆에 배지/칩으로 표시. `handleSubmit`에서 `createSession('New Chat', model, selectedProject?.id)` 전달. 성공 시 초기화, 실패 시 복원. 글로벌 스토어가 아닌 로컬 상태인 이유: 새 대화 생성 전에만 유효한 일시적 UI 상태
 
 ## AllChatsScreen
 
@@ -411,6 +412,29 @@ return <div><FileText /><span>{attachment.fileName}</span></div>
 - **"오류 저장하기" 버튼**: `apiFetch('/api/error-reports', { method: 'POST', body: ... })` 호출 → `~/.dchat/crash-reports/`에 파일 저장
 - **상태 머신**: `saveState: 'idle' | 'saved' | 'failed'` — 버튼 텍스트/아이콘이 상태에 따라 전환, 2초 후 `idle`로 복귀
 - **수정 시 주의**: ErrorBoundary fallback은 React 트리 외부에서 렌더링되므로, Zustand 스토어나 Context에 의존하지 않음. `apiFetch`만 직접 import하여 사용
+
+## PromptMenu 서브메뉴 패턴
+
+`packages/frontend/src/widgets/prompt-input/ui/PromptMenu.tsx`
+
+"프로젝트에 추가" 메뉴 항목에 호버 시 프로젝트 목록 서브메뉴가 오른쪽에 표시. SettingsMenu의 "자세히 알아보기" 서브메뉴와 동일한 패턴:
+
+```tsx
+<div ref={itemRef} onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
+  <button>메뉴 항목 <ChevronRight /></button>
+  {show && (() => {
+    const rect = itemRef.current?.getBoundingClientRect()
+    return <div className="fixed z-50 ..." style={{ top: rect.top, left: rect.right + 4 }}>
+      {/* 서브메뉴 내용 */}
+    </div>
+  })()}
+</div>
+```
+
+- **위치 계산**: `itemRef`의 `getBoundingClientRect()`로 서브메뉴를 항목 오른쪽에 정렬 (`left: rect.right + 4`)
+- **호버 시 배경**: `showProjects ? 'bg-neutral-100' : 'hover:bg-neutral-100'` — 서브메뉴 열림 상태일 때 배경 고정
+- **optional callback**: `onProjectSelect?.(id, name)` — HomeScreen에서만 전달, ChatPage의 PromptInput에서는 미전달
+- **수정 시 주의**: 새 서브메뉴 추가 시 이 패턴(SettingsMenu + PromptMenu)을 참조. `onMouseEnter/Leave`는 래퍼 div에, 서브메뉴는 `fixed z-50`으로 래퍼 밖에 배치
 
 ## 백업 가져오기 후 스토어 갱신
 
