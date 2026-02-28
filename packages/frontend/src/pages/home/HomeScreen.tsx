@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect, type KeyboardEvent } from 'react'
 import TextareaAutosize from 'react-textarea-autosize'
-import { Sparkles, ChevronDown, Check, ArrowUp, Plus, X } from 'lucide-react'
+import { Sparkles, ChevronDown, Check, ArrowUp, Plus, X, FolderOpen } from 'lucide-react'
 import { useSessionStore, type ImageAttachment } from '@/entities/session'
 import { useSettingsStore } from '@/entities/settings'
 import { MODEL_META, getShortName } from '@/shared/lib/model-meta'
@@ -24,6 +24,7 @@ function getGreeting(): string {
 export function HomeScreen(): React.JSX.Element {
   const [value, setValue] = useState('')
   const [attachments, setAttachments] = useState<ImageAttachment[]>([])
+  const [selectedProject, setSelectedProject] = useState<{ id: string; name: string } | null>(null)
   const [modelOpen, setModelOpen] = useState(false)
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -42,22 +43,33 @@ export function HomeScreen(): React.JSX.Element {
     setAttachments((prev) => prev.filter((a) => a.id !== id))
   }, [])
 
+  const handleProjectSelect = useCallback((projectId: string, projectName: string) => {
+    setSelectedProject({ id: projectId, name: projectName })
+  }, [])
+
+  const handleProjectRemove = useCallback(() => {
+    setSelectedProject(null)
+  }, [])
+
   const handleSubmit = useCallback(async () => {
     const trimmed = value.trim()
     if (!trimmed && attachments.length === 0) return
     const currentAttachments = attachments
+    const currentProject = selectedProject
     setValue('')
     setAttachments([])
+    setSelectedProject(null)
     try {
-      await createSession('New Chat', selectedModel)
+      await createSession('New Chat', selectedModel, currentProject?.id)
       sendMessage(trimmed, currentAttachments.length > 0 ? currentAttachments : undefined)
     } catch (err) {
       console.error('Failed to create session:', err)
       setValue(trimmed)
       setAttachments(currentAttachments)
+      setSelectedProject(currentProject)
       alert(err instanceof Error ? err.message : 'Failed to create session')
     }
-  }, [value, attachments, selectedModel, createSession, sendMessage])
+  }, [value, attachments, selectedProject, selectedModel, createSession, sendMessage])
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -131,7 +143,7 @@ export function HomeScreen(): React.JSX.Element {
             minRows={2}
           />
           <div className="flex items-center justify-between px-3 py-2">
-            <div>
+            <div className="flex items-center gap-1">
               <button
                 className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors text-neutral-500"
                 onClick={(e) => setMenuAnchor(menuAnchor ? null : e.currentTarget)}
@@ -139,7 +151,19 @@ export function HomeScreen(): React.JSX.Element {
                 {menuAnchor ? <X size={16} /> : <Plus size={16} />}
               </button>
               {menuAnchor && (
-                <PromptMenu anchorEl={menuAnchor} onClose={() => setMenuAnchor(null)} onAttach={handleAttach} />
+                <PromptMenu anchorEl={menuAnchor} onClose={() => setMenuAnchor(null)} onAttach={handleAttach} onProjectSelect={handleProjectSelect} />
+              )}
+              {selectedProject && (
+                <div className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-neutral-100 dark:bg-neutral-700 text-xs text-neutral-600 dark:text-neutral-300">
+                  <FolderOpen size={12} className="text-neutral-400 shrink-0" />
+                  <span className="max-w-[120px] truncate" title={selectedProject.name}>{selectedProject.name}</span>
+                  <button
+                    onClick={handleProjectRemove}
+                    className="ml-0.5 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
               )}
             </div>
             <div className="flex items-center gap-2">
