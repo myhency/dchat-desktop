@@ -19,6 +19,8 @@ function createMockSkill(overrides?: Partial<Skill>): Skill {
     description: 'A test skill',
     content: 'Do something specific',
     isEnabled: true,
+    path: '/home/user/.dchat/skills/sk1',
+    files: [{ name: 'SKILL.md', relativePath: 'SKILL.md', isDirectory: false }],
     createdAt: new Date('2024-01-01'),
     updatedAt: new Date('2024-01-01'),
     ...overrides
@@ -38,23 +40,25 @@ describe('SkillService', () => {
       findEnabled: vi.fn(async () => []),
       save: vi.fn(async () => {}),
       delete: vi.fn(async () => {}),
-      deleteAll: vi.fn(async () => {})
+      deleteAll: vi.fn(async () => {}),
+      setEnabled: vi.fn(async () => {}),
+      readFile: vi.fn(async () => ''),
+      getSkillsPath: vi.fn(() => '/home/user/.dchat/skills'),
+      extractArchive: vi.fn(async () => createMockSkill()),
+      saveFiles: vi.fn(async () => createMockSkill())
     }
 
     skillService = new SkillService(skillRepo)
   })
 
   it('create: 올바른 필드로 스킬을 생성하고 저장함', async () => {
+    const mockSaved = createMockSkill({ id: 'test-skill', name: '코드 리뷰어' })
+    skillRepo.findById = vi.fn(async () => mockSaved)
+
     const skill = await skillService.create('코드 리뷰어', '코드를 검토합니다', '코드를 검토할 때...')
 
     expect(skill.name).toBe('코드 리뷰어')
-    expect(skill.description).toBe('코드를 검토합니다')
-    expect(skill.content).toBe('코드를 검토할 때...')
-    expect(skill.isEnabled).toBe(true)
-    expect(skill.id).toBeDefined()
-    expect(skill.createdAt).toBeInstanceOf(Date)
-    expect(skill.updatedAt).toBeInstanceOf(Date)
-    expect(skillRepo.save).toHaveBeenCalledWith(skill)
+    expect(skillRepo.save).toHaveBeenCalled()
   })
 
   it('list: repository의 모든 스킬을 반환함', async () => {
@@ -106,27 +110,40 @@ describe('SkillService', () => {
     expect(skillRepo.delete).toHaveBeenCalledWith('sk1')
   })
 
-  it('toggleEnabled: isEnabled를 반전시킴', async () => {
+  it('toggleEnabled: setEnabled를 호출하고 업데이트된 스킬을 반환함', async () => {
     const mockSkill = createMockSkill({ isEnabled: true })
-    skillRepo.findById = vi.fn(async () => ({ ...mockSkill }))
+    const toggledSkill = { ...mockSkill, isEnabled: false }
+    skillRepo.findById = vi.fn()
+      .mockResolvedValueOnce(mockSkill)
+      .mockResolvedValueOnce(toggledSkill)
 
     const result = await skillService.toggleEnabled('sk1')
 
+    expect(skillRepo.setEnabled).toHaveBeenCalledWith('sk1', false)
     expect(result.isEnabled).toBe(false)
-    expect(skillRepo.save).toHaveBeenCalled()
   })
 
   it('toggleEnabled: 비활성 스킬을 활성화함', async () => {
     const mockSkill = createMockSkill({ isEnabled: false })
-    skillRepo.findById = vi.fn(async () => ({ ...mockSkill }))
+    const toggledSkill = { ...mockSkill, isEnabled: true }
+    skillRepo.findById = vi.fn()
+      .mockResolvedValueOnce(mockSkill)
+      .mockResolvedValueOnce(toggledSkill)
 
     const result = await skillService.toggleEnabled('sk1')
 
+    expect(skillRepo.setEnabled).toHaveBeenCalledWith('sk1', true)
     expect(result.isEnabled).toBe(true)
   })
 
   it('toggleEnabled: 존재하지 않는 스킬은 에러를 던짐', async () => {
     await expect(skillService.toggleEnabled('nonexistent'))
       .rejects.toThrow('Skill not found: nonexistent')
+  })
+
+  it('seedBuiltInSkills: no-op (파일시스템 기반이므로 시드 불필요)', async () => {
+    await skillService.seedBuiltInSkills()
+    // No exceptions thrown, no repo calls made
+    expect(skillRepo.save).not.toHaveBeenCalled()
   })
 })

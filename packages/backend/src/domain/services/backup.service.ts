@@ -149,6 +149,7 @@ export class BackupService implements BackupRestoreUseCase {
       }
     }
 
+    // Restore skills from backup by creating them on filesystem
     if (this.skillRepo) {
       for (const s of data.data.skills ?? []) {
         await this.skillRepo.save({
@@ -157,9 +158,14 @@ export class BackupService implements BackupRestoreUseCase {
           description: s.description,
           content: s.content,
           isEnabled: s.isEnabled,
+          path: '',
+          files: [],
           createdAt: new Date(s.createdAt),
           updatedAt: new Date(s.updatedAt)
         })
+        if (!s.isEnabled) {
+          await this.skillRepo.setEnabled(s.id, false)
+        }
       }
     }
   }

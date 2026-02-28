@@ -7,4 +7,9 @@ export interface SkillRepository {
   save(skill: Skill): Promise<void>
   delete(id: string): Promise<void>
   deleteAll(): Promise<void>
+  setEnabled(id: string, enabled: boolean): Promise<void>
+  readFile(skillId: string, relativePath: string): Promise<string>
+  getSkillsPath(): string
+  extractArchive(zipBuffer: Buffer): Promise<Skill>
+  saveFiles(files: { relativePath: string; data: Buffer }[]): Promise<Skill>
 }

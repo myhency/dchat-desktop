@@ -1,29 +1,28 @@
 import type { Skill } from '../entities/skill'
 import type { ManageSkillUseCase } from '../ports/inbound/manage-skill.usecase'
 import type { SkillRepository } from '../ports/outbound/skill.repository'
-import { generateId } from './id'
-import { SKILL_CREATOR_CONTENT } from './skill-creator-content'
-
-const BUILTIN_SKILL_CREATOR_NAME = 'skill-creator'
-const BUILTIN_SKILL_CREATOR_DESCRIPTION = 'Create new skills, modify and improve existing skills, and measure skill performance. Use when users want to create a skill from scratch, update or optimize an existing skill, run evals to test a skill, benchmark skill performance with variance analysis, or optimize a skill\'s description for better triggering accuracy.'
-const OLD_BUILTIN_SKILL_CREATOR_NAME = '스킬 크리에이터'
 
 export class SkillService implements ManageSkillUseCase {
   constructor(private readonly skillRepo: SkillRepository) {}
 
   async create(name: string, description: string, content: string): Promise<Skill> {
+    const id = this.toSlug(name)
     const now = new Date()
     const skill: Skill = {
-      id: generateId(),
+      id,
       name,
       description,
       content,
       isEnabled: true,
+      path: '',
+      files: [],
       createdAt: now,
       updatedAt: now
     }
     await this.skillRepo.save(skill)
-    return skill
+    // Re-read from filesystem to get actual path and files
+    const saved = await this.skillRepo.findById(id)
+    return saved ?? skill
   }
 
   async list(): Promise<Skill[]> {
@@ -61,28 +60,30 @@ export class SkillService implements ManageSkillUseCase {
     if (!skill) {
       throw new Error(`Skill not found: ${id}`)
     }
-    skill.isEnabled = !skill.isEnabled
-    skill.updatedAt = new Date()
-    await this.skillRepo.save(skill)
-    return skill
+    await this.skillRepo.setEnabled(id, !skill.isEnabled)
+    const updated = await this.skillRepo.findById(id)
+    return updated ?? skill
+  }
+
+  async uploadArchive(zipBuffer: Buffer): Promise<Skill> {
+    return this.skillRepo.extractArchive(zipBuffer)
+  }
+
+  async uploadFiles(files: { relativePath: string; data: Buffer }[]): Promise<Skill> {
+    return this.skillRepo.saveFiles(files)
   }
 
   async seedBuiltInSkills(): Promise<void> {
-    const existing = await this.skillRepo.findAll()
+    // No-op: filesystem-based skills don't need seeding
+  }
 
-    // 구버전 한국어 skill-creator 마이그레이션 → 삭제
-    const oldCreator = existing.find((s) => s.name === OLD_BUILTIN_SKILL_CREATOR_NAME)
-    if (oldCreator) {
-      await this.skillRepo.delete(oldCreator.id)
-    }
-
-    const hasCreator = existing.some((s) => s.name === BUILTIN_SKILL_CREATOR_NAME)
-    if (!hasCreator) {
-      await this.create(
-        BUILTIN_SKILL_CREATOR_NAME,
-        BUILTIN_SKILL_CREATOR_DESCRIPTION,
-        SKILL_CREATOR_CONTENT
-      )
-    }
+  private toSlug(name: string): string {
+    return name
+      .toLowerCase()
+      .replace(/[^a-z0-9가-힣\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '')
+      || 'untitled'
   }
 }

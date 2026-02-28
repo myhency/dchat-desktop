@@ -9,7 +9,7 @@ import { SqliteMessageRepository } from './adapters/outbound/persistence/sqlite/
 import { SqliteSessionRepository } from './adapters/outbound/persistence/sqlite/session.repository.impl'
 import { SqliteSettingsRepository } from './adapters/outbound/persistence/sqlite/settings.repository.impl'
 import { SqliteProjectRepository } from './adapters/outbound/persistence/sqlite/project.repository.impl'
-import { SqliteSkillRepository } from './adapters/outbound/persistence/sqlite/skill.repository.impl'
+import { FileSystemSkillRepository } from './adapters/outbound/persistence/filesystem/skill.repository.impl'
 import { JsonFileMcpServerRepository } from './adapters/outbound/persistence/json/mcp-config.repository'
 import { LLMAdapterFactory } from './adapters/outbound/llm/llm-adapter.factory'
 import { StdioMcpClientManager } from './adapters/outbound/mcp/stdio-mcp-client.manager'
@@ -38,6 +38,7 @@ export interface AppContainer {
   mcpServerService: McpServerService
   memoryService: MemoryService
   skillService: SkillService
+  skillRepo: FileSystemSkillRepository
   mcpClient: CompositeMcpClientGateway
   builtInTools: BuiltInToolProvider
   llmFactory: LLMGatewayResolver
@@ -54,7 +55,7 @@ export function createContainer(): AppContainer {
   const sessionRepo = new SqliteSessionRepository(db)
   const settingsRepo = new SqliteSettingsRepository(db)
   const projectRepo = new SqliteProjectRepository(db)
-  const skillRepo = new SqliteSkillRepository(db)
+  const skillRepo = new FileSystemSkillRepository(settingsRepo)
   const mcpServerRepo = new JsonFileMcpServerRepository()
   const llmFactory = new LLMAdapterFactory()
   const stdioMcpClient = new StdioMcpClientManager()
@@ -80,6 +81,7 @@ export function createContainer(): AppContainer {
     mcpServerService,
     memoryService,
     skillService,
+    skillRepo,
     mcpClient,
     builtInTools,
     llmFactory,

@@ -7,4 +7,6 @@ export interface ManageSkillUseCase {
   update(id: string, updates: { name?: string; description?: string; content?: string; isEnabled?: boolean }): Promise<Skill>
   delete(id: string): Promise<void>
   toggleEnabled(id: string): Promise<Skill>
+  uploadArchive(zipBuffer: Buffer): Promise<Skill>
+  uploadFiles(files: { relativePath: string; data: Buffer }[]): Promise<Skill>
 }

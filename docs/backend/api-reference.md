@@ -87,12 +87,15 @@ Base URL: `/api` (기본 포트 3131)
 
 | 메서드 | 경로 | Body | 응답 | 설명 |
 |--------|------|------|------|------|
-| POST | `/api/skills` | `CreateSkillRequest` | `Skill` | 스킬 생성 (`{ name, description, content }`) |
+| POST | `/api/skills` | `CreateSkillRequest` | `Skill` | 스킬 생성 (`{ name, description, content }`) → SKILL.md 디렉토리 생성 |
+| POST | `/api/skills/upload` | `{ type: 'archive', data }` 또는 `{ type: 'files', files }` | `Skill` | zip/skill 아카이브 또는 폴더 파일 업로드 (base64) |
 | GET | `/api/skills` | — | `Skill[]` | 전체 스킬 목록 (updated_at DESC) |
+| GET | `/api/skills/config` | — | `{ skillsPath }` | 스킬 디렉토리 경로 |
 | GET | `/api/skills/:id` | — | `Skill` | 스킬 단건 조회 |
+| GET | `/api/skills/:id/file?path=...` | — | `text/plain` | 스킬 내 파일 읽기 (경로 순회 방어) |
 | PUT | `/api/skills/:id` | `UpdateSkillRequest` | `Skill` | 스킬 수정 (partial update) |
 | PATCH | `/api/skills/:id/toggle` | — | `Skill` | 활성/비활성 토글 |
-| DELETE | `/api/skills/:id` | — | `{ ok: true }` | 스킬 삭제 |
+| DELETE | `/api/skills/:id` | — | `{ ok: true }` | 스킬 삭제 (디렉토리 rm -rf) |
 
 ## Memory
 

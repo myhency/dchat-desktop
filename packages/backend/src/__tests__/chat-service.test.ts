@@ -538,12 +538,17 @@ describe('ChatService', () => {
       findAll: vi.fn(async () => []),
       findById: vi.fn(async () => null),
       findEnabled: vi.fn(async () => [
-        { id: 'sk1', name: '코드 리뷰어', description: '', content: '코드를 꼼꼼히 검토하세요', isEnabled: true, createdAt: new Date(), updatedAt: new Date() },
-        { id: 'sk2', name: '한국어 응답', description: '', content: '항상 한국어로 응답하세요', isEnabled: true, createdAt: new Date(), updatedAt: new Date() }
+        { id: 'sk1', name: '코드 리뷰어', description: '', content: '코드를 꼼꼼히 검토하세요', isEnabled: true, path: '', files: [], createdAt: new Date(), updatedAt: new Date() },
+        { id: 'sk2', name: '한국어 응답', description: '', content: '항상 한국어로 응답하세요', isEnabled: true, path: '', files: [], createdAt: new Date(), updatedAt: new Date() }
       ]),
       save: vi.fn(async () => {}),
       delete: vi.fn(async () => {}),
-      deleteAll: vi.fn(async () => {})
+      deleteAll: vi.fn(async () => {}),
+      setEnabled: vi.fn(async () => {}),
+      readFile: vi.fn(async () => ''),
+      getSkillsPath: vi.fn(() => '/home/user/.dchat/skills'),
+      extractArchive: vi.fn(async () => ({ id: 'sk1', name: 'Test', description: '', content: '', isEnabled: true, path: '', files: [], createdAt: new Date(), updatedAt: new Date() })),
+      saveFiles: vi.fn(async () => ({ id: 'sk1', name: 'Test', description: '', content: '', isEnabled: true, path: '', files: [], createdAt: new Date(), updatedAt: new Date() }))
     }
 
     llmResolver = { getGateway: () => gateway, listAllModels: () => [], configureProvider: () => {}, testConnection: async () => {} }
@@ -576,7 +581,12 @@ describe('ChatService', () => {
       findEnabled: vi.fn(async () => []),
       save: vi.fn(async () => {}),
       delete: vi.fn(async () => {}),
-      deleteAll: vi.fn(async () => {})
+      deleteAll: vi.fn(async () => {}),
+      setEnabled: vi.fn(async () => {}),
+      readFile: vi.fn(async () => ''),
+      getSkillsPath: vi.fn(() => '/home/user/.dchat/skills'),
+      extractArchive: vi.fn(async () => ({ id: 'sk1', name: 'Test', description: '', content: '', isEnabled: true, path: '', files: [], createdAt: new Date(), updatedAt: new Date() })),
+      saveFiles: vi.fn(async () => ({ id: 'sk1', name: 'Test', description: '', content: '', isEnabled: true, path: '', files: [], createdAt: new Date(), updatedAt: new Date() }))
     }
 
     llmResolver = { getGateway: () => gateway, listAllModels: () => [], configureProvider: () => {}, testConnection: async () => {} }
