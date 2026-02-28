@@ -10,6 +10,7 @@ import type { LLMGatewayResolver } from '../ports/outbound/llm-gateway.resolver'
 import type { SettingsRepository } from '../ports/outbound/settings.repository'
 import type { ProjectRepository } from '../ports/outbound/project.repository'
 import type { McpClientGateway } from '../ports/outbound/mcp-client.gateway'
+import type { SkillRepository } from '../ports/outbound/skill.repository'
 import type { MemoryService } from './memory.service'
 import { generateId } from './id'
 
@@ -23,7 +24,8 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
     private readonly settingsRepo: SettingsRepository,
     private readonly projectRepo: ProjectRepository,
     private readonly mcpClient?: McpClientGateway,
-    private readonly memoryService?: MemoryService
+    private readonly memoryService?: MemoryService,
+    private readonly skillRepo?: SkillRepository
   ) {}
 
   async execute(
@@ -454,6 +456,16 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
       const projectMemoryContext = await this.memoryService.buildProjectMemoryContext(projectId)
       if (projectMemoryContext) {
         parts.push(projectMemoryContext)
+      }
+    }
+
+    if (this.skillRepo) {
+      const enabledSkills = await this.skillRepo.findEnabled()
+      if (enabledSkills.length > 0) {
+        const skillsList = enabledSkills
+          .map(s => `<skill name="${s.name}">\n${s.description}\n</skill>`)
+          .join('\n')
+        parts.push(`<available_skills>\n${skillsList}\n</available_skills>\n\n사용 가능한 스킬이 위에 나열되어 있습니다. 관련 스킬이 있으면 consult_skill 도구로 전체 지침을 로드하여 따르세요.`)
       }
     }
 

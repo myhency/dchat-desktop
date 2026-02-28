@@ -57,6 +57,21 @@ export interface UpdateInstructionsRequest {
   instructions: string
 }
 
+// ── Skill ──
+
+export interface CreateSkillRequest {
+  name: string
+  description: string
+  content: string
+}
+
+export interface UpdateSkillRequest {
+  name?: string
+  description?: string
+  content?: string
+  isEnabled?: boolean
+}
+
 // ── SSE Event Types ──
 
 export type SSEEventType = 'chunk' | 'title' | 'end' | 'error'
@@ -94,6 +109,7 @@ export interface BackupData {
     projects: Array<{ id: string; name: string; description: string; instructions: string; isFavorite: boolean; createdAt: string; updatedAt: string; memoryContent?: string; memoryUpdatedAt?: string | null }>
     sessions: Array<{ id: string; title: string; model: string; projectId: string | null; isFavorite: boolean; createdAt: string; updatedAt: string }>
     messages: Array<{ id: string; sessionId: string; role: 'user' | 'assistant'; content: string; attachments: ImageAttachment[]; createdAt: string }>
+    skills?: Array<{ id: string; name: string; description: string; content: string; isEnabled: boolean; createdAt: string; updatedAt: string }>
   }
 }
 

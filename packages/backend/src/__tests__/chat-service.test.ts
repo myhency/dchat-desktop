@@ -16,6 +16,7 @@ import type { ProjectRepository } from '../domain/ports/outbound/project.reposit
 import type { LLMGatewayResolver } from '../domain/ports/outbound/llm-gateway.resolver'
 import type { LLMGateway, StreamChunk, ChatOptions, ExtendedStreamChunk, LLMStreamResult, LLMMessage } from '../domain/ports/outbound/llm.gateway'
 import type { McpClientGateway } from '../domain/ports/outbound/mcp-client.gateway'
+import type { SkillRepository } from '../domain/ports/outbound/skill.repository'
 
 // ── Helpers ──
 
@@ -520,5 +521,85 @@ describe('ChatService', () => {
     const userMsg = capturedMessages.find((m) => m.role === 'user')
     expect(userMsg).toBeDefined()
     expect(userMsg!.attachments).toBeUndefined()
+  })
+
+  it('활성화된 스킬이 system prompt에 메타데이터만 포함됨', async () => {
+    let capturedOptions: ChatOptions | undefined
+    const gateway: LLMGateway = {
+      async *streamChat(_messages: Message[], options: ChatOptions) {
+        capturedOptions = options
+        yield { type: 'text' as const, content: 'Hi' }
+        yield { type: 'done' as const, content: '' }
+      },
+      listModels: () => []
+    }
+
+    const skillRepo: SkillRepository = {
+      findAll: vi.fn(async () => []),
+      findById: vi.fn(async () => null),
+      findEnabled: vi.fn(async () => [
+        { id: 'sk1', name: '코드 리뷰어', description: '코드 리뷰를 도와줍니다', content: '코드를 꼼꼼히 검토하세요', isEnabled: true, path: '', files: [], createdAt: new Date(), updatedAt: new Date() },
+        { id: 'sk2', name: '한국어 응답', description: '한국어로 응답합니다', content: '항상 한국어로 응답하세요', isEnabled: true, path: '', files: [], createdAt: new Date(), updatedAt: new Date() }
+      ]),
+      save: vi.fn(async () => {}),
+      delete: vi.fn(async () => {}),
+      deleteAll: vi.fn(async () => {}),
+      setEnabled: vi.fn(async () => {}),
+      readFile: vi.fn(async () => ''),
+      getSkillsPath: vi.fn(() => '/home/user/.dchat/skills'),
+      extractArchive: vi.fn(async () => ({ id: 'sk1', name: 'Test', description: '', content: '', isEnabled: true, path: '', files: [], createdAt: new Date(), updatedAt: new Date() })),
+      saveFiles: vi.fn(async () => ({ id: 'sk1', name: 'Test', description: '', content: '', isEnabled: true, path: '', files: [], createdAt: new Date(), updatedAt: new Date() }))
+    }
+
+    llmResolver = { getGateway: () => gateway, listAllModels: () => [], configureProvider: () => {}, testConnection: async () => {} }
+    chatService = new ChatService(messageRepo, sessionRepo, llmResolver, settingsRepo, projectRepo, undefined, undefined, skillRepo)
+
+    await chatService.execute('s1', 'Hello', [], vi.fn())
+
+    expect(capturedOptions?.systemPrompt).toContain('<available_skills>')
+    expect(capturedOptions?.systemPrompt).toContain('<skill name="코드 리뷰어">')
+    expect(capturedOptions?.systemPrompt).toContain('코드 리뷰를 도와줍니다')
+    expect(capturedOptions?.systemPrompt).toContain('<skill name="한국어 응답">')
+    expect(capturedOptions?.systemPrompt).toContain('한국어로 응답합니다')
+    expect(capturedOptions?.systemPrompt).toContain('</available_skills>')
+    expect(capturedOptions?.systemPrompt).toContain('consult_skill')
+    // content는 포함되지 않아야 함
+    expect(capturedOptions?.systemPrompt).not.toContain('코드를 꼼꼼히 검토하세요')
+    expect(capturedOptions?.systemPrompt).not.toContain('항상 한국어로 응답하세요')
+  })
+
+  it('활성화된 스킬이 없으면 system prompt에 available_skills 태그가 없음', async () => {
+    let capturedOptions: ChatOptions | undefined
+    const gateway: LLMGateway = {
+      async *streamChat(_messages: Message[], options: ChatOptions) {
+        capturedOptions = options
+        yield { type: 'text' as const, content: 'Hi' }
+        yield { type: 'done' as const, content: '' }
+      },
+      listModels: () => []
+    }
+
+    const skillRepo: SkillRepository = {
+      findAll: vi.fn(async () => []),
+      findById: vi.fn(async () => null),
+      findEnabled: vi.fn(async () => []),
+      save: vi.fn(async () => {}),
+      delete: vi.fn(async () => {}),
+      deleteAll: vi.fn(async () => {}),
+      setEnabled: vi.fn(async () => {}),
+      readFile: vi.fn(async () => ''),
+      getSkillsPath: vi.fn(() => '/home/user/.dchat/skills'),
+      extractArchive: vi.fn(async () => ({ id: 'sk1', name: 'Test', description: '', content: '', isEnabled: true, path: '', files: [], createdAt: new Date(), updatedAt: new Date() })),
+      saveFiles: vi.fn(async () => ({ id: 'sk1', name: 'Test', description: '', content: '', isEnabled: true, path: '', files: [], createdAt: new Date(), updatedAt: new Date() }))
+    }
+
+    llmResolver = { getGateway: () => gateway, listAllModels: () => [], configureProvider: () => {}, testConnection: async () => {} }
+    chatService = new ChatService(messageRepo, sessionRepo, llmResolver, settingsRepo, projectRepo, undefined, undefined, skillRepo)
+
+    await chatService.execute('s1', 'Hello', [], vi.fn())
+
+    if (capturedOptions?.systemPrompt) {
+      expect(capturedOptions.systemPrompt).not.toContain('<available_skills>')
+    }
   })
 })

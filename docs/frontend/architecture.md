@@ -29,6 +29,7 @@ shared/   → 외부 패키지만
 - `useSessionStore` (`entities/session`) — 세션, 메시지, 스트리밍, UI 뷰 상태
 - `useProjectStore` (`entities/project`) — 프로젝트 CRUD
 - `useSettingsStore` (`entities/settings`) — 설정, 테마, API 키
+- `useSkillStore` (`entities/skill`) — 스킬 CRUD, 활성/비활성 토글 (optimistic update)
 - `useMcpStore` (`entities/mcp`) — MCP 서버 목록/상태, 로그, 설정 파일 경로
 
 ## 프로젝트 구조 (frontend/src/)
@@ -51,7 +52,7 @@ src/
 ├── widgets/                             # 독립 UI 블록
 │   ├── main-layout/                     # MainLayout (뷰 디스패치 포함)
 │   ├── sidebar/                         # Sidebar, SessionContextMenu, SettingsMenu, SettingsPanel
-│   ├── message-list/                    # MessageList, MessageBubble, CodeBlock, HtmlArtifactCard, StreamingIndicator, ToolCallBlock
+│   ├── message-list/                    # MessageList, MessageBubble, CodeBlock, HtmlArtifactCard, StreamingIndicator, ToolCallGroup, ToolCallBlock
 │   ├── prompt-input/                    # PromptInput, PromptMenu, ModelSelector
 │   └── artifact-panel/                  # ArtifactPanel
 ├── features/                            # 사용자 인터랙션
@@ -61,6 +62,7 @@ src/
 │   ├── session/                         # sessionApi, chatApi, useSessionStore
 │   ├── project/                         # projectApi, useProjectStore
 │   ├── settings/                        # settingsApi, memoryApi, useSettingsStore
+│   ├── skill/                            # skillApi, useSkillStore
 │   └── mcp/                             # mcpApi, useMcpStore
 └── shared/                              # 인프라, 유틸
     ├── api/                             # client.ts (apiFetch, apiSSE), models.api.ts
@@ -90,6 +92,7 @@ src/
 | `entities/settings/api/settings.api.ts` | `getAll`, `get`, `set`, `testConnection` |
 | `entities/settings/api/backup.api.ts` | `exportBackup`, `importBackup` |
 | `entities/settings/api/memory.api.ts` | `get`, `delete`, `edit` |
+| `entities/skill/api/skill.api.ts` | `list`, `create`, `update`, `toggleEnabled`, `delete` |
 | `entities/mcp/api/mcp.api.ts` | `listServers`, `getStatuses`, `createServer`, `updateServer`, `deleteServer`, `startServer`, `stopServer`, `restartServer`, `getLogs`, `getConfigPath`, `reload` |
 | `shared/api/models.api.ts` | `list` |
 

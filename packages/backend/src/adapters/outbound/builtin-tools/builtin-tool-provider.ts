@@ -2,7 +2,9 @@ import * as fs from 'fs/promises'
 import type { McpToolDefinition } from '../../../domain/ports/outbound/mcp-client.gateway'
 import type { SettingsRepository } from '../../../domain/ports/outbound/settings.repository'
 import type { BuiltinToolsStatusDTO } from '@dchat/shared'
+import type { SkillRepository } from '../../../domain/ports/outbound/skill.repository'
 import type { BuiltInToolDef, ToolConfig } from './tool-registry'
+import { consultSkillTool } from './tools/consult-skill'
 import { readTextFileTool } from './tools/read-text-file'
 import { writeFileTool } from './tools/write-file'
 import { editFileTool } from './tools/edit-file'
@@ -50,7 +52,7 @@ export class BuiltInToolProvider {
 
   private confirmFn?: ConfirmationHandler
 
-  constructor(private readonly settingsRepo: SettingsRepository) {}
+  constructor(private readonly settingsRepo: SettingsRepository, private readonly skillRepo?: SkillRepository) {}
 
   setConfirmationHandler(fn: ConfirmationHandler): void {
     this.confirmFn = fn
@@ -84,6 +86,9 @@ export class BuiltInToolProvider {
     const tools = [...FILESYSTEM_TOOLS]
     if (shellEnabled === 'true') {
       tools.push(...SHELL_TOOLS)
+    }
+    if (this.skillRepo) {
+      tools.push(consultSkillTool)
     }
 
     const permissions = await this.getPermissions()
@@ -137,7 +142,7 @@ export class BuiltInToolProvider {
     const timeoutStr = await this.settingsRepo.get('builtin_tools_shell_timeout')
     const shellTimeout = timeoutStr ? parseInt(timeoutStr, 10) : 30000
 
-    const config: ToolConfig = { allowedDirectories, shellTimeout }
+    const config: ToolConfig = { allowedDirectories, shellTimeout, skillRepo: this.skillRepo }
 
     try {
       logger.debug({ toolName, toolUseId }, 'Executing built-in tool')

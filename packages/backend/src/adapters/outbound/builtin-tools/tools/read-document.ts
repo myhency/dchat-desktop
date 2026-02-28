@@ -6,7 +6,8 @@ import { validatePath } from './path-utils'
 const SUPPORTED_EXTENSIONS = ['.pdf', '.docx', '.xlsx', '.pptx', '.csv']
 
 async function parsePdf(filePath: string): Promise<{ content: string; isError: boolean }> {
-  const pdfParse = (await import('pdf-parse')).default
+  const mod = await import('pdf-parse')
+  const pdfParse = (mod.default ?? mod) as unknown as (buf: Buffer) => Promise<{ text: string }>
   const buffer = await fs.readFile(filePath)
   const data = await pdfParse(buffer)
   return { content: data.text, isError: false }

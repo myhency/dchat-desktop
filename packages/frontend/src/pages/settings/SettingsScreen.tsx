@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { X, ChevronDown, Shield, ExternalLink, RefreshCw, Eye, EyeOff, Loader2, Check, Upload, Download, Trash2, Play, Square, RotateCw, FileText, FolderOpen, Search, Brain, Plus, MoreHorizontal, ChevronLeft, AlertTriangle, ArrowRight, Terminal, CircleCheck, Hand, Ban } from 'lucide-react'
+import { X, ChevronDown, ChevronRight, Shield, ExternalLink, RefreshCw, Eye, EyeOff, Loader2, Check, Upload, Download, Trash2, Play, Square, RotateCw, FileText, FolderOpen, Search, Brain, Plus, MoreHorizontal, ChevronLeft, AlertTriangle, ArrowRight, Terminal, CircleCheck, Hand, Ban, Pencil, Zap, Sparkles, FileUp, File, Folder } from 'lucide-react'
 import { useSettingsStore, settingsApi, memoryApi } from '@/entities/settings'
+import { useSkillStore } from '@/entities/skill'
+import type { Skill, SkillFile } from '@dchat/shared'
 import { useSessionStore } from '@/entities/session'
 import { useMcpStore, mcpApi } from '@/entities/mcp'
 import { backupApi } from '@/entities/settings/api/backup.api'
@@ -12,6 +14,7 @@ type Tab =
   | 'privacy'
   | 'usage'
   | 'features'
+  | 'customization'
   | 'connectors'
   | 'general'
   | 'extensions'
@@ -22,6 +25,7 @@ const TABS: { section?: string; id: Tab; label: string }[] = [
   { id: 'privacy', label: '개인정보보호' },
   { id: 'usage', label: '사용량' },
   { id: 'features', label: '기능' },
+  { id: 'customization', label: '사용자 지정' },
   { id: 'connectors', label: '연결' },
   { section: '데스크톱 앱', id: 'general', label: '일반' },
   { id: 'extensions', label: '확장 프로그램' },
@@ -1128,7 +1132,424 @@ function MemoryManageModal({
   )
 }
 
-function FeaturesContent(): React.JSX.Element {
+function parseSkillMarkdown(text: string): { name: string; description: string; content: string } {
+  const frontmatterMatch = text.match(/^---\s*\n([\s\S]*?)\n---\s*\n([\s\S]*)$/)
+  if (frontmatterMatch) {
+    const frontmatter = frontmatterMatch[1]
+    const body = frontmatterMatch[2].trim()
+    const nameMatch = frontmatter.match(/^name:\s*(.+)$/m)
+    const descMatch = frontmatter.match(/^description:\s*(.+)$/m)
+    return {
+      name: nameMatch?.[1]?.trim() || 'Untitled Skill',
+      description: descMatch?.[1]?.trim() || '',
+      content: body
+    }
+  }
+  // frontmatter 없으면 첫 헤딩을 이름으로 사용
+  const headingMatch = text.match(/^#\s+(.+)$/m)
+  return {
+    name: headingMatch?.[1]?.trim() || 'Untitled Skill',
+    description: '',
+    content: text.trim()
+  }
+}
+
+const EXAMPLE_SKILLS: { name: string; description: string; content: string }[] = [
+  {
+    name: '한국어 응답',
+    description: '항상 한국어로 응답합니다',
+    content: '사용자에게 응답할 때 항상 한국어를 사용하세요. 영어로 질문을 받더라도 한국어로 답변하세요.'
+  },
+  {
+    name: '간결한 답변',
+    description: '짧고 핵심적인 답변을 제공합니다',
+    content: '가능한 한 간결하게 답변하세요. 불필요한 서론이나 반복을 피하고, 핵심 정보만 전달하세요. 코드 예시는 최소한으로 유지하세요.'
+  },
+  {
+    name: '코드 리뷰어',
+    description: '코드 리뷰 관점에서 피드백을 제공합니다',
+    content: '코드를 검토할 때 다음 관점에서 피드백을 제공하세요:\n1. 버그 가능성\n2. 성능 문제\n3. 가독성 및 유지보수성\n4. 보안 취약점\n각 항목에 대해 구체적인 개선 방안을 제시하세요.'
+  },
+  {
+    name: '단계별 설명',
+    description: '복잡한 개념을 단계별로 설명합니다',
+    content: '복잡한 개념이나 프로세스를 설명할 때 항상 번호가 매겨진 단계로 나누어 설명하세요. 각 단계는 하나의 핵심 개념만 다루세요.'
+  },
+  {
+    name: 'Markdown 포맷',
+    description: '응답을 구조화된 Markdown으로 제공합니다',
+    content: '응답을 작성할 때 Markdown 형식을 적극 활용하세요:\n- 제목은 ##을 사용\n- 중요 용어는 **굵게**\n- 코드는 백틱으로 감싸기\n- 목록은 bullet point 사용\n- 필요시 표(table) 활용'
+  }
+]
+
+function SkillCreateEditModal({
+  open,
+  onClose,
+  skill,
+  prefill,
+  onSave
+}: {
+  open: boolean
+  onClose: () => void
+  skill: Skill | null
+  prefill?: { name: string; description: string; content: string } | null
+  onSave: (name: string, description: string, content: string) => Promise<void>
+}): React.JSX.Element | null {
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+  const [content, setContent] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (open) {
+      const source = skill ?? prefill
+      setName(source?.name ?? '')
+      setDescription(source?.description ?? '')
+      setContent(source?.content ?? '')
+    }
+  }, [open, skill, prefill])
+
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape' && !saving) onClose() }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [open, onClose, saving])
+
+  if (!open) return null
+
+  const handleSave = async () => {
+    if (!name.trim() || !content.trim() || saving) return
+    setSaving(true)
+    try {
+      await onSave(name.trim(), description.trim(), content.trim())
+      onClose()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+      <div className="w-[520px] max-h-[80vh] rounded-xl bg-white dark:bg-neutral-800 shadow-2xl p-6 flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <h2 className="text-base font-semibold mb-4">{skill ? '스킬 수정' : '새 스킬 추가'}</h2>
+
+        <div className="space-y-4 flex-1 overflow-y-auto">
+          <div>
+            <label className="block text-sm font-medium mb-1">이름</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="예: 코드 리뷰어"
+              className="w-full px-3 py-2 text-sm rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">설명</label>
+            <input
+              type="text"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="이 스킬이 하는 일을 간략히 설명하세요"
+              className="w-full px-3 py-2 text-sm rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">지시사항</label>
+            <textarea
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              placeholder="AI가 따라야 할 지시사항을 입력하세요..."
+              rows={8}
+              className="w-full px-3 py-2 text-sm rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 outline-none focus:ring-2 focus:ring-primary-500 resize-none"
+            />
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-neutral-200 dark:border-neutral-700">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+            className="px-4 py-2 text-sm font-medium rounded-lg border border-neutral-300 dark:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors disabled:opacity-50"
+          >
+            취소
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={!name.trim() || !content.trim() || saving}
+            className="px-4 py-2 text-sm font-medium rounded-lg bg-primary text-white hover:bg-primary-hover transition-colors disabled:opacity-50 flex items-center gap-2"
+          >
+            {saving && <Loader2 size={14} className="animate-spin" />}
+            {skill ? '저장' : '추가'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function SkillDeleteConfirmModal({
+  open,
+  onClose,
+  onConfirm,
+  skillName
+}: {
+  open: boolean
+  onClose: () => void
+  onConfirm: () => void
+  skillName: string
+}): React.JSX.Element | null {
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [open, onClose])
+
+  if (!open) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+      <div className="w-[420px] rounded-xl bg-white dark:bg-neutral-800 shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
+        <h2 className="text-base font-semibold mb-2">스킬 삭제</h2>
+        <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-6">
+          &ldquo;{skillName}&rdquo; 스킬을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
+        </p>
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium rounded-lg border border-neutral-300 dark:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors"
+          >
+            취소
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="px-4 py-2 text-sm font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors"
+          >
+            삭제
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+async function readFileAsBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const arrayBuffer = reader.result as ArrayBuffer
+      const bytes = new Uint8Array(arrayBuffer)
+      let binary = ''
+      for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
+      resolve(btoa(binary))
+    }
+    reader.onerror = reject
+    reader.readAsArrayBuffer(file)
+  })
+}
+
+async function readDirectoryEntries(entry: FileSystemDirectoryEntry, basePath = ''): Promise<{ relativePath: string; file: File }[]> {
+  const reader = entry.createReader()
+  const results: { relativePath: string; file: File }[] = []
+
+  const readBatch = (): Promise<FileSystemEntry[]> =>
+    new Promise((resolve, reject) => reader.readEntries(resolve, reject))
+
+  let batch = await readBatch()
+  while (batch.length > 0) {
+    for (const child of batch) {
+      const childPath = basePath ? `${basePath}/${child.name}` : child.name
+      if (child.isFile) {
+        const file = await new Promise<File>((resolve, reject) =>
+          (child as FileSystemFileEntry).file(resolve, reject)
+        )
+        results.push({ relativePath: childPath, file })
+      } else if (child.isDirectory) {
+        const subResults = await readDirectoryEntries(child as FileSystemDirectoryEntry, childPath)
+        results.push(...subResults)
+      }
+    }
+    batch = await readBatch()
+  }
+
+  return results
+}
+
+function SkillUploadModal({
+  open,
+  onClose,
+  onUploaded
+}: {
+  open: boolean
+  onClose: () => void
+  onUploaded: () => void
+}): React.JSX.Element | null {
+  const { createSkill, uploadArchive, uploadFiles } = useSkillStore()
+  const [dragging, setDragging] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [open, onClose])
+
+  useEffect(() => {
+    if (open) setError(null)
+  }, [open])
+
+  const handleMdFile = async (file: File) => {
+    const text = await file.text()
+    const parsed = parseSkillMarkdown(text)
+    await createSkill(parsed.name, parsed.description, parsed.content)
+  }
+
+  const handleArchiveFile = async (file: File) => {
+    const base64 = await readFileAsBase64(file)
+    await uploadArchive(base64)
+  }
+
+  const handleFolderEntries = async (entries: { relativePath: string; file: File }[]) => {
+    const files: { relativePath: string; data: string }[] = []
+    for (const entry of entries) {
+      const base64 = await readFileAsBase64(entry.file)
+      files.push({ relativePath: entry.relativePath, data: base64 })
+    }
+    await uploadFiles(files)
+  }
+
+  const processFiles = async (items: DataTransferItemList | null, fileList: FileList) => {
+    setUploading(true)
+    setError(null)
+    try {
+      // Check for directory drops via DataTransfer API
+      if (items) {
+        for (let i = 0; i < items.length; i++) {
+          const entry = items[i].webkitGetAsEntry?.()
+          if (entry?.isDirectory) {
+            const dirEntries = await readDirectoryEntries(entry as FileSystemDirectoryEntry)
+            if (dirEntries.length === 0) throw new Error('빈 폴더입니다')
+            const hasSkillMd = dirEntries.some((e) => e.relativePath === 'SKILL.md' || e.relativePath.endsWith('/SKILL.md'))
+            if (!hasSkillMd) throw new Error('폴더에 SKILL.md 파일이 없습니다')
+            await handleFolderEntries(dirEntries)
+            onUploaded()
+            onClose()
+            return
+          }
+        }
+      }
+
+      // Handle single file
+      const file = fileList[0]
+      if (!file) return
+
+      const ext = file.name.toLowerCase().split('.').pop()
+      if (ext === 'md' || ext === 'txt' || ext === 'markdown') {
+        await handleMdFile(file)
+      } else if (ext === 'zip' || ext === 'skill') {
+        await handleArchiveFile(file)
+      } else {
+        throw new Error('지원하지 않는 파일 형식입니다. .md, .zip, .skill 파일을 업로드해주세요.')
+      }
+      onUploaded()
+      onClose()
+    } catch (err: any) {
+      setError(err.message || '업로드 실패')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    setDragging(false)
+    processFiles(e.dataTransfer.items, e.dataTransfer.files)
+  }
+
+  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (files && files.length > 0) {
+      processFiles(null, files)
+    }
+    e.target.value = ''
+  }
+
+  if (!open) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+      <div className="w-[520px] rounded-xl bg-white dark:bg-neutral-800 shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-lg font-bold">스킬 업로드</h2>
+          <button type="button" onClick={onClose} className="p-1 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors">
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Drag & Drop Zone */}
+        <div
+          onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={handleDrop}
+          onClick={() => !uploading && fileInputRef.current?.click()}
+          className={`border-2 border-dashed rounded-xl p-10 flex flex-col items-center justify-center gap-3 cursor-pointer transition-colors mb-6 ${
+            dragging
+              ? 'border-primary bg-primary/5'
+              : 'border-neutral-300 dark:border-neutral-600 hover:border-neutral-400 dark:hover:border-neutral-500'
+          }`}
+        >
+          {uploading ? (
+            <Loader2 size={32} className="text-neutral-400 animate-spin" />
+          ) : (
+            <>
+              <div className="w-12 h-12 rounded-lg border border-neutral-300 dark:border-neutral-600 flex items-center justify-center">
+                <FolderOpen size={24} className="text-neutral-400" />
+              </div>
+              <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                드래그 앤 드롭하거나 클릭하여 업로드
+              </p>
+            </>
+          )}
+        </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".md,.txt,.markdown,.zip,.skill"
+          onChange={handleFileInput}
+          className="hidden"
+        />
+
+        {error && (
+          <div className="mb-4 px-3 py-2 rounded-lg bg-red-50 dark:bg-red-900/20 text-sm text-red-600 dark:text-red-400">
+            {error}
+          </div>
+        )}
+
+        <div className="text-sm text-neutral-600 dark:text-neutral-400">
+          <p className="font-medium mb-2">파일 요구사항</p>
+          <ul className="list-disc list-inside space-y-1 text-xs">
+            <li>.md 파일에는 YAML 형식의 스킬 이름과 설명이 포함되어야 합니다</li>
+            <li>.zip 또는 .skill 파일에는 SKILL.md 파일이 포함되어야 합니다</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function FeaturesContent({ onNavigate }: { onNavigate: (tab: Tab) => void }): React.JSX.Element {
   const memoryEnabled = useSettingsStore((s) => s.memoryEnabled)
   const chatSearchEnabled = useSettingsStore((s) => s.chatSearchEnabled)
   const setMemoryEnabled = useSettingsStore((s) => s.setMemoryEnabled)
@@ -1137,7 +1558,6 @@ function FeaturesContent(): React.JSX.Element {
   const [memoryData, setMemoryData] = useState<{ content: string; updatedAt: string | null } | null>(null)
   const [memoryModalOpen, setMemoryModalOpen] = useState(false)
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
-  const [skillTab, setSkillTab] = useState<'mine' | 'examples'>('mine')
 
   useEffect(() => {
     memoryApi.get().then(setMemoryData).catch(() => {})
@@ -1185,7 +1605,6 @@ function FeaturesContent(): React.JSX.Element {
           className="w-full text-left rounded-lg border border-neutral-200 dark:border-neutral-700 p-3 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
         >
           <div className="flex items-center gap-3">
-            {/* 미리보기 박스 */}
             <div className="w-20 h-14 rounded-lg bg-neutral-100 dark:bg-neutral-700 overflow-hidden p-2 shrink-0">
               <p className="text-[6px] leading-tight text-neutral-500 dark:text-neutral-400 overflow-hidden" style={{ display: '-webkit-box', WebkitLineClamp: 5, WebkitBoxOrient: 'vertical' }}>
                 {memoryData.content}
@@ -1211,61 +1630,23 @@ function FeaturesContent(): React.JSX.Element {
 
       <hr className="border-neutral-200 dark:border-neutral-700" />
 
-      {/* 스킬 섹션 */}
+      {/* 사용자 지정 이동 카드 */}
       <div>
-        <h3 className="text-base font-semibold mb-1">스킬</h3>
+        <div className="flex items-center gap-2 mb-1">
+          <Zap size={20} className="text-neutral-700 dark:text-neutral-300" />
+          <h3 className="text-base font-semibold">사용자 지정</h3>
+        </div>
         <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">
-          모든 채팅에서 따를 수 있는 지시사항을 추가합니다
+          스킬로 AI에게 역할 수준의 전문성을 부여하세요
         </p>
-
-        <div className="flex items-center gap-2 mb-3">
-          <div className="flex-1 relative">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
-            <input
-              type="text"
-              placeholder="검색"
-              className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 outline-none focus:ring-2 focus:ring-primary-500"
-              disabled
-            />
-          </div>
-          <button
-            type="button"
-            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-neutral-300 dark:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
-            disabled
-          >
-            <Plus size={16} />
-            추가
-          </button>
-        </div>
-
-        <div className="flex gap-1 mb-4">
-          <button
-            type="button"
-            onClick={() => setSkillTab('mine')}
-            className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-              skillTab === 'mine'
-                ? 'bg-neutral-200 dark:bg-neutral-600 font-medium'
-                : 'text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-700'
-            }`}
-          >
-            내 스킬
-          </button>
-          <button
-            type="button"
-            onClick={() => setSkillTab('examples')}
-            className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-              skillTab === 'examples'
-                ? 'bg-neutral-200 dark:bg-neutral-600 font-medium'
-                : 'text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-700'
-            }`}
-          >
-            예시 스킬
-          </button>
-        </div>
-
-        <div className="text-center py-8 text-sm text-neutral-400 dark:text-neutral-500">
-          아직 추가한 스킬이 없습니다
-        </div>
+        <button
+          type="button"
+          onClick={() => onNavigate('customization')}
+          className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
+        >
+          사용자 지정으로 이동
+          <ArrowRight size={16} />
+        </button>
       </div>
 
       {/* Modals */}
@@ -1287,6 +1668,440 @@ function FeaturesContent(): React.JSX.Element {
         onMemoryChange={(content) => {
           setMemoryData((prev) => ({ content, updatedAt: prev?.updatedAt ?? null }))
         }}
+      />
+    </div>
+  )
+}
+
+function SkillFileTreeNode({
+  file,
+  skillId,
+  selectedPath,
+  onSelect,
+  expandedDirs,
+  onToggleDir
+}: {
+  file: SkillFile
+  skillId: string
+  selectedPath: string | null
+  onSelect: (skillId: string, path: string) => void
+  expandedDirs: Set<string>
+  onToggleDir: (path: string) => void
+}): React.JSX.Element {
+  const isExpanded = expandedDirs.has(file.relativePath)
+
+  if (file.isDirectory) {
+    return (
+      <div>
+        <button
+          type="button"
+          onClick={() => onToggleDir(file.relativePath)}
+          className="w-full flex items-center gap-1.5 py-1 px-2 text-xs rounded hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
+        >
+          <Folder size={14} className="text-neutral-400 dark:text-neutral-500 shrink-0" />
+          <span className="truncate flex-1 text-left">{file.name}</span>
+          <ChevronDown size={14} className={`text-neutral-400 shrink-0 transition-transform ${isExpanded ? '' : '-rotate-90'}`} />
+        </button>
+        {isExpanded && file.children && (
+          <div className="ml-4">
+            {file.children.map((child) => (
+              <SkillFileTreeNode
+                key={child.relativePath}
+                file={child}
+                skillId={skillId}
+                selectedPath={selectedPath}
+                onSelect={onSelect}
+                expandedDirs={expandedDirs}
+                onToggleDir={onToggleDir}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(skillId, file.relativePath)}
+      className={`w-full flex items-center gap-1.5 py-1 px-2 text-xs rounded transition-colors ${
+        selectedPath === file.relativePath
+          ? 'bg-primary/10 text-primary font-medium'
+          : 'hover:bg-neutral-100 dark:hover:bg-neutral-700'
+      }`}
+    >
+      <span className="truncate text-left">{file.name}</span>
+    </button>
+  )
+}
+
+function CustomizationContent(): React.JSX.Element {
+  const { skills, loadSkills, createSkill, updateSkill, deleteSkill, toggleEnabled, selectedFileContent, selectedFilePath, loadFileContent, clearFileContent } = useSkillStore()
+
+  const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null)
+  const [skillTab, setSkillTab] = useState<'mine' | 'examples'>('mine')
+  const [skillSearch, setSkillSearch] = useState('')
+  const [skillModalOpen, setSkillModalOpen] = useState(false)
+  const [editingSkill, setEditingSkill] = useState<Skill | null>(null)
+  const [deleteSkillTarget, setDeleteSkillTarget] = useState<Skill | null>(null)
+  const [addMenuOpen, setAddMenuOpen] = useState(false)
+  const [prefillData, setPrefillData] = useState<{ name: string; description: string; content: string } | null>(null)
+  const [expandedDirs, setExpandedDirs] = useState<Set<string>>(new Set())
+  const [expandedSkillIds, setExpandedSkillIds] = useState<Set<string>>(new Set())
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false)
+  const [uploadModalOpen, setUploadModalOpen] = useState(false)
+  const addMenuRef = useRef<HTMLDivElement>(null)
+  const moreMenuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => { loadSkills() }, [])
+
+  // 스킬 선택 시 파일 내용 초기화 및 SKILL.md 자동 로드
+  useEffect(() => {
+    if (selectedSkillId) {
+      loadFileContent(selectedSkillId, 'SKILL.md')
+    } else {
+      clearFileContent()
+    }
+    setExpandedDirs(new Set())
+  }, [selectedSkillId])
+
+  // 드롭다운 외부 클릭 시 닫기
+  useEffect(() => {
+    if (!addMenuOpen && !moreMenuOpen) return
+    const handler = (e: MouseEvent) => {
+      if (addMenuOpen && addMenuRef.current && !addMenuRef.current.contains(e.target as Node)) {
+        setAddMenuOpen(false)
+      }
+      if (moreMenuOpen && moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
+        setMoreMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [addMenuOpen, moreMenuOpen])
+
+  const handleCreateWithClaude = async () => {
+    setAddMenuOpen(false)
+    const selectedModel = useSettingsStore.getState().selectedModel
+    useSettingsStore.getState().closeSettings()
+    const session = await useSessionStore.getState().createSession('New Chat', selectedModel)
+    if (session) {
+      useSessionStore.getState().sendMessage('새로운 스킬을 만들고 싶어요. 어떤 스킬을 만들 수 있는지 도와주세요.')
+    }
+  }
+
+  const handleToggleDir = useCallback((path: string) => {
+    setExpandedDirs((prev) => {
+      const next = new Set(prev)
+      if (next.has(path)) next.delete(path)
+      else next.add(path)
+      return next
+    })
+  }, [])
+
+  const handleToggleSkillExpand = useCallback((skillId: string) => {
+    setExpandedSkillIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(skillId)) next.delete(skillId)
+      else next.add(skillId)
+      return next
+    })
+  }, [])
+
+  const handleSelectSkill = useCallback((skillId: string) => {
+    setSelectedSkillId(skillId)
+    setMoreMenuOpen(false)
+  }, [])
+
+  const handleFileSelect = useCallback((skillId: string, path: string) => {
+    setSelectedSkillId(skillId)
+    loadFileContent(skillId, path)
+  }, [loadFileContent])
+
+  const filteredSkills = skillSearch
+    ? skills.filter((s) => s.name.toLowerCase().includes(skillSearch.toLowerCase()) || s.description.toLowerCase().includes(skillSearch.toLowerCase()))
+    : skills
+
+  const filteredExamples = skillSearch
+    ? EXAMPLE_SKILLS.filter((s) => s.name.toLowerCase().includes(skillSearch.toLowerCase()) || s.description.toLowerCase().includes(skillSearch.toLowerCase()))
+    : EXAMPLE_SKILLS
+
+  const addedSkillNames = new Set(skills.map((s) => s.name))
+  const selectedSkill = skills.find((s) => s.id === selectedSkillId) ?? null
+
+  return (
+    <div className="flex gap-6 min-h-[500px]">
+      {/* 왼쪽: 스킬 리스트 + 인라인 파일 트리 */}
+      <div className="w-[300px] shrink-0 flex flex-col">
+        <div className="flex items-center gap-2 mb-3">
+          <h3 className="text-base font-semibold flex-1">스킬</h3>
+          <button
+            type="button"
+            onClick={() => setSkillSearch(skillSearch ? '' : ' ')}
+            className="p-1.5 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+          >
+            <Search size={16} />
+          </button>
+          <div className="relative" ref={addMenuRef}>
+            <button
+              type="button"
+              onClick={() => setAddMenuOpen(!addMenuOpen)}
+              className="p-1.5 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+            >
+              <Plus size={18} />
+            </button>
+            {addMenuOpen && (
+              <div className="absolute right-0 top-full mt-1 w-56 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 shadow-lg z-10 py-1">
+                <button
+                  type="button"
+                  onClick={handleCreateWithClaude}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors"
+                >
+                  <Sparkles size={16} className="text-primary shrink-0" />
+                  <div>
+                    <p className="font-medium">Claude와 함께 창작하기</p>
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400">AI와 대화하며 스킬 생성</p>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setAddMenuOpen(false); setEditingSkill(null); setPrefillData(null); setSkillModalOpen(true) }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors"
+                >
+                  <Pencil size={16} className="text-neutral-500 shrink-0" />
+                  <div>
+                    <p className="font-medium">스킬 지침 작성</p>
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400">직접 지시사항 입력</p>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setAddMenuOpen(false); setUploadModalOpen(true) }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors"
+                >
+                  <FileUp size={16} className="text-neutral-500 shrink-0" />
+                  <div>
+                    <p className="font-medium">스킬 업로드</p>
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400">파일 또는 폴더에서 가져오기</p>
+                  </div>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {skillSearch !== '' && (
+          <div className="relative mb-3">
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400" />
+            <input
+              type="text"
+              placeholder="검색..."
+              value={skillSearch}
+              onChange={(e) => setSkillSearch(e.target.value)}
+              autoFocus
+              className="w-full pl-8 pr-3 py-1.5 text-sm rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-700 outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+        )}
+
+        <div className="flex gap-1 mb-3">
+          <button
+            type="button"
+            onClick={() => setSkillTab('mine')}
+            className={`px-2.5 py-1 text-xs rounded-md transition-colors ${skillTab === 'mine' ? 'bg-neutral-200 dark:bg-neutral-600 font-medium' : 'text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-700'}`}
+          >
+            내 스킬
+          </button>
+          <button
+            type="button"
+            onClick={() => setSkillTab('examples')}
+            className={`px-2.5 py-1 text-xs rounded-md transition-colors ${skillTab === 'examples' ? 'bg-neutral-200 dark:bg-neutral-600 font-medium' : 'text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-700'}`}
+          >
+            예시 스킬
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto space-y-0.5">
+          {skillTab === 'mine' ? (
+            filteredSkills.length === 0 ? (
+              <div className="text-center py-6 text-xs text-neutral-400 dark:text-neutral-500">
+                {skillSearch.trim() ? '검색 결과 없음' : '스킬이 없습니다'}
+              </div>
+            ) : (
+              filteredSkills.map((skill) => {
+                const isExpanded = expandedSkillIds.has(skill.id)
+                const hasFiles = skill.files && skill.files.length > 0
+                return (
+                  <div key={skill.id}>
+                    <div
+                      className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-sm transition-colors cursor-pointer ${
+                        selectedSkillId === skill.id
+                          ? 'bg-neutral-200 dark:bg-neutral-700'
+                          : 'hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                      }`}
+                      onClick={() => handleSelectSkill(skill.id)}
+                    >
+                      {hasFiles ? (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleToggleSkillExpand(skill.id) }}
+                          className="p-0.5 rounded hover:bg-neutral-300 dark:hover:bg-neutral-600 transition-colors shrink-0"
+                        >
+                          <ChevronDown size={14} className={`text-neutral-400 transition-transform ${isExpanded ? '' : '-rotate-90'}`} />
+                        </button>
+                      ) : (
+                        <span className="w-[22px] shrink-0" />
+                      )}
+                      <FileText size={14} className="text-neutral-400 shrink-0" />
+                      <span className="truncate flex-1">{skill.name}</span>
+                    </div>
+                    {/* 인라인 파일 트리 */}
+                    {isExpanded && hasFiles && (
+                      <div className="ml-[30px] mt-0.5 mb-1">
+                        {skill.files.map((file) => (
+                          <SkillFileTreeNode
+                            key={file.relativePath}
+                            file={file}
+                            skillId={skill.id}
+                            selectedPath={selectedSkillId === skill.id ? selectedFilePath : null}
+                            onSelect={handleFileSelect}
+                            expandedDirs={expandedDirs}
+                            onToggleDir={handleToggleDir}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })
+            )
+          ) : (
+            filteredExamples.map((example) => {
+              const alreadyAdded = addedSkillNames.has(example.name)
+              return (
+                <div key={example.name} className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm truncate">{example.name}</p>
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">{example.description}</p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={alreadyAdded}
+                    onClick={async () => { await createSkill(example.name, example.description, example.content) }}
+                    className={`shrink-0 px-2 py-1 text-xs font-medium rounded-md transition-colors ${alreadyAdded ? 'text-neutral-400 cursor-default' : 'text-primary hover:bg-primary/10'}`}
+                  >
+                    {alreadyAdded ? '추가됨' : '추가'}
+                  </button>
+                </div>
+              )
+            })
+          )}
+        </div>
+      </div>
+
+      {/* 오른쪽: 스킬 상세 (메타데이터 + 미리보기) */}
+      <div className="flex-1 min-w-0 border-l border-neutral-200 dark:border-neutral-700 pl-6">
+        {selectedSkill ? (
+          <div className="space-y-4">
+            {/* 헤더: 이름 + 토글 + 더보기 메뉴 */}
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold">{selectedSkill.name}</h3>
+              <div className="flex items-center gap-2">
+                <Toggle checked={selectedSkill.isEnabled} onChange={() => toggleEnabled(selectedSkill.id)} />
+                <div className="relative" ref={moreMenuRef}>
+                  <button
+                    type="button"
+                    onClick={() => setMoreMenuOpen(!moreMenuOpen)}
+                    className="p-1 rounded-md hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                  >
+                    <MoreHorizontal size={18} />
+                  </button>
+                  {moreMenuOpen && (
+                    <div className="absolute right-0 top-full mt-1 w-36 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 shadow-lg z-10 py-1">
+                      <button
+                        type="button"
+                        onClick={() => { setMoreMenuOpen(false); setEditingSkill(selectedSkill); setSkillModalOpen(true) }}
+                        className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors"
+                      >
+                        <Pencil size={14} />
+                        수정
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setMoreMenuOpen(false); setDeleteSkillTarget(selectedSkill) }}
+                        className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                      >
+                        <Trash2 size={14} />
+                        삭제
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* 설명 */}
+            {selectedSkill.description && (
+              <div>
+                <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-1">설명</p>
+                <p className="text-sm text-neutral-700 dark:text-neutral-300">
+                  {selectedSkill.description}
+                </p>
+              </div>
+            )}
+
+            {/* 파일 미리보기 */}
+            <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/50 overflow-hidden flex-1">
+              <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-200 dark:border-neutral-700">
+                <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                  {selectedFilePath || 'SKILL.md'}
+                </span>
+              </div>
+              <div className="p-4 max-h-[400px] overflow-y-auto">
+                <pre className="text-xs text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap font-mono leading-relaxed">
+                  {selectedFileContent ?? selectedSkill.content}
+                </pre>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center h-full text-sm text-neutral-400 dark:text-neutral-500">
+            스킬을 선택하세요
+          </div>
+        )}
+      </div>
+
+      {/* Modals */}
+      <SkillCreateEditModal
+        open={skillModalOpen}
+        onClose={() => { setSkillModalOpen(false); setEditingSkill(null); setPrefillData(null) }}
+        skill={editingSkill}
+        prefill={prefillData}
+        onSave={async (name, description, content) => {
+          if (editingSkill) {
+            await updateSkill(editingSkill.id, { name, description, content })
+          } else {
+            await createSkill(name, description, content)
+          }
+        }}
+      />
+      <SkillDeleteConfirmModal
+        open={!!deleteSkillTarget}
+        onClose={() => setDeleteSkillTarget(null)}
+        onConfirm={async () => {
+          if (deleteSkillTarget) {
+            await deleteSkill(deleteSkillTarget.id)
+            if (selectedSkillId === deleteSkillTarget.id) setSelectedSkillId(null)
+            setDeleteSkillTarget(null)
+          }
+        }}
+        skillName={deleteSkillTarget?.name ?? ''}
+      />
+      <SkillUploadModal
+        open={uploadModalOpen}
+        onClose={() => setUploadModalOpen(false)}
+        onUploaded={() => loadSkills()}
       />
     </div>
   )
@@ -2023,7 +2838,7 @@ export function SettingsScreen(): React.JSX.Element {
 
       {/* Right content */}
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-2xl mx-auto px-8 py-6">
+        <div className={`mx-auto px-8 py-6 ${activeTab === 'customization' ? 'max-w-5xl' : 'max-w-2xl'}`}>
           {activeTab === 'general-top' ? (
             <GeneralTopContent />
           ) : activeTab === 'usage' ? (
@@ -2031,7 +2846,9 @@ export function SettingsScreen(): React.JSX.Element {
           ) : activeTab === 'privacy' ? (
             <PrivacyContent />
           ) : activeTab === 'features' ? (
-            <FeaturesContent />
+            <FeaturesContent onNavigate={setActiveTab} />
+          ) : activeTab === 'customization' ? (
+            <CustomizationContent />
           ) : activeTab === 'connectors' ? (
             <ConnectorsContent />
           ) : activeTab === 'extensions' ? (

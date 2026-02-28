@@ -1,5 +1,6 @@
 async function parsePdfBuffer(buffer: Buffer): Promise<string> {
-  const pdfParse = (await import('pdf-parse')).default
+  const mod = await import('pdf-parse')
+  const pdfParse = (mod.default ?? mod) as unknown as (buf: Buffer) => Promise<{ text: string }>
   const data = await pdfParse(buffer)
   return data.text
 }

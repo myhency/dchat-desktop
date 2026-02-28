@@ -40,6 +40,20 @@
 
 `packages/frontend/vite.config.ts`의 `base: './'`는 필수. Electron 패키지 앱은 `file://` 프로토콜로 HTML을 로드하므로, 절대 경로(`/assets/...`)는 파일시스템 루트를 참조하게 됨. 제거하면 패키지 앱에서 빈 화면 발생.
 
+### tsconfig.build.json 제약
+
+`tsconfig.build.json`은 프로덕션 빌드 전용이며 기본 `tsconfig.json`과 설정이 다름:
+
+| 설정 | tsconfig.json (dev) | tsconfig.build.json (prod) |
+|------|---------------------|---------------------------|
+| module | ESNext | CommonJS |
+| moduleResolution | bundler | node |
+| target | (기본값) | ES2020 |
+
+- **`target: ES2020`**: `matchAll` 등 최신 iterator를 사용하는 코드가 `[...str.matchAll(...)]` 형태로 존재. ES2020 미만에서는 `--downlevelIteration` 없이 컴파일 실패
+- **`moduleResolution: node`에서의 dynamic import**: `pdf-parse` 같은 CJS 전용 패키지의 default export가 callable로 인식되지 않음. `(mod.default ?? mod) as unknown as FnType` 패턴으로 타입 단언 필요
+- **수정 시 주의**: `npm run dev`(tsx)에서는 정상 동작하지만 `npm run build:backend`(tsc)에서만 실패하는 타입 에러가 발생할 수 있음. 새 의존성 추가 후 반드시 `npm run build:backend`로 빌드 확인할 것
+
 ### build:package 실행
 
 ```bash
@@ -71,6 +85,18 @@ await vibe.evaluate<string>('return document.title')
 await vibe.evaluate(
   'const btn = [...document.querySelectorAll("button")].find(b => b.textContent.includes("설정")); if (btn) btn.click();'
 )
+```
+
+### React hover 시뮬레이션 (`onMouseEnter/Leave`)
+
+E2E에서 `onMouseEnter`를 트리거하려면 `mouseenter`가 아닌 **`mouseover`**를 dispatch해야 함. React 18은 이벤트 위임(delegation) 방식으로 루트에서 `mouseover`/`mouseout`을 리스닝하여 `mouseenter`/`mouseleave`를 시뮬레이션하기 때문:
+
+```typescript
+// ❌ React가 감지하지 못함 (mouseenter는 bubble하지 않아 루트 리스너에 도달 불가)
+el.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
+
+// ✅ React 이벤트 위임이 감지
+el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, cancelable: true }))
 ```
 
 ### 테스트 파일 간 포트 충돌

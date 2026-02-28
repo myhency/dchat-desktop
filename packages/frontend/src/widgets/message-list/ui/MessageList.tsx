@@ -1,12 +1,62 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ArrowDown } from 'lucide-react'
-import { useSessionStore, type StreamingSegment } from '@/entities/session'
+import { useSessionStore, type StreamingSegment, type ToolCallInfo } from '@/entities/session'
+import type { MessageSegment } from '@dchat/shared'
 import { MessageBubble } from './MessageBubble'
 import { StreamingIndicator } from './StreamingIndicator'
-import { ToolCallBlock } from './ToolCallBlock'
+import { ToolCallGroup } from './ToolCallGroup'
 
 const NEAR_BOTTOM_THRESHOLD = 50
 const EMPTY_SEGMENTS: StreamingSegment[] = []
+
+// Group consecutive tool segments together
+type GroupedSegment =
+  | { type: 'text'; content: string; index: number }
+  | { type: 'toolGroup'; toolCalls: ToolCallInfo[]; startIndex: number }
+
+function groupSavedSegments(segments: MessageSegment[]): GroupedSegment[] {
+  const result: GroupedSegment[] = []
+  for (let i = 0; i < segments.length; i++) {
+    const seg = segments[i]
+    if (seg.type === 'text') {
+      result.push({ type: 'text', content: seg.content, index: i })
+    } else {
+      const tc: ToolCallInfo = {
+        toolUseId: seg.toolUseId,
+        toolName: seg.toolName,
+        toolInput: seg.toolInput,
+        status: seg.isError ? 'error' : 'done',
+        result: seg.result,
+        isError: seg.isError
+      }
+      const last = result[result.length - 1]
+      if (last?.type === 'toolGroup') {
+        last.toolCalls.push(tc)
+      } else {
+        result.push({ type: 'toolGroup', toolCalls: [tc], startIndex: i })
+      }
+    }
+  }
+  return result
+}
+
+function groupStreamingSegments(segments: StreamingSegment[]): GroupedSegment[] {
+  const result: GroupedSegment[] = []
+  for (let i = 0; i < segments.length; i++) {
+    const seg = segments[i]
+    if (seg.type === 'text') {
+      result.push({ type: 'text', content: seg.content, index: i })
+    } else {
+      const last = result[result.length - 1]
+      if (last?.type === 'toolGroup') {
+        last.toolCalls.push(seg.toolCall)
+      } else {
+        result.push({ type: 'toolGroup', toolCalls: [seg.toolCall], startIndex: i })
+      }
+    }
+  }
+  return result
+}
 
 export function MessageList(): React.JSX.Element {
   const messages = useSessionStore((s) => s.messages)
@@ -124,31 +174,25 @@ export function MessageList(): React.JSX.Element {
 
         {messages.map((msg, index) => {
           if (msg.role === 'assistant' && msg.segments?.length) {
+            const grouped = groupSavedSegments(msg.segments)
             return (
               <div key={msg.id} className="space-y-2">
-                {msg.segments.map((seg, i) => {
-                  if (seg.type === 'text') {
-                    const isLastText = !msg.segments!.slice(i + 1).some((s) => s.type === 'text')
+                {grouped.map((g, i) => {
+                  if (g.type === 'text') {
+                    const isLastText = !grouped.slice(i + 1).some((gg) => gg.type === 'text')
                     return (
                       <MessageBubble
-                        key={`${msg.id}-seg-${i}`}
+                        key={`${msg.id}-seg-${g.index}`}
                         role="assistant"
-                        content={seg.content}
+                        content={g.content}
                         {...(isLastText ? { id: msg.id, createdAt: msg.createdAt, onRegenerate: regenerateMessage } : {})}
                       />
                     )
                   }
                   return (
-                    <ToolCallBlock
-                      key={`${msg.id}-seg-${i}`}
-                      toolCall={{
-                        toolUseId: seg.toolUseId,
-                        toolName: seg.toolName,
-                        toolInput: seg.toolInput,
-                        status: seg.isError ? 'error' : 'done',
-                        result: seg.result,
-                        isError: seg.isError
-                      }}
+                    <ToolCallGroup
+                      key={`${msg.id}-toolgroup-${g.startIndex}`}
+                      toolCalls={g.toolCalls}
                     />
                   )
                 })}
@@ -171,20 +215,29 @@ export function MessageList(): React.JSX.Element {
           )
         })}
 
-        {isStreaming && streamingSegments.length > 0 && streamingSegments.map((seg, i) => {
-          if (seg.type === 'text') {
-            const isLastText = !streamingSegments.slice(i + 1).some((s) => s.type === 'text')
+        {isStreaming && streamingSegments.length > 0 && (() => {
+          const grouped = groupStreamingSegments(streamingSegments)
+          return grouped.map((g, i) => {
+            if (g.type === 'text') {
+              const isLastText = !grouped.slice(i + 1).some((gg) => gg.type === 'text')
+              return (
+                <MessageBubble
+                  key={`stream-text-${g.index}`}
+                  role="assistant"
+                  content={g.content}
+                  isStreaming={isLastText}
+                />
+              )
+            }
             return (
-              <MessageBubble
-                key={`stream-text-${i}`}
-                role="assistant"
-                content={seg.content}
-                isStreaming={isLastText}
+              <ToolCallGroup
+                key={`stream-toolgroup-${g.startIndex}`}
+                toolCalls={g.toolCalls}
+                isStreaming
               />
             )
-          }
-          return <ToolCallBlock key={seg.toolCall.toolUseId} toolCall={seg.toolCall} />
-        })}
+          })
+        })()}
 
         {isStreaming && streamingSegments.length === 0 && <StreamingIndicator />}
 

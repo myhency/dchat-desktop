@@ -4,6 +4,7 @@ import type { MessageRepository } from '../ports/outbound/message.repository'
 import type { SessionRepository } from '../ports/outbound/session.repository'
 import type { ProjectRepository } from '../ports/outbound/project.repository'
 import type { SettingsRepository } from '../ports/outbound/settings.repository'
+import type { SkillRepository } from '../ports/outbound/skill.repository'
 
 const EXCLUDED_SETTINGS_KEYS = [
   'anthropic_api_key',
@@ -17,14 +18,16 @@ export class BackupService implements BackupRestoreUseCase {
     private readonly messageRepo: MessageRepository,
     private readonly sessionRepo: SessionRepository,
     private readonly projectRepo: ProjectRepository,
-    private readonly settingsRepo: SettingsRepository
+    private readonly settingsRepo: SettingsRepository,
+    private readonly skillRepo?: SkillRepository
   ) {}
 
   async exportBackup(): Promise<BackupData> {
-    const [allSettings, projects, sessions] = await Promise.all([
+    const [allSettings, projects, sessions, skills] = await Promise.all([
       this.settingsRepo.getAll(),
       this.projectRepo.findAll(),
-      this.sessionRepo.findAll()
+      this.sessionRepo.findAll(),
+      this.skillRepo?.findAll() ?? Promise.resolve([])
     ])
 
     // Fetch messages for all sessions
@@ -72,6 +75,15 @@ export class BackupService implements BackupRestoreUseCase {
           content: m.content,
           attachments: m.attachments,
           createdAt: m.createdAt.toISOString()
+        })),
+        skills: skills.map((s) => ({
+          id: s.id,
+          name: s.name,
+          description: s.description,
+          content: s.content,
+          isEnabled: s.isEnabled,
+          createdAt: s.createdAt.toISOString(),
+          updatedAt: s.updatedAt.toISOString()
         }))
       }
     }
@@ -85,11 +97,12 @@ export class BackupService implements BackupRestoreUseCase {
       throw new Error('Invalid backup data: missing data field')
     }
 
-    // Delete in FK order: messages → sessions → projects → settings
+    // Delete in FK order: messages → sessions → projects → settings → skills
     await this.messageRepo.deleteAll()
     await this.sessionRepo.deleteAll()
     await this.projectRepo.deleteAll()
     await this.settingsRepo.deleteAll()
+    if (this.skillRepo) await this.skillRepo.deleteAll()
 
     // Insert in FK order: projects → sessions → messages → settings
     for (const p of data.data.projects ?? []) {
@@ -133,6 +146,26 @@ export class BackupService implements BackupRestoreUseCase {
       // Skip API keys even if they somehow ended up in the backup
       if (!EXCLUDED_SETTINGS_KEYS.includes(key)) {
         await this.settingsRepo.set(key, value)
+      }
+    }
+
+    // Restore skills from backup by creating them on filesystem
+    if (this.skillRepo) {
+      for (const s of data.data.skills ?? []) {
+        await this.skillRepo.save({
+          id: s.id,
+          name: s.name,
+          description: s.description,
+          content: s.content,
+          isEnabled: s.isEnabled,
+          path: '',
+          files: [],
+          createdAt: new Date(s.createdAt),
+          updatedAt: new Date(s.updatedAt)
+        })
+        if (!s.isEnabled) {
+          await this.skillRepo.setEnabled(s.id, false)
+        }
       }
     }
   }

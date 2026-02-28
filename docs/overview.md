@@ -125,7 +125,7 @@ packages/
 │       ├── widgets/                             # 독립 UI 블록
 │       │   ├── main-layout/                     # MainLayout (뷰 디스패치 포함)
 │       │   ├── sidebar/                         # Sidebar, SessionContextMenu, SettingsMenu, SettingsPanel
-│       │   ├── message-list/                    # MessageList, MessageBubble, CodeBlock, HtmlArtifactCard, StreamingIndicator, ToolCallBlock
+│       │   ├── message-list/                    # MessageList, MessageBubble, CodeBlock, HtmlArtifactCard, StreamingIndicator, ToolCallGroup, ToolCallBlock
 │       │   ├── prompt-input/                    # PromptInput, PromptMenu, ModelSelector
 │       │   └── artifact-panel/                  # ArtifactPanel
 │       ├── features/                            # 사용자 인터랙션

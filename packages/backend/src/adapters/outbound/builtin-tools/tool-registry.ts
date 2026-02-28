@@ -9,4 +9,5 @@ export interface BuiltInToolDef {
 export interface ToolConfig {
   allowedDirectories: string[]
   shellTimeout: number
+  skillRepo?: import('../../../domain/ports/outbound/skill.repository').SkillRepository
 }
