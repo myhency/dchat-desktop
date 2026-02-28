@@ -46,11 +46,23 @@ CREATE TABLE projects (
 );
 ```
 
+```sql
+CREATE TABLE skills (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  content TEXT NOT NULL DEFAULT '',
+  is_enabled INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+```
+
 ### Repository `deleteAll()` 패턴
 
 모든 리포지토리 포트(Message, Session, Project, Settings)에 `deleteAll()` 메서드가 존재. 백업 가져오기(`BackupService.importBackup`) 시 기존 데이터를 전체 삭제한 뒤 복원 데이터를 삽입하는 용도.
 
-FK 제약 조건에 따른 삭제 순서: **messages → sessions → projects → settings**
+FK 제약 조건에 따른 삭제 순서: **messages → sessions → projects → settings → skills**
 
 ### 마이그레이션
 
@@ -153,6 +165,7 @@ MCP 서버 설정은 SQLite가 아닌 JSON 파일로 관리. 사용자가 직접
 - **수정 시 주의**: `LLMMessage` 변환 시 `attachments`를 누락하면 agentic loop 경로에서 첨부파일이 LLM에 전달되지 않음. MCP 도구가 하나라도 있으면 항상 agentic loop를 타므로, 사실상 모든 첨부파일이 무시됨
 - **ChatService 생성자 6번째 인자**: `mcpClient?: McpClientGateway` (optional, container.ts에서 주입)
 - **ChatService 생성자 7번째 인자**: `memoryService?: MemoryService` (optional, container.ts에서 주입)
+- **ChatService 생성자 8번째 인자**: `skillRepo?: SkillRepository` (optional, container.ts에서 주입. 활성 스킬을 system prompt에 주입)
 
 ### Tool SSE 이벤트 라이프사이클
 
@@ -283,11 +296,12 @@ const stream = await this.client.chat.completions.create(
 `packages/backend/src/domain/services/chat.service.ts`의 `buildSystemPrompt(projectId, userQuery?, excludeSessionId?, hasTools?)`가 LLM에 전달할 system prompt를 조합:
 
 1. `projectId`가 있으면 → `projectRepo.findById` → `project.instructions` (비어있지 않으면 추가)
-2. `settingsRepo.get('custom_instructions')` → 글로벌 커스텀 지침 (비어있지 않으면 추가)
-3. `memoryService.buildMemoryContext(userQuery, excludeSessionId)` → 메모리 + 과거 대화 검색 결과 (활성화 시)
-4. `memoryService.buildProjectMemoryContext(projectId)` → 프로젝트 메모리 (`<project_memory>` 태그, 비어있으면 생략)
-5. `hasTools`가 true이면 → `<tool_usage_guidelines>` 블록 추가 (파일시스템 도구의 명시적 요청 시에만 사용하도록 제한)
-6. 모든 파트를 `"\n\n"`으로 결합 (프로젝트 지침 → 프로젝트 메모리 → 글로벌 지침 → 메모리 컨텍스트 → 도구 가이드라인 순서)
+2. `memoryService.buildProjectMemoryContext(projectId)` → 프로젝트 메모리 (`<project_memory>` 태그, 비어있으면 생략)
+3. `skillRepo.findEnabled()` → 활성 스킬 → `<skills><skill name="...">content</skill></skills>` (활성 스킬이 없으면 생략)
+4. `settingsRepo.get('custom_instructions')` → 글로벌 커스텀 지침 (비어있지 않으면 추가)
+5. `memoryService.buildMemoryContext(userQuery, excludeSessionId)` → 메모리 + 과거 대화 검색 결과 (활성화 시)
+6. `hasTools`가 true이면 → `<tool_usage_guidelines>` 블록 추가 (파일시스템 도구의 명시적 요청 시에만 사용하도록 제한)
+7. 모든 파트를 `"\n\n"`으로 결합 (프로젝트 지침 → 프로젝트 메모리 → 스킬 → 글로벌 지침 → 메모리 컨텍스트 → 도구 가이드라인 순서)
 
 - **적용 범위**: `execute()`, `regenerate()` — 사용자 채팅에만 적용
 - **미적용**: `generateTitle()` — 자체 하드코딩된 프롬프트 사용, `buildSystemPrompt` 호출하지 않음
@@ -357,3 +371,26 @@ const stream = await this.client.chat.completions.create(
 - **빌드 (`buildProjectMemoryContext`)**: `ChatService.buildSystemPrompt`에서 호출 → `<project_memory>` 태그로 감싸서 system prompt에 포함
 - **라우트**: `project.routes.ts`에서 `memoryService`를 직접 주입받음 (`createProjectRoutes(projectService, memoryService)`)
 - **수정 시 주의**: 글로벌 메모리(`settings` 키)와 프로젝트 메모리(`projects` 테이블) 저장 위치가 다름. `getProjectMemory`/`deleteProjectMemory`는 `ProjectRepository`를 통해 직접 읽기/쓰기
+
+## 스킬 (Skills)
+
+`packages/backend/src/domain/services/skill.service.ts` — 사용자 정의 프롬프트 템플릿(스킬) CRUD + system prompt 주입.
+
+### 데이터 모델
+
+- `skills` 테이블에 저장 (settings key-value가 아닌 전용 테이블)
+- 각 스킬: `id`, `name`, `description`, `content` (시스템 프롬프트에 주입되는 지시사항), `isEnabled`, timestamps
+- 활성(`isEnabled=true`) 스킬만 `buildSystemPrompt()`에서 `<skills>` 태그로 주입
+
+### 내장 스킬 시드 (seedBuiltInSkills)
+
+- `container.seedBuiltInSkills()` → 앱 시작 시 `index.ts`에서 non-blocking 호출
+- `skill-creator` 스킬이 없으면 자동 생성. 내용은 `skill-creator-content.ts`에 임베드 (원본: `~/Developer/skills/skills/skill-creator/SKILL.md`)
+- 구버전 한국어 이름("스킬 크리에이터") 마이그레이션: 존재하면 삭제 후 영문 버전 생성
+- **수정 시 주의**: `skill-creator-content.ts`는 생성된 파일. 원본 SKILL.md 변경 시 이 파일도 재생성 필요. 백틱/달러사인 이스케이프 주의
+
+### 백업
+
+- `BackupData.data.skills` — optional 필드 (하위호환: 기존 백업 파일에 skills 없어도 import 가능)
+- export: `skillRepo.findAll()` 결과 포함
+- import: `skillRepo.deleteAll()` 후 복원

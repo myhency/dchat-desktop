@@ -436,6 +436,34 @@ return <div><FileText /><span>{attachment.fileName}</span></div>
 - **optional callback**: `onProjectSelect?.(id, name)` — HomeScreen에서만 전달, ChatPage의 PromptInput에서는 미전달
 - **수정 시 주의**: 새 서브메뉴 추가 시 이 패턴(SettingsMenu + PromptMenu)을 참조. `onMouseEnter/Leave`는 래퍼 div에, 서브메뉴는 `fixed z-50`으로 래퍼 밖에 배치
 
+## 설정 탭 간 이동 (onNavigate 패턴)
+
+설정 내 한 탭에서 다른 탭으로 이동하려면 `onNavigate: (tab: Tab) => void` prop을 사용. `SettingsScreen`에서 `setActiveTab`을 전달:
+
+```tsx
+// FeaturesContent에서 "사용자 지정" 탭으로 이동
+function FeaturesContent({ onNavigate }: { onNavigate: (tab: Tab) => void }) {
+  return <button onClick={() => onNavigate('customization')}>사용자 지정으로 이동</button>
+}
+
+// SettingsScreen에서
+activeTab === 'features' ? <FeaturesContent onNavigate={setActiveTab} />
+```
+
+- 기존 적용: `ExtensionsContent`(확장 → 개발자 탭 이동), `FeaturesContent`(기능 → 사용자 지정 탭 이동)
+- `customization` 탭은 `max-w-5xl` 사용 (2-column 레이아웃에 충분한 폭 필요). 나머지 탭은 `max-w-2xl`
+
+## CustomizationContent (사용자 지정 탭)
+
+`SettingsScreen.tsx`의 `CustomizationContent` — 스킬 전용 관리 페이지:
+
+- **2-column 레이아웃**: 왼쪽 스킬 리스트(280px) + 오른쪽 상세 패널(flex-1, border-l 구분)
+- **왼쪽 패널**: 검색, `+` 드롭다운(3가지 생성 방법), "내 스킬"/"예시 스킬" 탭, 스킬 리스트
+- **오른쪽 패널**: 선택된 스킬의 이름, 설명, 활성 토글, 지시사항 미리보기(monospace pre), 수정/삭제 버튼. 미선택 시 빈 상태
+- **3가지 스킬 생성**: Claude와 함께 창작하기(설정 닫고 새 채팅), 스킬 지침 작성(모달), 스킬 업로드(파일 파싱)
+- **파일 업로드 파싱** (`parseSkillMarkdown`): YAML frontmatter(`---name/description---`) 파싱 → 없으면 첫 heading을 이름으로 사용
+- **수정 시 주의**: 스킬 삭제 시 `selectedSkillId`가 삭제 대상이면 null로 리셋 필요
+
 ## 백업 가져오기 후 스토어 갱신
 
 `SettingsScreen`의 `PrivacyContent`에서 백업 가져오기(import) 성공 후 반드시 `loadSettings()` + `loadSessions()`를 순서대로 호출해야 함.

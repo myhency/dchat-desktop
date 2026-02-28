@@ -83,6 +83,17 @@ Base URL: `/api` (기본 포트 3131)
 | GET | `/api/mcp/config-path` | — | `{ path: string }` | 설정 파일 경로 |
 | POST | `/api/mcp/reload` | — | `{ ok: true }` | 전체 종료 후 설정 파일에서 재로드 |
 
+## Skill
+
+| 메서드 | 경로 | Body | 응답 | 설명 |
+|--------|------|------|------|------|
+| POST | `/api/skills` | `CreateSkillRequest` | `Skill` | 스킬 생성 (`{ name, description, content }`) |
+| GET | `/api/skills` | — | `Skill[]` | 전체 스킬 목록 (updated_at DESC) |
+| GET | `/api/skills/:id` | — | `Skill` | 스킬 단건 조회 |
+| PUT | `/api/skills/:id` | `UpdateSkillRequest` | `Skill` | 스킬 수정 (partial update) |
+| PATCH | `/api/skills/:id/toggle` | — | `Skill` | 활성/비활성 토글 |
+| DELETE | `/api/skills/:id` | — | `{ ok: true }` | 스킬 삭제 |
+
 ## Memory
 
 | 메서드 | 경로 | Body | 응답 | 설명 |
