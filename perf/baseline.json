@@ -1,0 +1,82 @@
+{
+  "version": 1,
+  "updatedAt": "2026-03-01T07:59:51.166Z",
+  "thresholds": {
+    "Session findAll (100)": {
+      "p95": 0.26,
+      "tolerance": 0.5
+    },
+    "Session findAll (500)": {
+      "p95": 9.71,
+      "tolerance": 0.5
+    },
+    "Session findAll (1000)": {
+      "p95": 10.9,
+      "tolerance": 0.5
+    },
+    "Single SSE stream (500 tokens)": {
+      "p95": 14.79,
+      "tolerance": 0.5
+    },
+    "Concurrent SSE (5 streams)": {
+      "p95": 82.27,
+      "tolerance": 0.5
+    },
+    "Session findAll (5000)": {
+      "p95": 34.59,
+      "tolerance": 0.5
+    },
+    "Message findBySessionId (100)": {
+      "p95": 2.77,
+      "tolerance": 0.5
+    },
+    "Message findBySessionId (500)": {
+      "p95": 1.83,
+      "tolerance": 0.5
+    },
+    "Stream create/abort cycles (20x)": {
+      "p95": 11.98,
+      "tolerance": 0.5
+    },
+    "Message findBySessionId (1000)": {
+      "p95": 9.34,
+      "tolerance": 0.5
+    },
+    "GET /api/sessions (50 concurrent)": {
+      "p95": 539.29,
+      "tolerance": 0.5
+    },
+    "GET /api/chat/:id/messages (50 concurrent)": {
+      "p95": 28.35,
+      "tolerance": 0.5
+    },
+    "GET /api/settings (100 concurrent)": {
+      "p95": 69.49,
+      "tolerance": 0.5
+    },
+    "Message findBySessionId (5000)": {
+      "p95": 30.65,
+      "tolerance": 0.5
+    },
+    "Keyword search (20K messages, 3 keywords)": {
+      "p95": 61.92,
+      "tolerance": 0.5
+    },
+    "Frontend render (100 messages)": {
+      "p95": 1317.4,
+      "tolerance": 0.5
+    },
+    "Frontend render (500 messages)": {
+      "p95": 1167,
+      "tolerance": 0.5
+    },
+    "Frontend render (50 markdown-heavy)": {
+      "p95": 1264.2,
+      "tolerance": 0.5
+    },
+    "Frontend render (500 messages, repeated)": {
+      "p95": 1482,
+      "tolerance": 0.5
+    }
+  }
+}

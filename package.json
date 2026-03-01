@@ -20,6 +20,11 @@
     "build:electron": "npm run build -w @dchat/electron-app",
     "test": "npm run test -w @dchat/backend && npm run test -w @dchat/frontend",
     "test:e2e": "vitest run --config e2e/vitest.config.ts",
+    "test:perf": "vitest run --config perf/vitest.config.ts",
+    "test:perf:report": "node -e \"try{require('fs').unlinkSync('perf/report/perf-data.ndjson')}catch{}\" && vitest run --config perf/vitest.config.ts; tsx perf/report/generate-html.ts",
+    "test:perf:baseline": "npm run test:perf:report && tsx perf/scripts/update-baseline.ts",
+    "test:perf:db": "vitest run --config perf/vitest.config.ts perf/db/",
+    "test:perf:backend": "vitest run --config perf/vitest.config.ts perf/backend/",
     "build:package": "npm run build:backend && npm run build:frontend && npm run build:electron && node scripts/prepare-backend-deps.mjs",
     "build:package:mac": "npm run build:package && cd packages/electron && npx electron-builder --mac --config electron-builder.yml",
     "build:package:win": "npm run build:package && cd packages/electron && npx electron-builder --win --config electron-builder.yml"

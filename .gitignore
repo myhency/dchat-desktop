@@ -9,3 +9,5 @@ build/
 packages/electron/release/
 packages/shared/src/**/*.js
 *.tsbuildinfo
+perf/report/*.ndjson
+perf/report/*.html
