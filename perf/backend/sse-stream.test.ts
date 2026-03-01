@@ -76,8 +76,11 @@ describe('SSE streaming performance', () => {
   })
 
   it('single SSE throughput (500 tokens, delay 0ms)', async () => {
+    // Warmup: establish connection pool, JIT compile SSE path
+    await createSessionAndStream(server.baseUrl)
+
     const samples: number[] = []
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 20; i++) {
       const result = await createSessionAndStream(server.baseUrl)
       samples.push(result.elapsed)
     }
@@ -120,6 +123,9 @@ describe('SSE streaming performance', () => {
   })
 
   it('20 sequential stream create/abort cycles — no memory leak', async () => {
+    // Warmup: JIT compile abort path
+    await createSessionAndStream(server.baseUrl)
+
     const before = process.memoryUsage().heapUsed
 
     const samples: number[] = []

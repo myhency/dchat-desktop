@@ -11,9 +11,13 @@ import { SqliteMessageRepository } from '../../packages/backend/src/adapters/out
 import { createSeededDb } from '../helpers/seed'
 import { computeMetrics, printTable, recordExtra } from '../helpers/metrics'
 
-const ITERATIONS = 20
+const WARMUP = 3
+const ITERATIONS = 50
 
 async function benchmark(fn: () => Promise<unknown>): Promise<number[]> {
+  // Warmup: populate SQLite page cache, trigger V8 JIT
+  for (let i = 0; i < WARMUP; i++) await fn()
+
   const samples: number[] = []
   for (let i = 0; i < ITERATIONS; i++) {
     const start = performance.now()

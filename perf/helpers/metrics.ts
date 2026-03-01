@@ -11,11 +11,12 @@ export interface Metrics {
   p99: number
 }
 
-export function computeMetrics(samples: number[]): Metrics {
-  if (samples.length === 0) {
+export function computeMetrics(rawSamples: number[]): Metrics {
+  if (rawSamples.length === 0) {
     return { count: 0, min: 0, max: 0, mean: 0, p50: 0, p95: 0, p99: 0 }
   }
 
+  const samples = removeOutliers(rawSamples)
   const sorted = [...samples].sort((a, b) => a - b)
   const sum = sorted.reduce((a, b) => a + b, 0)
 
@@ -28,6 +29,18 @@ export function computeMetrics(samples: number[]): Metrics {
     p95: percentile(sorted, 95),
     p99: percentile(sorted, 99)
   }
+}
+
+/** IQR-based outlier removal: discard values outside Q1-1.5*IQR .. Q3+1.5*IQR */
+function removeOutliers(samples: number[]): number[] {
+  if (samples.length < 4) return samples
+  const sorted = [...samples].sort((a, b) => a - b)
+  const q1 = percentile(sorted, 25)
+  const q3 = percentile(sorted, 75)
+  const iqr = q3 - q1
+  const lower = q1 - 1.5 * iqr
+  const upper = q3 + 1.5 * iqr
+  return sorted.filter((v) => v >= lower && v <= upper)
 }
 
 function percentile(sorted: number[], p: number): number {

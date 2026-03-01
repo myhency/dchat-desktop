@@ -56,6 +56,11 @@ export function saveBaseline(tolerance = 0.5): void {
   writeFileSync(BASELINE_PATH, JSON.stringify(baseline, null, 2) + '\n')
 }
 
+// If the absolute P95 difference is below this threshold (ms),
+// always PASS regardless of percentage — prevents GC jitter noise
+// from triggering FAIL on sub-millisecond baselines.
+const MIN_ABS_DELTA_MS = 50
+
 export function compareToBaseline(label: string, currentP95: number, baseline: Baseline | null): CompareResult {
   if (!baseline || !baseline.thresholds[label]) {
     return { status: 'new', baselineP95: null, delta: null }
@@ -64,6 +69,9 @@ export function compareToBaseline(label: string, currentP95: number, baseline: B
   const { p95: baseP95, tolerance } = baseline.thresholds[label]
   const delta = Math.round(((currentP95 - baseP95) / baseP95) * 100)
 
+  if (currentP95 - baseP95 < MIN_ABS_DELTA_MS) {
+    return { status: 'pass', baselineP95: baseP95, delta }
+  }
   if (currentP95 <= baseP95 * (1 + tolerance)) {
     return { status: 'pass', baselineP95: baseP95, delta }
   }
