@@ -451,13 +451,14 @@ activeTab === 'features' ? <FeaturesContent onNavigate={setActiveTab} />
 ```
 
 - 기존 적용: `ExtensionsContent`(확장 → 개발자 탭 이동), `FeaturesContent`(기능 → 사용자 지정 탭 이동)
-- `customization` 탭은 `max-w-5xl` 사용 (2-column 레이아웃에 충분한 폭 필요). 나머지 탭은 `max-w-2xl`
+- `customization` 탭은 `max-w` 없이 `h-full` 사용 (2-column 레이아웃이 가용 폭을 모두 채우고, 파일 프리뷰만 내부 스크롤). 나머지 탭은 `max-w-2xl`
 
 ## CustomizationContent (사용자 지정 탭)
 
 `SettingsScreen.tsx`의 `CustomizationContent` — 스킬 전용 관리 페이지:
 
-- **2-column 레이아웃**: 왼쪽 스킬 리스트(280px) + 오른쪽 상세 패널(flex-1, border-l 구분)
+- **2-column 레이아웃**: 왼쪽 스킬 리스트(`w-[300px] shrink-0`) + 오른쪽 상세 패널(`flex-1 min-w-0`, border-l 구분)
+- **높이 체인 (내부 스크롤)**: 콘텐츠 래퍼(`h-full`) → 스킬 레이아웃(`h-full`) → 우측 패널(`h-full`) → 프리뷰 컨테이너(`flex-1 flex flex-col min-h-0`) → 프리뷰 스크롤(`flex-1 overflow-y-auto`). 이 체인이 끊기면 파일 프리뷰 대신 전체 페이지가 스크롤됨. 헤더/설명은 고정, 파일 내용만 스크롤.
 - **왼쪽 패널**: 검색, `+` 드롭다운(3가지 생성 방법), "내 스킬"/"예시 스킬" 탭, 스킬 리스트
 - **오른쪽 패널**: 선택된 스킬의 이름, 설명, 활성 토글, 지시사항 미리보기(monospace pre), 수정/삭제 버튼. 미선택 시 빈 상태
 - **3가지 스킬 생성**: Claude와 함께 창작하기(설정 닫고 새 채팅), 스킬 지침 작성(모달), 스킬 업로드(파일 파싱)

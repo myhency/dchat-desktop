@@ -1831,7 +1831,7 @@ function CustomizationContent(): React.JSX.Element {
   const selectedSkill = skills.find((s) => s.id === selectedSkillId) ?? null
 
   return (
-    <div className="flex gap-6 min-h-[500px]">
+    <div className="flex gap-6 h-full">
       {/* 왼쪽: 스킬 리스트 + 인라인 파일 트리 */}
       <div className="w-[300px] shrink-0 flex flex-col">
         <div className="flex items-center gap-2 mb-3">
@@ -2003,7 +2003,7 @@ function CustomizationContent(): React.JSX.Element {
       {/* 오른쪽: 스킬 상세 (메타데이터 + 미리보기) */}
       <div className="flex-1 min-w-0 border-l border-neutral-200 dark:border-neutral-700 pl-6">
         {selectedSkill ? (
-          <div className="space-y-4">
+          <div className="flex flex-col gap-4 h-full">
             {/* 헤더: 이름 + 토글 + 더보기 메뉴 */}
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold">{selectedSkill.name}</h3>
@@ -2052,13 +2052,13 @@ function CustomizationContent(): React.JSX.Element {
             )}
 
             {/* 파일 미리보기 */}
-            <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/50 overflow-hidden flex-1">
+            <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/50 overflow-hidden flex-1 flex flex-col min-h-0">
               <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-200 dark:border-neutral-700">
                 <span className="text-xs text-neutral-500 dark:text-neutral-400">
                   {selectedFilePath || 'SKILL.md'}
                 </span>
               </div>
-              <div className="p-4 max-h-[400px] overflow-y-auto">
+              <div className="p-4 flex-1 overflow-y-auto">
                 <pre className="text-xs text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap font-mono leading-relaxed">
                   {selectedFileContent ?? selectedSkill.content}
                 </pre>
@@ -2838,7 +2838,7 @@ export function SettingsScreen(): React.JSX.Element {
 
       {/* Right content */}
       <div className="flex-1 overflow-y-auto">
-        <div className={`mx-auto px-8 py-6 ${activeTab === 'customization' ? 'max-w-5xl' : 'max-w-2xl'}`}>
+        <div className={`mx-auto px-8 py-6 ${activeTab === 'customization' ? 'h-full' : 'max-w-2xl'}`}>
           {activeTab === 'general-top' ? (
             <GeneralTopContent />
           ) : activeTab === 'usage' ? (
