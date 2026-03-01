@@ -4,6 +4,7 @@ import { spawn, type ChildProcess } from 'child_process'
 import { createServer } from 'net'
 import { readFile } from 'fs/promises'
 import { basename } from 'path'
+import { pathToFileURL } from 'url'
 import { randomUUID } from 'crypto'
 import { initQuickChatDeps, createTray, destroyTray, hideQuickChatPopup, toggleQuickChatPopup, destroyQuickChatPopup } from './tray'
 import { activateShortcut, deactivateShortcut } from './shortcut'
@@ -110,7 +111,7 @@ function createWindow(): void {
     minWidth: 800,
     minHeight: 600,
     show: false,
-    titleBarStyle: 'hiddenInset',
+    ...(process.platform === 'darwin' ? { titleBarStyle: 'hiddenInset' as const } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/preload.js'),
       sandbox: false,
@@ -213,7 +214,7 @@ function registerNativeIpc(): void {
     const { tmpdir } = await import('node:os')
     const filePath = join(tmpdir(), `dchat-artifact-${randomUUID()}.html`)
     await writeFile(filePath, htmlContent, 'utf-8')
-    await shell.openExternal(`file://${filePath}`)
+    await shell.openExternal(pathToFileURL(filePath).href)
   })
 
   // Get backend API URL (async)

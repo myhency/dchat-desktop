@@ -57,10 +57,49 @@
 ### build:package 실행
 
 ```bash
-npm run build:package --workspaces=false
+# macOS
+npm run build:package:mac --workspaces=false
+
+# Windows (Windows PC에서 실행 필수)
+npm run build:package:win --workspaces=false
 ```
 
-`--workspaces=false` 플래그 필수. 없으면 npm이 모든 워크스페이스에서 스크립트를 찾아 실패함.
+- `build:package` — 공통 빌드 단계 (백엔드 + 프론트엔드 + Electron + 네이티브 의존성 준비)
+- `build:package:mac` — `build:package` + electron-builder `--mac` → DMG
+- `build:package:win` — `build:package` + electron-builder `--win` → NSIS 인스톨러
+- `--workspaces=false` 플래그 필수. 없으면 npm이 모든 워크스페이스에서 스크립트를 찾아 실패함
+- **네이티브 모듈 제약**: `better-sqlite3`는 `@electron/rebuild`로 현재 OS용 바이너리만 빌드 가능. macOS에서 Windows용 크로스 컴파일 불가 — 반드시 타겟 OS에서 빌드할 것
+- 네이티브 의존성 준비 스크립트: `scripts/prepare-backend-deps.mjs` (Node.js, 크로스 플랫폼)
+
+## Electron 크로스 플랫폼 수정 시 주의사항
+
+### macOS 전용 API 가드
+
+macOS 전용 API/옵션은 반드시 `process.platform === 'darwin'` 가드 필요:
+- `systemPreferences.isTrustedAccessibilityClient()` — macOS 전용, Windows에서 에러
+- `titleBarStyle: 'hiddenInset'` — macOS 전용 (Windows에서 무시되나 의도대로 동작하지 않음)
+- `vibrancy`, `visualEffectState` — macOS 전용 (Windows에서 무시됨)
+- `NativeImage.setTemplateImage()` — macOS 전용 (Windows에서 무시됨)
+
+BrowserWindow 옵션 분기는 조건부 스프레드 패턴 사용:
+```ts
+...(process.platform === 'darwin' ? { titleBarStyle: 'hiddenInset' as const } : {})
+```
+
+### file:// URL 생성
+
+Windows 경로에는 백슬래시(`\`)가 포함되어 `file://C:\path` 형태의 잘못된 URL이 생성됨. 항상 `url.pathToFileURL()` 사용:
+```ts
+import { pathToFileURL } from 'url'
+// ✅ pathToFileURL(filePath).href → file:///C:/path (슬래시 자동 변환)
+// ❌ `file://${filePath}` → Windows에서 깨짐
+```
+
+### 글로벌 단축키 플랫폼 매핑
+
+- `Alt+Space`는 Windows 시스템 메뉴(창 이동/크기 변경)와 충돌 → Windows에서는 `Ctrl+Space`로 대체 등록
+- 프론트엔드 설정 UI 라벨도 플랫폼별 분기 필요 ("Option" vs "Alt" 등)
+- 프론트엔드 플랫폼 감지: `navigator.platform.startsWith('Mac')`
 
 ## E2E 테스트 작성 (vibium)
 

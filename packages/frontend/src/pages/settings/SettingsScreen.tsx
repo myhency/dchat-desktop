@@ -191,12 +191,21 @@ function ShortcutSelect({
   )
 }
 
-const QUICK_ACCESS_OPTIONS = [
-  { value: 'double-option', label: 'Option 키 두 번 누르기' },
-  { value: 'option-space', label: 'Option+Space' },
-  { value: 'custom', label: '사용자 설정...' },
-  { value: 'none', label: '단축키 없음' }
-]
+const isMac = navigator.platform.startsWith('Mac')
+
+const QUICK_ACCESS_OPTIONS = isMac
+  ? [
+      { value: 'double-option', label: 'Option 키 두 번 누르기' },
+      { value: 'option-space', label: 'Option+Space' },
+      { value: 'custom', label: '사용자 설정...' },
+      { value: 'none', label: '단축키 없음' }
+    ]
+  : [
+      { value: 'double-option', label: 'Alt 키 두 번 누르기' },
+      { value: 'option-space', label: 'Ctrl+Space' },
+      { value: 'custom', label: '사용자 설정...' },
+      { value: 'none', label: '단축키 없음' }
+    ]
 
 /** Convert browser KeyboardEvent key/code to Electron accelerator key name */
 function normalizeKeyName(key: string, code: string): string | null {
@@ -235,21 +244,23 @@ function normalizeKeyName(key: string, code: string): string | null {
   return null
 }
 
-/** Convert Electron accelerator string to Mac symbol display */
+/** Convert Electron accelerator string to display symbols */
 function acceleratorToDisplay(accelerator: string): string {
-  const modMap: Record<string, string> = {
-    Command: '\u2318',
-    Cmd: '\u2318',
-    Control: '\u2303',
-    Ctrl: '\u2303',
-    Alt: '\u2325',
-    Option: '\u2325',
-    Shift: '\u21E7'
+  if (isMac) {
+    const modMap: Record<string, string> = {
+      Command: '\u2318',
+      Cmd: '\u2318',
+      Control: '\u2303',
+      Ctrl: '\u2303',
+      Alt: '\u2325',
+      Option: '\u2325',
+      Shift: '\u21E7'
+    }
+    const parts = accelerator.split('+')
+    return parts.map((p) => modMap[p] ?? p).join('')
   }
-  const parts = accelerator.split('+')
-  return parts
-    .map((p) => modMap[p] ?? p)
-    .join('')
+  // Windows/Linux: keep text labels joined with "+"
+  return accelerator
 }
 
 function ShortcutRecorder({

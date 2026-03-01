@@ -20,7 +20,9 @@
     "build:electron": "npm run build -w @dchat/electron-app",
     "test": "npm run test -w @dchat/backend && npm run test -w @dchat/frontend",
     "test:e2e": "vitest run --config e2e/vitest.config.ts",
-    "build:package": "npm run build:backend && npm run build:frontend && npm run build:electron && bash scripts/prepare-backend-deps.sh && cd packages/electron && npx electron-builder --mac --config electron-builder.yml"
+    "build:package": "npm run build:backend && npm run build:frontend && npm run build:electron && node scripts/prepare-backend-deps.mjs",
+    "build:package:mac": "npm run build:package && cd packages/electron && npx electron-builder --mac --config electron-builder.yml",
+    "build:package:win": "npm run build:package && cd packages/electron && npx electron-builder --win --config electron-builder.yml"
   },
   "devDependencies": {
     "@electron/rebuild": "^3.7.2",

@@ -1,5 +1,6 @@
 import { Tray, BrowserWindow, nativeImage, screen } from 'electron'
 import { join } from 'path'
+import { pathToFileURL } from 'url'
 import { deflateSync } from 'zlib'
 
 let tray: Tray | null = null
@@ -88,7 +89,9 @@ function createTrayIcon(): Electron.NativeImage {
   if (img.isEmpty()) {
     console.warn('[tray] Generated PNG is empty — icon will not display')
   }
-  img.setTemplateImage(true)
+  if (process.platform === 'darwin') {
+    img.setTemplateImage(true)
+  }
   return img
 }
 
@@ -106,7 +109,7 @@ function getPopupUrl(port: number): string {
     return `${isDev}?mode=quick-chat`
   }
   // In production, load from the built frontend
-  return `file://${join(__dirname, '../../frontend/dist/index.html')}?mode=quick-chat`
+  return `${pathToFileURL(join(__dirname, '../../frontend/dist/index.html')).href}?mode=quick-chat`
 }
 
 function createQuickChatPopup(port: number): BrowserWindow {
@@ -119,8 +122,7 @@ function createQuickChatPopup(port: number): BrowserWindow {
     alwaysOnTop: true,
     show: false,
     transparent: true,
-    vibrancy: 'popover',
-    visualEffectState: 'active',
+    ...(process.platform === 'darwin' ? { vibrancy: 'popover' as const, visualEffectState: 'active' as const } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/preload.js'),
       sandbox: false,
