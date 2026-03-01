@@ -20,7 +20,8 @@ export function initSchema(db: Database.Database): void {
       FOREIGN KEY (session_id) REFERENCES sessions(id)
     );
 
-    CREATE INDEX IF NOT EXISTS idx_messages_session_id ON messages(session_id);
+    CREATE INDEX IF NOT EXISTS idx_messages_session_created
+      ON messages(session_id, created_at ASC);
   `)
 
   try {
@@ -85,6 +86,14 @@ export function initSchema(db: Database.Database): void {
   } catch {
     // column already exists
   }
+
+  // Replace old single-column index with composite index (for existing DBs)
+  db.exec(`DROP INDEX IF EXISTS idx_messages_session_id`)
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_sessions_sort
+      ON sessions(is_favorite DESC, updated_at DESC);
+  `)
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS mcp_servers (

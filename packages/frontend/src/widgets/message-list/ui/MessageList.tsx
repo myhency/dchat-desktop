@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { ArrowDown } from 'lucide-react'
 import { useSessionStore, type StreamingSegment, type ToolCallInfo } from '@/entities/session'
 import type { MessageSegment } from '@dchat/shared'
@@ -67,14 +68,35 @@ export function MessageList(): React.JSX.Element {
   const editMessage = useSessionStore((s) => s.editMessage)
   const openArtifact = useSessionStore((s) => s.openArtifact)
 
+  const groupedByMessage = useMemo(() => {
+    const map = new Map<string, GroupedSegment[]>()
+    for (const msg of messages) {
+      if (msg.role === 'assistant' && msg.segments?.length) {
+        map.set(msg.id, groupSavedSegments(msg.segments))
+      }
+    }
+    return map
+  }, [messages])
+
+  const groupedStreaming = useMemo(
+    () => streamingSegments.length > 0 ? groupStreamingSegments(streamingSegments) : [],
+    [streamingSegments]
+  )
+
   const bottomRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
-  const lastUserMsgRef = useRef<HTMLDivElement>(null)
   const isNearBottomRef = useRef(true)
   const isProgrammaticScrollRef = useRef(false)
   const [showScrollButton, setShowScrollButton] = useState(false)
   const prevMessagesLengthRef = useRef(messages.length)
   const prevStreamingRef = useRef(false)
+
+  const virtualizer = useVirtualizer({
+    count: messages.length,
+    getScrollElement: () => scrollContainerRef.current,
+    estimateSize: () => 120,
+    overscan: 5,
+  })
 
   // Auto-open artifact panel when streaming finishes with HTML code block
   useEffect(() => {
@@ -145,11 +167,11 @@ export function MessageList(): React.JSX.Element {
         isProgrammaticScrollRef.current = true
         isNearBottomRef.current = true
         setShowScrollButton(false)
-        lastUserMsgRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        virtualizer.scrollToIndex(messages.length - 1, { align: 'start', behavior: 'smooth' })
       }
     }
     prevMessagesLengthRef.current = messages.length
-  }, [messages.length])
+  }, [messages.length, virtualizer])
 
   const scrollToBottom = useCallback(() => {
     isProgrammaticScrollRef.current = true
@@ -165,79 +187,97 @@ export function MessageList(): React.JSX.Element {
       onWheel={handleWheel}
       className="flex-1 overflow-y-auto relative"
     >
-      <div className="max-w-[90%] md:max-w-[80%] lg:max-w-[70%] mx-auto w-full py-6 space-y-4">
+      <div className="max-w-[90%] md:max-w-[80%] lg:max-w-[70%] mx-auto w-full py-6">
         {messages.length === 0 && !isStreaming && (
           <div className="flex h-full items-center justify-center text-neutral-400 text-sm">
             Start a conversation
           </div>
         )}
 
-        {messages.map((msg, index) => {
-          if (msg.role === 'assistant' && msg.segments?.length) {
-            const grouped = groupSavedSegments(msg.segments)
-            return (
-              <div key={msg.id} className="space-y-2">
-                {grouped.map((g, i) => {
-                  if (g.type === 'text') {
-                    const isLastText = !grouped.slice(i + 1).some((gg) => gg.type === 'text')
-                    return (
-                      <MessageBubble
-                        key={`${msg.id}-seg-${g.index}`}
-                        role="assistant"
-                        content={g.content}
-                        {...(isLastText ? { id: msg.id, createdAt: msg.createdAt, onRegenerate: regenerateMessage } : {})}
-                      />
-                    )
-                  }
-                  return (
-                    <ToolCallGroup
-                      key={`${msg.id}-toolgroup-${g.startIndex}`}
-                      toolCalls={g.toolCalls}
-                    />
-                  )
-                })}
-              </div>
-            )
-          }
-          const isLastUserMsg = index === messages.length - 1 && msg.role === 'user'
-          return (
-            <div key={msg.id} ref={isLastUserMsg ? lastUserMsgRef : undefined}>
-              <MessageBubble
-                id={msg.id}
-                role={msg.role}
-                content={msg.content}
-                createdAt={msg.createdAt}
-                onRegenerate={regenerateMessage}
-                onEdit={editMessage}
-                attachments={msg.attachments}
-              />
-            </div>
-          )
-        })}
+        {messages.length > 0 && (
+          <div style={{ height: `${virtualizer.getTotalSize()}px`, width: '100%', position: 'relative' }}>
+            {virtualizer.getVirtualItems().map((virtualRow) => {
+              const msg = messages[virtualRow.index]
+              const grouped = groupedByMessage.get(msg.id)
 
-        {isStreaming && streamingSegments.length > 0 && (() => {
-          const grouped = groupStreamingSegments(streamingSegments)
-          return grouped.map((g, i) => {
-            if (g.type === 'text') {
-              const isLastText = !grouped.slice(i + 1).some((gg) => gg.type === 'text')
               return (
-                <MessageBubble
-                  key={`stream-text-${g.index}`}
-                  role="assistant"
-                  content={g.content}
-                  isStreaming={isLastText}
+                <div
+                  key={msg.id}
+                  data-index={virtualRow.index}
+                  ref={virtualizer.measureElement}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }}
+                >
+                  <div className="pb-4">
+                    {grouped ? (
+                      <div className="space-y-2">
+                        {grouped.map((g, i) => {
+                          if (g.type === 'text') {
+                            const isLastText = !grouped.slice(i + 1).some((gg) => gg.type === 'text')
+                            return (
+                              <MessageBubble
+                                key={`${msg.id}-seg-${g.index}`}
+                                role="assistant"
+                                content={g.content}
+                                {...(isLastText ? { id: msg.id, createdAt: msg.createdAt, onRegenerate: regenerateMessage } : {})}
+                              />
+                            )
+                          }
+                          return (
+                            <ToolCallGroup
+                              key={`${msg.id}-toolgroup-${g.startIndex}`}
+                              toolCalls={g.toolCalls}
+                            />
+                          )
+                        })}
+                      </div>
+                    ) : (
+                      <MessageBubble
+                        id={msg.id}
+                        role={msg.role}
+                        content={msg.content}
+                        createdAt={msg.createdAt}
+                        onRegenerate={regenerateMessage}
+                        onEdit={editMessage}
+                        attachments={msg.attachments}
+                      />
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {isStreaming && groupedStreaming.length > 0 && (
+          <div className="space-y-4">
+            {groupedStreaming.map((g, i) => {
+              if (g.type === 'text') {
+                const isLastText = !groupedStreaming.slice(i + 1).some((gg) => gg.type === 'text')
+                return (
+                  <MessageBubble
+                    key={`stream-text-${g.index}`}
+                    role="assistant"
+                    content={g.content}
+                    isStreaming={isLastText}
+                  />
+                )
+              }
+              return (
+                <ToolCallGroup
+                  key={`stream-toolgroup-${g.startIndex}`}
+                  toolCalls={g.toolCalls}
+                  isStreaming
                 />
               )
-            }
-            return (
-              <ToolCallGroup
-                key={`stream-toolgroup-${g.startIndex}`}
-                toolCalls={g.toolCalls}
-                isStreaming
-              />
-            )
-          })
-        })()}
+            })}
+          </div>
+        )}
 
         {isStreaming && streamingSegments.length === 0 && <StreamingIndicator />}
 

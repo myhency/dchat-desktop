@@ -1,4 +1,4 @@
-import { isValidElement, useState, useCallback } from 'react'
+import { isValidElement, useState, useCallback, memo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
@@ -9,6 +9,12 @@ import { CodeBlock } from './CodeBlock'
 import { HtmlArtifactCard } from './HtmlArtifactCard'
 import { formatTime } from '@/shared/lib/time'
 import type { ImageAttachment } from '@/entities/session'
+
+// Module-scope constants to prevent re-creation on every render
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const REMARK_PLUGINS: any[] = [remarkGfm, [remarkMath, { singleDollarTextMath: false }]]
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const REHYPE_PLUGINS: any[] = [rehypeKatex]
 
 function AttachmentPreview({ attachment }: { attachment: ImageAttachment }) {
   if (attachment.mimeType.startsWith('image/')) {
@@ -39,7 +45,7 @@ interface MessageBubbleProps {
   attachments?: ImageAttachment[]
 }
 
-export function MessageBubble({
+export const MessageBubble = memo(function MessageBubble({
   role,
   content,
   createdAt,
@@ -175,8 +181,8 @@ export function MessageBubble({
       <div className="max-w-none min-w-0 py-1 text-sm leading-relaxed text-neutral-900 dark:text-neutral-100">
         <div className={`prose prose-sm dark:prose-invert max-w-none prose-code:text-pink-500 dark:prose-code:text-pink-400 prose-code:before:content-[''] prose-code:after:content-[''] ${isStreaming ? 'streaming-cursor' : ''}`}>
           <ReactMarkdown
-            remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: false }]]}
-            rehypePlugins={[rehypeKatex]}
+            remarkPlugins={REMARK_PLUGINS}
+            rehypePlugins={REHYPE_PLUGINS}
             components={{
               pre({ children }) {
                 if (isValidElement(children)) {
@@ -232,4 +238,4 @@ export function MessageBubble({
       </div>
     </div>
   )
-}
+})
