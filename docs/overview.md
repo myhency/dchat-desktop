@@ -105,7 +105,7 @@ packages/
 │                   ├── llm-adapter.factory.ts   # → LLMGatewayResolver
 │                   ├── anthropic.adapter.ts     # → LLMGateway (+ streamChatRaw for tool use)
 │                   ├── openai.adapter.ts        # → LLMGateway (+ streamChatRaw for tool use)
-│                   └── document-text-extractor.ts  # 문서 텍스트 추출 (PDF, DOCX, XLSX, PPTX, CSV)
+│                   └── document-text-extractor.ts  # 문서 텍스트 추출 (PDF, DOCX, XLSX, PPTX, CSV + text/* 폴백)
 ├── frontend/                                    # React SPA (Vite, FSD 아키텍처)
 │   ├── vite.config.ts                           # Vite 설정 (proxy → localhost:3131, @ alias)
 │   ├── index.html                               # 진입점: /src/app/main.tsx

@@ -141,6 +141,46 @@ describe('read_document', () => {
     })
   })
 
+  describe('text files', () => {
+    it('reads .py file as UTF-8 text', async () => {
+      const filePath = path.join(tmpDir, 'test.py')
+      await fs.writeFile(filePath, 'def hello():\n    print("world")')
+
+      const result = await readDocumentTool.execute(
+        { path: filePath },
+        makeConfig()
+      )
+      expect(result.isError).toBe(false)
+      expect(result.content).toContain('def hello()')
+      expect(result.content).toContain('print("world")')
+    })
+
+    it('reads .md file as UTF-8 text', async () => {
+      const filePath = path.join(tmpDir, 'test.md')
+      await fs.writeFile(filePath, '# Title\n\nSome **bold** text.')
+
+      const result = await readDocumentTool.execute(
+        { path: filePath },
+        makeConfig()
+      )
+      expect(result.isError).toBe(false)
+      expect(result.content).toContain('# Title')
+      expect(result.content).toContain('Some **bold** text.')
+    })
+
+    it('reads .json file as UTF-8 text', async () => {
+      const filePath = path.join(tmpDir, 'test.json')
+      await fs.writeFile(filePath, '{"key": "value"}')
+
+      const result = await readDocumentTool.execute(
+        { path: filePath },
+        makeConfig()
+      )
+      expect(result.isError).toBe(false)
+      expect(result.content).toBe('{"key": "value"}')
+    })
+  })
+
   describe('unsupported extension', () => {
     it('returns error for unsupported file type', async () => {
       const filePath = path.join(tmpDir, 'test.xyz')

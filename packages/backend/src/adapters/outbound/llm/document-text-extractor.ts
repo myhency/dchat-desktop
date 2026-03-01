@@ -56,8 +56,7 @@ export const SUPPORTED_DOCUMENT_MIMES = Object.keys(MIME_TO_PARSER)
 
 export async function extractTextFromBuffer(buffer: Buffer, mimeType: string): Promise<string> {
   const parser = MIME_TO_PARSER[mimeType]
-  if (!parser) {
-    throw new Error(`Unsupported document MIME type: ${mimeType}`)
-  }
-  return parser(buffer)
+  if (parser) return parser(buffer)
+  if (mimeType.startsWith('text/')) return buffer.toString('utf-8')
+  throw new Error(`Unsupported document MIME type: ${mimeType}`)
 }

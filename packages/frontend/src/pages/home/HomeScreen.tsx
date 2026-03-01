@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect, type KeyboardEvent } from 'react'
 import TextareaAutosize from 'react-textarea-autosize'
-import { Sparkles, ChevronDown, Check, ArrowUp, Plus, X, FolderOpen } from 'lucide-react'
+import { Sparkles, ChevronDown, Check, ArrowUp, Plus, X, FolderOpen, FileText } from 'lucide-react'
 import { useSessionStore, type ImageAttachment } from '@/entities/session'
 import { useSettingsStore } from '@/entities/settings'
 import { MODEL_META, getShortName } from '@/shared/lib/model-meta'
@@ -120,7 +120,14 @@ export function HomeScreen(): React.JSX.Element {
             <div className="flex gap-2 px-3 pt-2 overflow-x-auto">
               {attachments.map((a) => (
                 <div key={a.id} className="relative flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-600">
-                  <img src={`data:${a.mimeType};base64,${a.base64Data}`} alt={a.fileName} className="w-full h-full object-cover" />
+                  {a.mimeType.startsWith('image/') ? (
+                    <img src={`data:${a.mimeType};base64,${a.base64Data}`} alt={a.fileName} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center gap-1 bg-neutral-100 dark:bg-neutral-700">
+                      <FileText size={20} className="text-neutral-500 dark:text-neutral-400" />
+                      <span className="text-[10px] text-neutral-500 dark:text-neutral-400 px-1 truncate w-full text-center">{a.fileName}</span>
+                    </div>
+                  )}
                   <button
                     onClick={() => removeAttachment(a.id)}
                     className="absolute top-0.5 left-0.5 w-4 h-4 flex items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"

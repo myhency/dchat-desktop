@@ -151,6 +151,18 @@ function createWindow(): void {
 
 function registerNativeIpc(): void {
   // Pick images from file system
+  const textExtensions = [
+    'txt', 'md', 'rst', 'tex', 'html', 'htm', 'xml', 'svg',
+    'tsv', 'jsonl', 'json', 'yaml', 'yml', 'toml',
+    'js', 'ts', 'jsx', 'tsx', 'mjs', 'cjs', 'py', 'rb', 'go', 'rs',
+    'java', 'kt', 'scala', 'swift', 'c', 'cpp', 'h', 'hpp', 'cs', 'php',
+    'lua', 'r', 'pl', 'sh', 'bash', 'zsh', 'bat', 'ps1',
+    'sql', 'graphql', 'css', 'scss', 'less',
+    'ini', 'cfg', 'conf', 'env', 'properties', 'dockerfile', 'tf', 'hcl',
+    'gitignore', 'editorconfig',
+    'log', 'diff', 'patch',
+  ]
+
   ipcMain.handle('native:pick-image', async () => {
     const win = mainWindow
     if (!win) return []
@@ -158,15 +170,17 @@ function registerNativeIpc(): void {
     const result = await dialog.showOpenDialog(win, {
       properties: ['openFile', 'multiSelections'],
       filters: [
-        { name: 'All Supported Files', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'pdf', 'docx', 'xlsx', 'pptx', 'csv'] },
+        { name: 'All Supported Files', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'pdf', 'docx', 'xlsx', 'pptx', 'csv', ...textExtensions] },
         { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp'] },
-        { name: 'Documents', extensions: ['pdf', 'docx', 'xlsx', 'pptx', 'csv'] }
+        { name: 'Documents', extensions: ['pdf', 'docx', 'xlsx', 'pptx', 'csv'] },
+        { name: 'Text & Code', extensions: textExtensions }
       ]
     })
 
     if (result.canceled || result.filePaths.length === 0) return []
 
     const attachments: { id: string; fileName: string; mimeType: string; base64Data: string }[] = []
+    const textExtSet = new Set(textExtensions)
     for (const filePath of result.filePaths) {
       const buffer = await readFile(filePath)
       const ext = filePath.split('.').pop()?.toLowerCase() ?? ''
@@ -185,7 +199,7 @@ function registerNativeIpc(): void {
       attachments.push({
         id: randomUUID(),
         fileName: basename(filePath),
-        mimeType: mimeMap[ext] ?? 'application/octet-stream',
+        mimeType: mimeMap[ext] ?? (textExtSet.has(ext) ? 'text/plain' : 'application/octet-stream'),
         base64Data: buffer.toString('base64')
       })
     }

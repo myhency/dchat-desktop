@@ -386,12 +386,25 @@ lastUserMsgRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 - 응답으로 `onMemoryChange(content)` 콜백 → 부모의 `memoryData` 갱신
 - 로딩 중 Escape/오버레이 닫기 비활성화
 
+## 마크다운 수식 렌더링 (remark-math + rehype-katex)
+
+`MessageBubble.tsx`에서 `remark-math` + `rehype-katex`로 수식을 렌더링. `singleDollarTextMath: false` 옵션으로 단일 `$` 인라인 수식 파싱을 비활성화:
+
+```tsx
+remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: false }]]}
+rehypePlugins={[rehypeKatex]}
+```
+
+- **비활성화 이유**: `$3`, `$15` 같은 달러 가격 표시가 LaTeX 인라인 수식으로 해석되어 깨져 보임
+- **`$$...$$` 블록 수식**: 정상 동작 (KaTeX 렌더링)
+- **수정 시 주의**: `singleDollarTextMath`를 다시 `true`로 변경하면 가격 표시가 깨짐. 단일 `$` 인라인 수식이 필요하면 별도 이스케이프 전략 필요
+
 ## 첨부파일 미리보기: 이미지 vs 문서 분기
 
-`MessageBubble.tsx`의 `AttachmentPreview` 컴포넌트와 `PromptInput.tsx`에서 첨부파일 타입에 따라 렌더링을 분기:
+`MessageBubble.tsx`의 `AttachmentPreview` 컴포넌트, `PromptInput.tsx`, `HomeScreen.tsx`에서 첨부파일 타입에 따라 렌더링을 분기:
 
 - **이미지** (`mimeType.startsWith('image/')`) → `<img>` 태그로 base64 미리보기
-- **문서** (PDF, DOCX 등) → `FileText` 아이콘 + 파일명 텍스트
+- **문서/텍스트** (PDF, DOCX, 코드, 설정파일 등) → `FileText` 아이콘 + 파일명 텍스트
 
 ```tsx
 // MessageBubble.tsx — AttachmentPreview 컴포넌트
@@ -401,8 +414,9 @@ if (attachment.mimeType.startsWith('image/')) {
 return <div><FileText /><span>{attachment.fileName}</span></div>
 ```
 
-- **수정 시 주의**: `PromptInput.tsx`에도 동일한 분기가 인라인으로 존재. 새 파일 타입 추가 시 양쪽 모두 수정 필요.
+- **수정 시 주의**: 동일한 분기가 **3곳**에 인라인으로 존재 — `MessageBubble.tsx` (AttachmentPreview), `PromptInput.tsx`, `HomeScreen.tsx`. 새 파일 타입이나 렌더링 변경 시 3곳 모두 수정 필요.
 - **웹 모드 파일 선택** (`native.ts`): `input.accept`에 문서 MIME 타입 포함. `MIME_FALLBACK` 맵으로 확장자 기반 폴백 MIME 감지 (브라우저가 비이미지 파일의 `file.type`을 비워두는 경우 대비).
+- **텍스트 확장자 목록**: 지원 확장자 배열이 **3곳**에 병렬로 존재 — `native.ts` (TEXT_EXTENSIONS), `electron/main.ts` (textExtensions), `read-document.ts` (SUPPORTED_TEXT_EXTENSIONS). 확장자 추가 시 3곳 모두 동기화 필요. `document-text-extractor.ts`는 `text/*` MIME prefix 매칭으로 별도 확장자 목록 불필요.
 
 ## ErrorBoundary 에러 저장
 
