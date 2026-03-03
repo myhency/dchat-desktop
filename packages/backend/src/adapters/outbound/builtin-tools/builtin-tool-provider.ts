@@ -1,4 +1,5 @@
 import * as fs from 'fs/promises'
+import { homedir } from 'os'
 import type { McpToolDefinition } from '../../../domain/ports/outbound/mcp-client.gateway'
 import type { SettingsRepository } from '../../../domain/ports/outbound/settings.repository'
 import type { BuiltinToolsStatusDTO } from '@dchat/shared'
@@ -79,7 +80,7 @@ export class BuiltInToolProvider {
 
   async getActiveTools(): Promise<BuiltInToolDef[]> {
     const dirsJson = await this.settingsRepo.get('builtin_tools_allowed_dirs')
-    const dirs: string[] = dirsJson ? JSON.parse(dirsJson) : ['/tmp']
+    const dirs: string[] = dirsJson ? JSON.parse(dirsJson) : [homedir()]
     if (dirs.length === 0) return []
 
     const shellEnabled = await this.settingsRepo.get('builtin_tools_shell_enabled')
@@ -138,7 +139,7 @@ export class BuiltInToolProvider {
 
     // Load config
     const dirsJson = await this.settingsRepo.get('builtin_tools_allowed_dirs')
-    const allowedDirectories: string[] = dirsJson ? JSON.parse(dirsJson) : ['/tmp']
+    const allowedDirectories: string[] = dirsJson ? JSON.parse(dirsJson) : [homedir()]
     const timeoutStr = await this.settingsRepo.get('builtin_tools_shell_timeout')
     const shellTimeout = timeoutStr ? parseInt(timeoutStr, 10) : 30000
 
@@ -158,10 +159,10 @@ export class BuiltInToolProvider {
 
   async getStatus(): Promise<BuiltinToolsStatusDTO> {
     const dirsJson = await this.settingsRepo.get('builtin_tools_allowed_dirs')
-    const dirs: string[] = dirsJson ? JSON.parse(dirsJson) : ['/tmp']
+    const dirs: string[] = dirsJson ? JSON.parse(dirsJson) : [homedir()]
 
     if (dirs.length === 0) {
-      return { status: 'disabled', toolCount: 0, directories: [], errors: [] }
+      return { status: 'disabled', toolCount: 0, directories: [], errors: [], defaultDirectory: homedir() }
     }
 
     const errors: string[] = []
@@ -179,7 +180,8 @@ export class BuiltInToolProvider {
       status: errors.length > 0 ? 'error' : 'running',
       toolCount: tools.length,
       directories: dirs,
-      errors
+      errors,
+      defaultDirectory: homedir()
     }
   }
 }

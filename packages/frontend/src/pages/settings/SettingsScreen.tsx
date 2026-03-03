@@ -2490,7 +2490,7 @@ type ExtensionView = 'list' | 'filesystem-config'
 
 function ExtensionsContent({ onNavigate }: { onNavigate: (tab: Tab) => void }): React.JSX.Element {
   const [view, setView] = useState<ExtensionView>('list')
-  const [directories, setDirectories] = useState<string[]>(['/tmp'])
+  const [directories, setDirectories] = useState<string[]>([])
   const [shellEnabled, setShellEnabled] = useState(true)
   const [saving, setSaving] = useState(false)
   const [loaded, setLoaded] = useState(false)
@@ -2507,8 +2507,10 @@ function ExtensionsContent({ onNavigate }: { onNavigate: (tab: Tab) => void }): 
     Promise.all([
       settingsApi.get('builtin_tools_allowed_dirs'),
       settingsApi.get('builtin_tools_shell_enabled'),
-      settingsApi.get('builtin_tools_permissions')
-    ]).then(([dirsVal, shellVal, permsVal]) => {
+      settingsApi.get('builtin_tools_permissions'),
+      settingsApi.getBuiltinToolsStatus()
+    ]).then(([dirsVal, shellVal, permsVal, status]) => {
+      setBuiltinStatus(status)
       if (dirsVal) {
         try {
           const parsed = JSON.parse(dirsVal)
@@ -2516,8 +2518,9 @@ function ExtensionsContent({ onNavigate }: { onNavigate: (tab: Tab) => void }): 
           loadedDirsRef.current = parsed
         } catch { /* ignore */ }
       } else {
-        setDirectories(['/tmp'])
-        loadedDirsRef.current = ['/tmp']
+        const defaultDir = status.defaultDirectory
+        setDirectories([defaultDir])
+        loadedDirsRef.current = [defaultDir]
       }
       setShellEnabled(shellVal !== 'false')
       if (permsVal) {
@@ -2530,8 +2533,7 @@ function ExtensionsContent({ onNavigate }: { onNavigate: (tab: Tab) => void }): 
     }).catch(() => {
       setLoaded(true)
     })
-    fetchBuiltinStatus()
-  }, [fetchBuiltinStatus])
+  }, [])
 
   const handlePermissionChange = (toolName: string, permission: ToolPermission): void => {
     const updated = { ...toolPermissions, [toolName]: permission }

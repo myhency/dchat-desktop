@@ -468,7 +468,7 @@ describe('BuiltInToolProvider', () => {
     expect(tools.find((t) => t.name === 'execute_command')).toBeUndefined()
   })
 
-  it('returns default tools (/tmp + shell) when no settings configured', async () => {
+  it('returns default tools (homedir + shell) when no settings configured', async () => {
     settingsRepo.get = vi.fn(async () => null)
     const tools = await provider.getTools()
     // 14 filesystem + 1 shell (execute_command)
@@ -659,13 +659,14 @@ describe('BuiltInToolProvider', () => {
   })
 
   describe('getStatus', () => {
-    it('returns running with /tmp when no settings configured', async () => {
+    it('returns running with homedir when no settings configured', async () => {
       settingsRepo.get = vi.fn(async () => null)
       const status = await provider.getStatus()
       expect(status.status).toBe('running')
       expect(status.toolCount).toBe(15)
-      expect(status.directories).toEqual(['/tmp'])
+      expect(status.directories).toEqual([os.homedir()])
       expect(status.errors).toEqual([])
+      expect(status.defaultDirectory).toBe(os.homedir())
     })
 
     it('returns disabled when directories explicitly set to empty', async () => {
@@ -678,6 +679,7 @@ describe('BuiltInToolProvider', () => {
       expect(status.toolCount).toBe(0)
       expect(status.directories).toEqual([])
       expect(status.errors).toEqual([])
+      expect(status.defaultDirectory).toBe(os.homedir())
     })
 
     it('returns running when directories are accessible', async () => {
@@ -686,6 +688,7 @@ describe('BuiltInToolProvider', () => {
       expect(status.toolCount).toBe(14)
       expect(status.directories).toEqual([providerDir])
       expect(status.errors).toEqual([])
+      expect(status.defaultDirectory).toBe(os.homedir())
     })
 
     it('returns error when directories are inaccessible', async () => {
@@ -700,6 +703,7 @@ describe('BuiltInToolProvider', () => {
       expect(status.status).toBe('error')
       expect(status.directories).toEqual([badDir])
       expect(status.errors).toEqual([badDir])
+      expect(status.defaultDirectory).toBe(os.homedir())
     })
   })
 

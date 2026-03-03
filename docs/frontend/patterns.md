@@ -296,9 +296,11 @@ if (nearBottom) {
 - `hasDirectories` 판별: `directories.filter(d => d.trim()).length > 0` (빈 행이 있을 수 있으므로 length 비교)
 - Shell 토글: `shellEnabled` boolean → `"true"/"false"` 문자열로 저장
 - **도구 권한 목록 구성**: `FILESYSTEM_TOOL_NAMES` (13개 고정) + `SHELL_TOOL_NAMES` (`execute_command`). `shellEnabled`일 때만 shell 도구가 목록에 포함: `[...FILESYSTEM_TOOL_NAMES, ...(shellEnabled ? SHELL_TOOL_NAMES : [])]`. `DEFAULT_PERMISSIONS`에서 각 도구의 기본 권한 관리 (예: `execute_command: 'confirm'`)
-- **상태 표시**: `builtinStatus` 상태로 `settingsApi.getBuiltinToolsStatus()` fetch → Filesystem 카드에 색상 dot + 라벨 (`실행 중`/`오류`/`비활성화`). `handleSave` 후에도 재fetch (`fetchBuiltinStatus()`).
+- **상태 + 기본 디렉토리 로딩**: 초기 `Promise.all`에 `settingsApi.getBuiltinToolsStatus()`를 포함하여 settings와 status를 동시 로드. `builtin_tools_allowed_dirs`가 미설정(null)이면 `status.defaultDirectory`(= `os.homedir()`)를 기본값으로 사용. 브라우저 SPA는 홈 디렉토리를 직접 알 수 없으므로 반드시 백엔드 status API 응답에서 가져와야 함.
+- **상태 표시**: `builtinStatus` 상태 → Filesystem 카드에 색상 dot + 라벨 (`실행 중`/`오류`/`비활성화`). `handleSave` 후에도 재fetch (`fetchBuiltinStatus()`).
 - **에러 배너**: `builtinStatus.errors`가 있으면 filesystem 설정 뷰에서 접근 불가 디렉토리 목록을 빨간 배너로 표시
 - **에러 핸들링**: `useEffect`의 `Promise.all([...]).catch(() => { setLoaded(true) })` — API 실패 시에도 loaded 상태 설정하여 무한 로딩 방지
+- **초기 상태**: `directories = []` (빈 배열). `loaded` flag가 `false`인 동안 UI가 가드되므로 빈 상태가 노출되지 않음. API 응답 후 설정값 또는 `status.defaultDirectory`로 채워짐.
 - **dirty 추적 (Save 가드)**: `loadedDirsRef`에 API에서 로드된 원본 디렉토리를 저장. `isDirsDirty = JSON.stringify(현재) !== JSON.stringify(loadedDirsRef)`로 비교. Save 버튼은 `disabled={saving || !loaded || !isDirsDirty}`로 변경 전/로드 전 저장을 차단. `handleSave` 성공 후 `loadedDirsRef`를 동기화하여 dirty 플래그 리셋. 이 가드가 없으면 컴포넌트 마운트 시 `directories = []`인 상태에서 Save가 가능하여 기존 설정이 빈 배열로 덮어써짐
 
 ## MessageList 전송 시 스크롤: 사용자 메시지를 뷰포트 상단에 정렬

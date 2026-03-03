@@ -215,6 +215,7 @@ export interface BuiltinToolsStatusDTO {
   toolCount: number
   directories: string[]
   errors: string[]
+  defaultDirectory: string
 }
 
 // ── Health ──
