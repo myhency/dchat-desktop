@@ -32,6 +32,7 @@ export function ToolCallBlock({ toolCall, isLast }: ToolCallBlockProps): React.J
   const [expanded, setExpanded] = useState(isConfirming)
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const blockRef = useRef<HTMLDivElement>(null)
   const confirmTool = useSessionStore((s) => s.confirmTool)
 
   const firstLetter = (toolCall.toolName[0] || '?').toUpperCase()
@@ -52,6 +53,13 @@ export function ToolCallBlock({ toolCall, isLast }: ToolCallBlockProps): React.J
   useEffect(() => {
     if (isConfirming) setExpanded(true)
   }, [isConfirming])
+
+  // Scroll into view after expansion renders
+  useEffect(() => {
+    if (isConfirming && expanded) {
+      blockRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    }
+  }, [isConfirming, expanded])
 
   // Keyboard shortcuts when confirming
   const handleKeyDown = useCallback(
@@ -77,7 +85,7 @@ export function ToolCallBlock({ toolCall, isLast }: ToolCallBlockProps): React.J
   }, [toolCall.status, handleKeyDown])
 
   return (
-    <div className="flex items-stretch gap-2.5 px-3">
+    <div ref={blockRef} className="flex items-stretch gap-2.5 px-3">
       {/* Left column: circle icon + connector line */}
       <div className="flex flex-col items-center pt-1.5">
         <div className="w-6 h-6 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center text-xs font-semibold text-neutral-600 dark:text-neutral-300 shrink-0">
