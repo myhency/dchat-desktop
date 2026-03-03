@@ -130,6 +130,20 @@ describe('extractTextFromBuffer', () => {
     })
   })
 
+  describe('text/plain fallback', () => {
+    it('extracts UTF-8 text for text/plain MIME', async () => {
+      const buf = Buffer.from('def hello():\n    print("world")')
+      const text = await extractTextFromBuffer(buf, 'text/plain')
+      expect(text).toBe('def hello():\n    print("world")')
+    })
+
+    it('extracts UTF-8 text for any text/* MIME', async () => {
+      const buf = Buffer.from('key = "value"')
+      const text = await extractTextFromBuffer(buf, 'text/x-toml')
+      expect(text).toBe('key = "value"')
+    })
+  })
+
   describe('unsupported MIME type', () => {
     it('throws for unsupported MIME type', async () => {
       await expect(

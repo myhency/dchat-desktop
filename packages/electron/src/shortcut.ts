@@ -59,8 +59,9 @@ export function activateShortcut(value: string, callback: () => void): void {
     uIOhook.start()
     activeType = 'double-option'
   } else if (value === 'option-space') {
-    globalShortcut.register('Alt+Space', callback)
-    activeAccelerator = 'Alt+Space'
+    const accel = process.platform === 'win32' ? 'Ctrl+Space' : 'Alt+Space'
+    globalShortcut.register(accel, callback)
+    activeAccelerator = accel
     activeType = 'global'
   } else if (value.startsWith('custom:') && value.length > 'custom:'.length) {
     const accelerator = value.slice('custom:'.length)

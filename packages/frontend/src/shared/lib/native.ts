@@ -2,6 +2,18 @@ import type { ImageAttachment } from '@dchat/shared'
 
 const isElectron = typeof window !== 'undefined' && !!(window as any).electron
 
+const TEXT_EXTENSIONS = [
+  'txt', 'md', 'rst', 'tex', 'html', 'htm', 'xml', 'svg',
+  'tsv', 'jsonl', 'json', 'yaml', 'yml', 'toml',
+  'js', 'ts', 'jsx', 'tsx', 'mjs', 'cjs', 'py', 'rb', 'go', 'rs',
+  'java', 'kt', 'scala', 'swift', 'c', 'cpp', 'h', 'hpp', 'cs', 'php',
+  'lua', 'r', 'pl', 'sh', 'bash', 'zsh', 'bat', 'ps1',
+  'sql', 'graphql', 'css', 'scss', 'less',
+  'ini', 'cfg', 'conf', 'env', 'properties', 'dockerfile', 'tf', 'hcl',
+  'gitignore', 'editorconfig',
+  'log', 'diff', 'patch',
+]
+
 const MIME_FALLBACK: Record<string, string> = {
   png: 'image/png',
   jpg: 'image/jpeg',
@@ -13,6 +25,7 @@ const MIME_FALLBACK: Record<string, string> = {
   xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
   csv: 'text/csv',
+  ...Object.fromEntries(TEXT_EXTENSIONS.map(ext => [ext, 'text/plain'])),
 }
 
 /**
@@ -27,7 +40,11 @@ export async function pickImage(): Promise<ImageAttachment[]> {
   return new Promise((resolve) => {
     const input = document.createElement('input')
     input.type = 'file'
-    input.accept = 'image/png,image/jpeg,image/gif,image/webp,application/pdf,.docx,.xlsx,.pptx,.csv'
+    input.accept = [
+      'image/png', 'image/jpeg', 'image/gif', 'image/webp', 'application/pdf',
+      '.docx', '.xlsx', '.pptx', '.csv',
+      ...TEXT_EXTENSIONS.map(e => `.${e}`),
+    ].join(',')
     input.multiple = true
 
     input.onchange = async () => {

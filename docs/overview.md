@@ -105,7 +105,7 @@ packages/
 │                   ├── llm-adapter.factory.ts   # → LLMGatewayResolver
 │                   ├── anthropic.adapter.ts     # → LLMGateway (+ streamChatRaw for tool use)
 │                   ├── openai.adapter.ts        # → LLMGateway (+ streamChatRaw for tool use)
-│                   └── document-text-extractor.ts  # 문서 텍스트 추출 (PDF, DOCX, XLSX, PPTX, CSV)
+│                   └── document-text-extractor.ts  # 문서 텍스트 추출 (PDF, DOCX, XLSX, PPTX, CSV + text/* 폴백)
 ├── frontend/                                    # React SPA (Vite, FSD 아키텍처)
 │   ├── vite.config.ts                           # Vite 설정 (proxy → localhost:3131, @ alias)
 │   ├── index.html                               # 진입점: /src/app/main.tsx
@@ -300,8 +300,8 @@ Electron의 `ipcMain.handle()`로 등록, preload의 `contextBridge`를 통해 `
 
 | 값 | 방식 | 라이브러리 |
 |---|---|---|
-| `double-option` | Option 키 두 번 탭 감지 | `uiohook-napi` (OS-level 키보드 훅) |
-| `option-space` | Alt+Space | Electron `globalShortcut` |
+| `double-option` | Option/Alt 키 두 번 탭 감지 | `uiohook-napi` (OS-level 키보드 훅) |
+| `option-space` | Alt+Space (macOS) / Ctrl+Space (Windows) | Electron `globalShortcut` |
 | `custom:{accelerator}` | 사용자 지정 (예: `custom:Shift+Command+Space`) | Electron `globalShortcut` |
 | `none` | 비활성화 | — |
 
@@ -312,7 +312,7 @@ Electron의 `ipcMain.handle()`로 등록, preload의 `contextBridge`를 통해 `
 
 메뉴 바 트레이 아이콘 클릭 또는 글로벌 단축키로 열리는 경량 입력 팝업.
 
-- **BrowserWindow**: `480x160`, `frame: false`, `transparent: true`, `alwaysOnTop: true`, macOS `vibrancy: 'popover'`
+- **BrowserWindow**: `480x160`, `frame: false`, `transparent: true`, `alwaysOnTop: true`, macOS 전용 `vibrancy: 'popover'` (플랫폼 가드 적용)
 - **URL**: 프론트엔드와 동일한 SPA를 `?mode=quick-chat` 쿼리로 로드
 - **위치**: 커서가 있는 디스플레이의 작업 영역 가로 중앙, 세로 3/4 지점
 - **숨기기**: blur 이벤트 시 자동 숨김
@@ -339,9 +339,9 @@ ipcRenderer.on('native:navigate-to-session', (_event, sessionId, message) => {
 ### BrowserWindow
 
 - 크기: 1200x800 (최소 800x600)
-- macOS: `titleBarStyle: 'hiddenInset'`
+- macOS: `titleBarStyle: 'hiddenInset'` (플랫폼 가드 적용)
 - Dev: `ELECTRON_RENDERER_URL` 환경변수에서 로드 + Meta+Alt+I로 DevTools 토글
-- Production: `../frontend/dist/index.html` 로드
+- Production: `../frontend/dist/index.html` 로드 (`pathToFileURL()` 사용)
 
 ## 지원 모델
 

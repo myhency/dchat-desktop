@@ -3,7 +3,19 @@ import * as path from 'path'
 import type { BuiltInToolDef } from '../tool-registry'
 import { validatePath } from './path-utils'
 
-const SUPPORTED_EXTENSIONS = ['.pdf', '.docx', '.xlsx', '.pptx', '.csv']
+const SUPPORTED_TEXT_EXTENSIONS = [
+  '.txt', '.md', '.rst', '.tex', '.html', '.htm', '.xml', '.svg',
+  '.tsv', '.jsonl', '.json', '.yaml', '.yml', '.toml',
+  '.js', '.ts', '.jsx', '.tsx', '.mjs', '.cjs', '.py', '.rb', '.go', '.rs',
+  '.java', '.kt', '.scala', '.swift', '.c', '.cpp', '.h', '.hpp', '.cs', '.php',
+  '.lua', '.r', '.pl', '.sh', '.bash', '.zsh', '.bat', '.ps1',
+  '.sql', '.graphql', '.css', '.scss', '.less',
+  '.ini', '.cfg', '.conf', '.env', '.properties', '.dockerfile', '.tf', '.hcl',
+  '.gitignore', '.editorconfig',
+  '.log', '.diff', '.patch',
+]
+
+const SUPPORTED_EXTENSIONS = ['.pdf', '.docx', '.xlsx', '.pptx', '.csv', ...SUPPORTED_TEXT_EXTENSIONS]
 
 async function parsePdf(filePath: string): Promise<{ content: string; isError: boolean }> {
   const mod = await import('pdf-parse')
@@ -59,7 +71,7 @@ async function parseCsv(filePath: string): Promise<{ content: string; isError: b
 
 export const readDocumentTool: BuiltInToolDef = {
   name: 'read_document',
-  description: 'Read and extract text content from document files (PDF, DOCX, XLSX, PPTX, CSV). Returns the text representation of the document.',
+  description: 'Read and extract text content from document files (PDF, DOCX, XLSX, PPTX, CSV) and text-based files (code, config, markup, data). Returns the text representation of the file.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -79,11 +91,16 @@ export const readDocumentTool: BuiltInToolDef = {
       case '.xlsx': return parseXlsx(validated)
       case '.pptx': return parsePptx(validated)
       case '.csv': return parseCsv(validated)
-      default:
+      default: {
+        if (SUPPORTED_TEXT_EXTENSIONS.includes(ext)) {
+          const content = await fs.readFile(validated, 'utf-8')
+          return { content, isError: false }
+        }
         return {
           content: `Unsupported document type: ${ext}. Supported: ${SUPPORTED_EXTENSIONS.join(', ')}`,
           isError: true
         }
+      }
     }
   }
 }

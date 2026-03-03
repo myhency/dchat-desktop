@@ -1,15 +1,31 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, memo } from 'react'
 import { Check, Copy } from 'lucide-react'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneLight, oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { useSettingsStore } from '@/entities/settings'
+
+const LIGHT_CUSTOM_STYLE = {
+  margin: 0,
+  borderRadius: '0 0 0.5rem 0.5rem',
+  background: '#FAF9F7',
+  fontSize: '0.8125rem'
+} as const
+
+const DARK_CUSTOM_STYLE = {
+  margin: 0,
+  borderRadius: '0 0 0.5rem 0.5rem',
+  background: '#171717',
+  fontSize: '0.8125rem'
+} as const
+
+const CODE_TAG_PROPS = { style: {} } as const
 
 interface CodeBlockProps {
   language: string
   code: string
 }
 
-export function CodeBlock({ language, code }: CodeBlockProps): React.JSX.Element {
+export const CodeBlock = memo(function CodeBlock({ language, code }: CodeBlockProps): React.JSX.Element {
   const [copied, setCopied] = useState(false)
   const darkMode = useSettingsStore((s) => s.darkMode)
 
@@ -36,17 +52,12 @@ export function CodeBlock({ language, code }: CodeBlockProps): React.JSX.Element
         <SyntaxHighlighter
           language={language || undefined}
           style={darkMode ? oneDark : oneLight}
-          customStyle={{
-            margin: 0,
-            borderRadius: '0 0 0.5rem 0.5rem',
-            background: darkMode ? '#171717' : '#FAF9F7',
-            fontSize: '0.8125rem'
-          }}
-          codeTagProps={{ style: {} }}
+          customStyle={darkMode ? DARK_CUSTOM_STYLE : LIGHT_CUSTOM_STYLE}
+          codeTagProps={CODE_TAG_PROPS}
         >
           {code}
         </SyntaxHighlighter>
       </div>
     </div>
   )
-}
+})
