@@ -487,6 +487,7 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
         '- 파일시스템 도구(write_file, edit_file, create_directory 등)는 사용자가 파일 생성, 수정, 저장을 **명시적으로 요청**할 때만 사용하세요.\n' +
         '- 코드 작성, 설명, 분석 등 일반적인 요청에는 채팅 메시지로 답변하세요. 파일을 만들지 마세요.\n' +
         '- 파일 읽기 도구(read_text_file, list_directory 등)는 사용자가 특정 파일이나 디렉토리에 대해 질문할 때 사용할 수 있습니다.\n' +
+        '- execute_command 도구는 코드 실행, 패키지 설치, 빌드, 테스트, git 등 셸 명령이 필요한 작업에 적극적으로 활용하세요.\n' +
         '</tool_usage_guidelines>'
       )
     }
