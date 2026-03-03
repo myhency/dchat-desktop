@@ -201,7 +201,7 @@ describe('Session-scoped tool permissions', () => {
     }
   })
 
-  it('tool-confirm endpoint with alwaysAllow adds to sessionToolPermissions', async () => {
+  it('tool-confirm endpoint with alwaysAllow adds to sessionToolPermissions and persists to DB', async () => {
     const deps = createMockDeps()
 
     // Make sendMessage.execute await the confirmation — this keeps the stream open
@@ -245,8 +245,60 @@ describe('Session-scoped tool permissions', () => {
       // Verify: permission stored in session memory
       expect(sessionToolPermissions.get('session-X')?.has('write_file')).toBe(true)
 
-      // Verify: DB settingsService.set was NOT called
-      expect(deps.settingsService.set).not.toHaveBeenCalled()
+      // Verify: DB settingsService.set was called to persist
+      expect(deps.settingsService.set).toHaveBeenCalledWith(
+        'builtin_tools_permissions',
+        JSON.stringify({ write_file: 'always' })
+      )
+    } finally {
+      await new Promise<void>(r => server.close(() => r()))
+    }
+  })
+
+  it('tool-confirm with alwaysAllow merges with existing DB permissions', async () => {
+    const deps = createMockDeps()
+    // Pre-existing permissions in DB
+    deps.settingsService.get = vi.fn(async (key: string) => {
+      if (key === 'builtin_tools_permissions') return JSON.stringify({ write_file: 'confirm' })
+      return null
+    }) as any
+
+    deps.sendMessage.execute = vi.fn(async (_sid, _content, _att, onChunk, _signal) => {
+      const handler = deps.getCapturedHandler()
+      if (handler) {
+        await handler('tool-use-merge', 'execute_command', { command: 'ls' })
+      }
+      onChunk({ type: 'text', content: 'ok' })
+      onChunk({ type: 'done', content: '' })
+      return { id: 'msg-1', role: 'assistant', content: 'ok' }
+    }) as any
+
+    const app = createTestApp(deps)
+    const { server, baseUrl } = await listenOnRandomPort(app)
+
+    try {
+      const streamPromise = fetch(`${baseUrl}/api/chat/session-M/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: 'test', attachments: [] })
+      })
+
+      await new Promise(r => setTimeout(r, 50))
+
+      await fetch(`${baseUrl}/api/chat/session-M/tool-confirm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ toolUseId: 'tool-use-merge', approved: true, alwaysAllow: true })
+      })
+
+      const streamRes = await streamPromise
+      await streamRes.text()
+
+      // Verify: merged permissions saved to DB
+      expect(deps.settingsService.set).toHaveBeenCalledWith(
+        'builtin_tools_permissions',
+        JSON.stringify({ write_file: 'confirm', execute_command: 'always' })
+      )
     } finally {
       await new Promise<void>(r => server.close(() => r()))
     }

@@ -422,6 +422,14 @@ export function createChatRoutes(
           sessionToolPermissions.set(sessionId, new Set())
         }
         sessionToolPermissions.get(sessionId)!.add(pending.toolName)
+
+        // Persist to DB so it survives server restarts
+        if (settingsService) {
+          const raw = await settingsService.get('builtin_tools_permissions')
+          const perms: Record<string, string> = raw ? JSON.parse(raw) : {}
+          perms[pending.toolName] = 'always'
+          await settingsService.set('builtin_tools_permissions', JSON.stringify(perms))
+        }
       }
       pending.resolve(approved)
       pendingConfirmations.delete(toolUseId)

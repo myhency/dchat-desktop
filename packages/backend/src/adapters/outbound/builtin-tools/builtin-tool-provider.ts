@@ -79,12 +79,12 @@ export class BuiltInToolProvider {
 
   async getActiveTools(): Promise<BuiltInToolDef[]> {
     const dirsJson = await this.settingsRepo.get('builtin_tools_allowed_dirs')
-    const dirs: string[] = dirsJson ? JSON.parse(dirsJson) : []
+    const dirs: string[] = dirsJson ? JSON.parse(dirsJson) : ['/tmp']
     if (dirs.length === 0) return []
 
     const shellEnabled = await this.settingsRepo.get('builtin_tools_shell_enabled')
     const tools = [...FILESYSTEM_TOOLS]
-    if (shellEnabled === 'true') {
+    if (shellEnabled !== 'false') {
       tools.push(...SHELL_TOOLS)
     }
     if (this.skillRepo) {
@@ -138,7 +138,7 @@ export class BuiltInToolProvider {
 
     // Load config
     const dirsJson = await this.settingsRepo.get('builtin_tools_allowed_dirs')
-    const allowedDirectories: string[] = dirsJson ? JSON.parse(dirsJson) : []
+    const allowedDirectories: string[] = dirsJson ? JSON.parse(dirsJson) : ['/tmp']
     const timeoutStr = await this.settingsRepo.get('builtin_tools_shell_timeout')
     const shellTimeout = timeoutStr ? parseInt(timeoutStr, 10) : 30000
 
@@ -158,7 +158,7 @@ export class BuiltInToolProvider {
 
   async getStatus(): Promise<BuiltinToolsStatusDTO> {
     const dirsJson = await this.settingsRepo.get('builtin_tools_allowed_dirs')
-    const dirs: string[] = dirsJson ? JSON.parse(dirsJson) : []
+    const dirs: string[] = dirsJson ? JSON.parse(dirsJson) : ['/tmp']
 
     if (dirs.length === 0) {
       return { status: 'disabled', toolCount: 0, directories: [], errors: [] }

@@ -295,6 +295,7 @@ if (nearBottom) {
 - `handleSave`: `directories.filter(d => d.trim())`로 빈 행 제거 후 JSON으로 저장
 - `hasDirectories` 판별: `directories.filter(d => d.trim()).length > 0` (빈 행이 있을 수 있으므로 length 비교)
 - Shell 토글: `shellEnabled` boolean → `"true"/"false"` 문자열로 저장
+- **도구 권한 목록 구성**: `FILESYSTEM_TOOL_NAMES` (13개 고정) + `SHELL_TOOL_NAMES` (`execute_command`). `shellEnabled`일 때만 shell 도구가 목록에 포함: `[...FILESYSTEM_TOOL_NAMES, ...(shellEnabled ? SHELL_TOOL_NAMES : [])]`. `DEFAULT_PERMISSIONS`에서 각 도구의 기본 권한 관리 (예: `execute_command: 'confirm'`)
 - **상태 표시**: `builtinStatus` 상태로 `settingsApi.getBuiltinToolsStatus()` fetch → Filesystem 카드에 색상 dot + 라벨 (`실행 중`/`오류`/`비활성화`). `handleSave` 후에도 재fetch (`fetchBuiltinStatus()`).
 - **에러 배너**: `builtinStatus.errors`가 있으면 filesystem 설정 뷰에서 접근 불가 디렉토리 목록을 빨간 배너로 표시
 - **에러 핸들링**: `useEffect`의 `Promise.all([...]).catch(() => { setLoaded(true) })` — API 실패 시에도 loaded 상태 설정하여 무한 로딩 방지

@@ -468,8 +468,19 @@ describe('BuiltInToolProvider', () => {
     expect(tools.find((t) => t.name === 'execute_command')).toBeUndefined()
   })
 
-  it('returns no tools when no directories configured', async () => {
+  it('returns default tools (/tmp + shell) when no settings configured', async () => {
     settingsRepo.get = vi.fn(async () => null)
+    const tools = await provider.getTools()
+    // 14 filesystem + 1 shell (execute_command)
+    expect(tools.length).toBe(15)
+    expect(tools.find((t) => t.name === 'execute_command')).toBeDefined()
+  })
+
+  it('returns no tools when directories explicitly set to empty', async () => {
+    settingsRepo.get = vi.fn(async (key: string) => {
+      if (key === 'builtin_tools_allowed_dirs') return '[]'
+      return null
+    })
     const tools = await provider.getTools()
     expect(tools.length).toBe(0)
   })
@@ -648,8 +659,20 @@ describe('BuiltInToolProvider', () => {
   })
 
   describe('getStatus', () => {
-    it('returns disabled when no directories configured', async () => {
+    it('returns running with /tmp when no settings configured', async () => {
       settingsRepo.get = vi.fn(async () => null)
+      const status = await provider.getStatus()
+      expect(status.status).toBe('running')
+      expect(status.toolCount).toBe(15)
+      expect(status.directories).toEqual(['/tmp'])
+      expect(status.errors).toEqual([])
+    })
+
+    it('returns disabled when directories explicitly set to empty', async () => {
+      settingsRepo.get = vi.fn(async (key: string) => {
+        if (key === 'builtin_tools_allowed_dirs') return '[]'
+        return null
+      })
       const status = await provider.getStatus()
       expect(status.status).toBe('disabled')
       expect(status.toolCount).toBe(0)
