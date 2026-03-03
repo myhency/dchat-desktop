@@ -107,6 +107,7 @@ MCP 서버 설정은 SQLite가 아닌 JSON 파일로 관리. 사용자가 직접
 ```
 
 - **기본 시드**: `ensureFile()`에서 config 파일이 없을 때(최초 설치) `DEFAULT_MCP_SERVERS` 상수로 `fetch`, `sequential-thinking` 서버를 포함하여 생성. 기존 파일이 있으면 건드리지 않음. 기본 서버 목록 변경 시 이 상수만 수정하면 됨 (기존 사용자에게는 영향 없음, 신규 설치에만 적용)
+- **stderr 캡처**: `StdioClientTransport` 생성 시 `stderr: 'pipe'` 필수. SDK(v1.26.0)는 이 옵션이 있을 때 생성자에서 PassThrough 스트림을 즉시 생성하므로, `transport.stderr?.on('data', ...)` 핸들러를 `client.connect()` **이전**에 등록해야 startup 실패 시에도 로그 캡처 가능. connect 이후에 등록하면 connect 중 throw 시 핸들러가 등록되지 않아 로그가 비게 됨
 - 서버 `id` = JSON 키 (server-name). 별도 ID 필드 없음
 - `enabled` 필드 없음 — JSON에 존재하면 enabled, 삭제하면 disabled
 - `createdAt`/`updatedAt`는 파일 mtime에서 도출 (DB 저장하지 않음)
