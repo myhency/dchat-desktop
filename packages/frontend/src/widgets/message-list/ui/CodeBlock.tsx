@@ -36,9 +36,9 @@ export const CodeBlock = memo(function CodeBlock({ language, code }: CodeBlockPr
   }, [code])
 
   return (
-    <div className="group my-3 w-full min-w-0">
+    <div className="not-prose group my-3 w-full min-w-0">
       {/* Header */}
-      <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-2 rounded-t-lg border border-b-0 border-neutral-200 dark:border-neutral-700 text-xs text-neutral-600 dark:text-neutral-400" style={{ background: darkMode ? '#171717' : '#FAF9F7' }}>
+      <div className="flex items-center justify-between px-4 py-2 rounded-t-lg border border-b-0 border-neutral-200 dark:border-neutral-700 text-xs text-neutral-600 dark:text-neutral-400" style={{ background: darkMode ? '#171717' : '#FAF9F7' }}>
         <span>{language}</span>
         <button
           onClick={handleCopy}

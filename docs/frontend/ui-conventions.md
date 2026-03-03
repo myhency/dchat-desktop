@@ -164,10 +164,14 @@ MainLayout (flex 가로)
 
 `packages/frontend/src/widgets/message-list/ui/CodeBlock.tsx`
 
-### Sticky 헤더
+### not-prose 격리
 
-- 헤더(언어 라벨 + Copy 버튼)는 `sticky top-0 z-10`으로 스크롤 시 고정
-- **래퍼에 `overflow-hidden` 사용 금지** — sticky가 동작하지 않음
+최외곽 `div`에 `not-prose` 클래스 적용. CodeBlock은 ReactMarkdown의 `prose` 컨테이너 안에서 렌더링되므로, Tailwind Typography의 prose 스타일(마진, 폰트 사이즈 등)이 코드 블록 내부 요소에 간섭하는 것을 방지.
+
+### 헤더에 `position: sticky` 사용 금지
+
+CodeBlock은 메시지 리스트의 스크롤 컨테이너(`flex-1 overflow-y-auto`) 안에 렌더링됨. 헤더에 `sticky top-0`을 적용하면, 코드블럭이 스크롤 컨테이너 상단 근처에 위치할 때 sticky의 parent constraint(`parent_bottom - header_height`)로 인해 **헤더가 wrapper 최하단으로 밀려** 언어 라벨이 코드 아래에 표시됨.
+
 - border/rounded를 헤더와 코드 본문에 각각 분리 적용:
   - 헤더: `rounded-t-lg border border-b-0`
   - 코드: `rounded-b-lg border border-t-0 overflow-x-auto`

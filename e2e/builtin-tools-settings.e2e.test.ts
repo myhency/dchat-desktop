@@ -92,6 +92,34 @@ describe('builtin tools settings E2E', () => {
   }, 30_000)
 
   it('Filesystem 구성에서 도구 권한 섹션 존재 확인', async () => {
+    // Ensure shell is disabled so only filesystem tools appear
+    await vibe.evaluate(`
+      return fetch('/api/settings/builtin_tools_shell_enabled', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value: 'false' })
+      }).then(() => true)
+    `)
+    await new Promise((r) => setTimeout(r, 300))
+
+    // Switch to a different tab to unmount ExtensionsContent
+    await vibe.evaluate(
+      'const btn = [...document.querySelectorAll("button")].find(b => b.textContent.trim() === "일반"); if (btn) btn.click();'
+    )
+    await new Promise((r) => setTimeout(r, 300))
+
+    // Re-enter extensions tab (remounts component, reads fresh state from API)
+    await vibe.evaluate(
+      'const btn = [...document.querySelectorAll("button")].find(b => b.textContent.trim() === "확장 프로그램"); if (btn) btn.click();'
+    )
+    await new Promise((r) => setTimeout(r, 1000))
+
+    // Enter filesystem config
+    await vibe.evaluate(
+      'const btn = [...document.querySelectorAll("button")].find(b => b.textContent.trim() === "구성"); if (btn) btn.click();'
+    )
+    await new Promise((r) => setTimeout(r, 500))
+
     // Should already be in filesystem config view from previous test
     const permSection = await vibe.evaluate<boolean>(
       'return !!document.body.textContent.includes("도구 권한")'
@@ -130,7 +158,7 @@ describe('builtin tools settings E2E', () => {
     )
     expect(hasListAllowed).toBe(true)
 
-    // Verify 13 tool rows total
+    // Verify 13 filesystem tool rows (shell disabled)
     const toolCount = await vibe.evaluate<number>(`
       const rows = document.querySelectorAll('[class*="font-mono"]');
       return [...rows].filter(el => el.closest('[class*="justify-between"]')).length;
@@ -256,6 +284,86 @@ describe('builtin tools settings E2E', () => {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ value: '{}' })
+      }).then(() => true)
+    `)
+    await new Promise((r) => setTimeout(r, 300))
+  }, 30_000)
+
+  it('Shell 활성화 시 execute_command 권한 행이 도구 권한에 표시됨', async () => {
+    // Enable shell via API
+    await vibe.evaluate(`
+      return fetch('/api/settings/builtin_tools_shell_enabled', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value: 'true' })
+      }).then(() => true)
+    `)
+    await new Promise((r) => setTimeout(r, 300))
+
+    // Navigate away from extensions to force unmount, then back to remount with fresh state
+    await vibe.evaluate(
+      'const btn = [...document.querySelectorAll("button")].find(b => b.textContent.trim() === "일반"); if (btn) btn.click();'
+    )
+    await new Promise((r) => setTimeout(r, 300))
+    await vibe.evaluate(
+      'const btn = [...document.querySelectorAll("button")].find(b => b.textContent.trim() === "확장 프로그램"); if (btn) btn.click();'
+    )
+    await new Promise((r) => setTimeout(r, 1000))
+
+    // Enter filesystem config
+    await vibe.evaluate(
+      'const btn = [...document.querySelectorAll("button")].find(b => b.textContent.trim() === "구성"); if (btn) btn.click();'
+    )
+    await new Promise((r) => setTimeout(r, 500))
+
+    // Verify execute_command row is now visible
+    const hasExecuteCommand = await vibe.evaluate<boolean>(
+      'return !!document.body.textContent.includes("execute_command")'
+    )
+    expect(hasExecuteCommand).toBe(true)
+
+    // Verify 14 tool rows total (13 filesystem + 1 shell)
+    const toolCount = await vibe.evaluate<number>(`
+      const rows = document.querySelectorAll('[class*="font-mono"]');
+      return [...rows].filter(el => el.closest('[class*="justify-between"]')).length;
+    `)
+    expect(toolCount).toBe(14)
+  }, 30_000)
+
+  it('execute_command 권한 변경(always/confirm/blocked)이 API에 저장됨', async () => {
+    // Click "always" (CircleCheck) button for execute_command — 1st button in the row
+    await vibe.evaluate(`
+      const rows = document.querySelectorAll('[class*="font-mono"]');
+      const execRow = [...rows].find(el => el.textContent === 'execute_command');
+      if (execRow) {
+        const btns = execRow.closest('[class*="justify-between"]').querySelectorAll('button');
+        if (btns[0]) btns[0].click();
+      }
+    `)
+    await new Promise((r) => setTimeout(r, 500))
+
+    // Verify saved value via API
+    const savedValue = await vibe.evaluate<string>(`
+      return fetch('/api/settings/builtin_tools_permissions')
+        .then(r => r.json())
+        .then(json => json.value || '')
+    `)
+    expect(savedValue).toContain('execute_command')
+    expect(savedValue).toContain('always')
+
+    // Cleanup
+    await vibe.evaluate(`
+      return fetch('/api/settings/builtin_tools_permissions', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value: '{}' })
+      }).then(() => true)
+    `)
+    await vibe.evaluate(`
+      return fetch('/api/settings/builtin_tools_shell_enabled', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value: 'false' })
       }).then(() => true)
     `)
     await new Promise((r) => setTimeout(r, 300))

@@ -31,7 +31,8 @@ export class StdioMcpClientManager implements McpClientGateway {
     const transport = new StdioClientTransport({
       command,
       args,
-      env: mergedEnv
+      env: mergedEnv,
+      stderr: 'pipe'
     })
 
     const client = new Client(

@@ -138,6 +138,23 @@ el.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
 el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, cancelable: true }))
 ```
 
+### Settings 컴포넌트 상태 갱신 (탭 전환 패턴)
+
+`SettingsScreen`의 탭 콘텐츠(`ExtensionsContent` 등)는 조건부 렌더링(`activeTab === 'extensions' ? <ExtensionsContent />`)으로 마운트/언마운트됨. settings API로 값을 변경한 후 UI에 반영하려면 컴포넌트를 remount해야 함 (`useEffect`가 마운트 시에만 API 호출):
+
+```typescript
+// API로 값 변경
+await vibe.evaluate(`fetch('/api/settings/builtin_tools_shell_enabled', { method: 'PUT', ... })`)
+
+// 다른 탭으로 전환 → 원래 탭 복귀 (unmount → remount → useEffect 재실행)
+await vibe.evaluate('click "일반" tab')           // ExtensionsContent unmount
+await new Promise((r) => setTimeout(r, 300))
+await vibe.evaluate('click "확장 프로그램" tab')    // ExtensionsContent remount (fresh state)
+await new Promise((r) => setTimeout(r, 1000))      // API 호출 완료 대기
+```
+
+같은 탭을 다시 클릭하는 것만으로는 remount가 발생하지 않음에 주의.
+
 ### 테스트 파일 간 포트 충돌
 
 vibium은 기본적으로 포트 9515를 사용. vitest가 테스트 파일을 병렬 실행하므로, 여러 파일에서 `browser.launch()`를 호출하면 포트 충돌 발생. 두 번째 테스트 파일부터 다른 포트 지정:

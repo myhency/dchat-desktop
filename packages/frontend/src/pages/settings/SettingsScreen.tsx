@@ -2467,6 +2467,8 @@ const FILESYSTEM_TOOL_NAMES = [
   'directory_tree', 'move_file', 'get_file_info', 'list_allowed_directories'
 ] as const
 
+const SHELL_TOOL_NAMES = ['execute_command'] as const
+
 const DEFAULT_PERMISSIONS: Record<string, ToolPermission> = {
   read_text_file: 'always',
   write_file: 'confirm',
@@ -2480,15 +2482,16 @@ const DEFAULT_PERMISSIONS: Record<string, ToolPermission> = {
   directory_tree: 'always',
   move_file: 'confirm',
   get_file_info: 'always',
-  list_allowed_directories: 'always'
+  list_allowed_directories: 'always',
+  execute_command: 'confirm'
 }
 
 type ExtensionView = 'list' | 'filesystem-config'
 
 function ExtensionsContent({ onNavigate }: { onNavigate: (tab: Tab) => void }): React.JSX.Element {
   const [view, setView] = useState<ExtensionView>('list')
-  const [directories, setDirectories] = useState<string[]>([])
-  const [shellEnabled, setShellEnabled] = useState(false)
+  const [directories, setDirectories] = useState<string[]>(['/tmp'])
+  const [shellEnabled, setShellEnabled] = useState(true)
   const [saving, setSaving] = useState(false)
   const [loaded, setLoaded] = useState(false)
   const loadedDirsRef = useRef<string[]>([])
@@ -2512,8 +2515,11 @@ function ExtensionsContent({ onNavigate }: { onNavigate: (tab: Tab) => void }): 
           setDirectories(parsed)
           loadedDirsRef.current = parsed
         } catch { /* ignore */ }
+      } else {
+        setDirectories(['/tmp'])
+        loadedDirsRef.current = ['/tmp']
       }
-      setShellEnabled(shellVal === 'true')
+      setShellEnabled(shellVal !== 'false')
       if (permsVal) {
         try {
           const parsed = JSON.parse(permsVal)
@@ -2752,7 +2758,7 @@ function ExtensionsContent({ onNavigate }: { onNavigate: (tab: Tab) => void }): 
         </p>
 
         <div className="space-y-2">
-          {FILESYSTEM_TOOL_NAMES.map((toolName) => {
+          {[...FILESYSTEM_TOOL_NAMES, ...(shellEnabled ? SHELL_TOOL_NAMES : [])].map((toolName) => {
             const current = toolPermissions[toolName] ?? DEFAULT_PERMISSIONS[toolName]
             return (
               <div key={toolName} className="flex items-center justify-between py-1.5">

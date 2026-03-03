@@ -295,6 +295,7 @@ if (nearBottom) {
 - `handleSave`: `directories.filter(d => d.trim())`로 빈 행 제거 후 JSON으로 저장
 - `hasDirectories` 판별: `directories.filter(d => d.trim()).length > 0` (빈 행이 있을 수 있으므로 length 비교)
 - Shell 토글: `shellEnabled` boolean → `"true"/"false"` 문자열로 저장
+- **도구 권한 목록 구성**: `FILESYSTEM_TOOL_NAMES` (13개 고정) + `SHELL_TOOL_NAMES` (`execute_command`). `shellEnabled`일 때만 shell 도구가 목록에 포함: `[...FILESYSTEM_TOOL_NAMES, ...(shellEnabled ? SHELL_TOOL_NAMES : [])]`. `DEFAULT_PERMISSIONS`에서 각 도구의 기본 권한 관리 (예: `execute_command: 'confirm'`)
 - **상태 표시**: `builtinStatus` 상태로 `settingsApi.getBuiltinToolsStatus()` fetch → Filesystem 카드에 색상 dot + 라벨 (`실행 중`/`오류`/`비활성화`). `handleSave` 후에도 재fetch (`fetchBuiltinStatus()`).
 - **에러 배너**: `builtinStatus.errors`가 있으면 filesystem 설정 뷰에서 접근 불가 디렉토리 목록을 빨간 배너로 표시
 - **에러 핸들링**: `useEffect`의 `Promise.all([...]).catch(() => { setLoaded(true) })` — API 실패 시에도 loaded 상태 설정하여 무한 로딩 방지
@@ -341,13 +342,16 @@ lastUserMsgRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 
 ## 도구 블록 즉시 표시 패턴 (tool_start → tool_use 폴백)
 
-`session.store.ts`의 `sendMessage` 콜백에서 `onToolStart`와 `onToolUse`가 협력하여 도구 블록을 즉시 표시:
+`session.store.ts`의 `sendMessage`/`regenerateMessage`/`editMessage` 3개 스트리밍 액션 모두에 `onToolStart`, `onToolUse`, `onToolResult`, `onToolConfirm` 4개 콜백이 동일하게 존재해야 함. 누락 시 해당 액션에서 도구 확인 UI가 표시되지 않음 (`callbacks.onToolConfirm?.(data)` — undefined로 무시됨).
+
+`onToolStart`와 `onToolUse`가 협력하여 도구 블록을 즉시 표시:
 
 - **`onToolStart`**: 빈 input(`{}`)으로 tool 세그먼트를 즉시 생성 → UI에 스피너 즉시 표시
 - **`onToolUse`**: 동일 `toolUseId`의 세그먼트가 이미 존재하면 `updateToolInSegments`로 `toolInput`만 업데이트. 존재하지 않으면(폴백) 새 세그먼트 생성.
 - **폴백이 필요한 이유**: `tool_start`를 보내지 않는 LLM 어댑터(OpenAI 등)에서도 `onToolUse`만으로 기존 동작 유지.
 - **ToolCallBlock 빈 input 처리**: `Object.keys(toolInput).length === 0`이면 "입력 생성 중..." 텍스트 표시. `tool_use` 수신 시 실제 JSON으로 교체.
 - **수정 시 주의**: `onToolStart`와 `onToolUse`에서 세그먼트 존재 여부 확인이 `toolUseId` 기준. ID 체계가 변경되면 양쪽 모두 수정 필요.
+- **수정 시 주의**: 4개 tool 콜백 로직 변경 시 `sendMessage`, `regenerateMessage`, `editMessage` 3곳 모두 동기화 필요. 콜백 내용은 동일하며 `sessionId` 바인딩만 각 액션의 로컬 변수 사용.
 
 ## 도구 확인 UI (ToolCallBlock)
 
@@ -355,6 +359,7 @@ lastUserMsgRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 
 - **`ToolCallInfo.status`**: `'calling' | 'done' | 'error' | 'confirming'` — `confirming`은 승인 대기 상태
 - **자동 확장**: `confirming` 상태 전환 시 `useEffect`로 `setExpanded(true)` 호출. `useState(isConfirming)` 초기값만으로는 마운트 이후 `calling → confirming` 전환을 감지하지 못함 (동일 `key`의 컴포넌트 인스턴스이므로 `useState` 초기값 무시됨)
+- **자동 스크롤**: `isConfirming && expanded` 조건으로 `scrollIntoView({ block: 'nearest', behavior: 'smooth' })` 호출. MessageList의 auto-scroll은 `streamingSegments` 변경 시 실행되지만, ToolCallBlock 확장은 그 다음 렌더 사이클이므로 확인 버튼이 화면 밖에 렌더링됨. 별도 scrollIntoView가 필요한 이유
 - **승인/거부 버튼**: `confirmTool(toolUseId, approved)` → `chatApi.confirmTool()` 호출 + UI 상태 갱신
   - 승인 시: `status → 'calling'` (도구 실행 계속)
   - 거부 시: `status → 'error'`, `result: 'User denied the tool execution.'`
