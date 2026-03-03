@@ -309,7 +309,7 @@ const stream = await this.client.chat.completions.create(
 
 - **적용 범위**: `execute()`, `regenerate()` — 사용자 채팅에만 적용
 - **미적용**: `generateTitle()` — 자체 하드코딩된 프롬프트 사용, `buildSystemPrompt` 호출하지 않음
-- **도구 가이드라인**: `allTools.length > 0`일 때 `hasTools=true`로 전달. LLM이 도구 존재만으로 파일을 생성하지 않도록 명시적 요청 시에만 사용하라는 지침 포함
+- **도구 가이드라인**: `allTools.length > 0`일 때 `hasTools=true`로 전달. 파일시스템 도구는 명시적 요청 시에만, `execute_command`는 셸 명령이 필요한 작업에 적극 활용하라는 지침 포함. 새 도구 카테고리 추가 시 이 가이드라인에도 안내를 추가해야 LLM이 해당 도구를 활용함
 - **수정 시 주의**: `buildSystemPrompt`는 도메인 서비스 내부 private 메서드. `ProjectRepository`를 생성자에서 주입받음 (`container.ts`에서 5번째 인자)
 
 ## MemoryService
