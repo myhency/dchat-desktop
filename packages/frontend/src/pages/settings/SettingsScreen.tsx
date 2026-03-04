@@ -6,6 +6,7 @@ import type { Skill, SkillFile } from '@dchat/shared'
 import { useSessionStore } from '@/entities/session'
 import { useMcpStore, mcpApi } from '@/entities/mcp'
 import { backupApi } from '@/entities/settings/api/backup.api'
+import { diagnosticApi } from '@/entities/settings/api/diagnostic.api'
 import { openFile, pickDirectory } from '@/shared/lib/native'
 import { formatRelativeTime } from '@/shared/lib/time'
 
@@ -2200,6 +2201,8 @@ function DeveloperContent(): React.JSX.Element {
   const reloadConfig = useMcpStore((s) => s.reloadConfig)
 
   const [reloading, setReloading] = useState(false)
+  const [diagStatus, setDiagStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
+  const [diagMessage, setDiagMessage] = useState('')
 
   useEffect(() => {
     loadServers()
@@ -2215,6 +2218,27 @@ function DeveloperContent(): React.JSX.Element {
     setReloading(true)
     await reloadConfig()
     setReloading(false)
+  }
+
+  const handleExportDiagnostics = async (): Promise<void> => {
+    setDiagStatus('loading')
+    setDiagMessage('')
+    try {
+      const blob = await diagnosticApi.exportDiagnostics()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `dchat-diagnostics-${new Date().toISOString().slice(0, 10)}.zip`
+      a.click()
+      URL.revokeObjectURL(url)
+      setDiagStatus('success')
+      setDiagMessage('진단 로그가 다운로드되었습니다')
+      setTimeout(() => { setDiagStatus('idle'); setDiagMessage('') }, 3000)
+    } catch (err) {
+      setDiagStatus('error')
+      setDiagMessage(err instanceof Error ? err.message : '내보내기 실패')
+      setTimeout(() => { setDiagStatus('idle'); setDiagMessage('') }, 5000)
+    }
   }
 
   const selected = servers.find((s) => s.config.id === selectedServerId)
@@ -2452,6 +2476,34 @@ function DeveloperContent(): React.JSX.Element {
           </div>
         </div>
       )}
+
+      {/* 진단 로그 */}
+      <div className="border-t border-neutral-200 dark:border-neutral-700 pt-4 space-y-2">
+        <h3 className="text-sm font-semibold">진단 로그</h3>
+        <p className="text-xs text-neutral-500 dark:text-neutral-400">
+          문제 해결을 위해 로그 파일을 zip으로 내보냅니다. 데이터베이스와 API 키는 포함되지 않습니다.
+        </p>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleExportDiagnostics}
+            disabled={diagStatus === 'loading'}
+            className="flex items-center gap-1.5 rounded-lg border border-neutral-300 dark:border-neutral-600 px-3 py-1.5 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors disabled:opacity-50"
+          >
+            {diagStatus === 'loading' ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <Download size={14} />
+            )}
+            진단 로그 내보내기
+          </button>
+          {diagMessage && (
+            <span className={`text-xs ${diagStatus === 'error' ? 'text-red-500' : 'text-green-600 dark:text-green-400'}`}>
+              {diagMessage}
+            </span>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

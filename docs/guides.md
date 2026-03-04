@@ -157,11 +157,19 @@ await new Promise((r) => setTimeout(r, 1000))      // API 호출 완료 대기
 
 ### 테스트 파일 간 포트 충돌
 
-vibium은 기본적으로 포트 9515를 사용. vitest가 테스트 파일을 병렬 실행하므로, 여러 파일에서 `browser.launch()`를 호출하면 포트 충돌 발생. 두 번째 테스트 파일부터 다른 포트 지정:
+vibium은 기본적으로 포트 9515를 사용. vitest가 테스트 파일을 병렬 실행하므로, 여러 파일에서 `browser.launch()`를 호출하면 포트 충돌 발생. 각 테스트 파일에 고유 포트를 지정:
 
-```typescript
-vibe = await browser.launch({ headless: true, port: 9516 })
-```
+| 포트 | 테스트 파일 |
+|------|-----------|
+| 9515 | `chat.e2e.test.ts` (기본값) |
+| 9516 | `mcp-server.e2e.test.ts` |
+| 9517 | `features-settings.e2e.test.ts` |
+| 9518 | `project-memory.e2e.test.ts` |
+| 9519 | `builtin-tools-settings.e2e.test.ts` |
+| 9520 | `add-to-project.e2e.test.ts` |
+| 9521 | `diagnostic-export.e2e.test.ts` |
+
+새 E2E 테스트 파일 추가 시 **9522 이후** 포트를 사용할 것.
 
 ## 프론트엔드 컴포넌트 추가 (FSD 규칙)
 

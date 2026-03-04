@@ -105,6 +105,18 @@ Base URL: `/api` (기본 포트 3131)
 | DELETE | `/api/memory` | — | `{ ok: true }` | 메모리 삭제 |
 | POST | `/api/memory/edit` | `EditMemoryRequest` | `MemoryResponse` | LLM으로 메모리 수정 (`{ instruction, model }`) |
 
+## Diagnostics
+
+| 메서드 | 경로 | Body | 응답 | 설명 |
+|--------|------|------|------|------|
+| GET | `/api/diagnostics/export` | — | `application/zip` (바이너리) | 진단 로그 zip 다운로드 |
+
+- 의존: `ManageMcpServersUseCase` (MCP 서버 로그 수집)
+- zip 구조: `dchat-diagnostics-YYYY-MM-DD/` 하위에 `backend.log`, `crash-reports/`, `mcp-logs/`
+- 각 데이터 소스를 개별 try/catch로 감싸 부분 실패 시 해당 항목만 스킵 (항상 200 응답)
+- `DCHAT_LOG_PATH` 미설정(dev 모드) 시 `backend.log` 자동 스킵
+- **비-JSON 응답**: `res.send(buffer)` — 프론트엔드에서 `apiFetch` 사용 불가, raw `fetch` + `blob()` 필요 (아래 프론트엔드 패턴 참고)
+
 ## Error Reports
 
 | 메서드 | 경로 | Body | 응답 | 설명 |

@@ -425,6 +425,37 @@ return <div><FileText /><span>{attachment.fileName}</span></div>
 - **웹 모드 파일 선택** (`native.ts`): `input.accept`에 문서 MIME 타입 포함. `MIME_FALLBACK` 맵으로 확장자 기반 폴백 MIME 감지 (브라우저가 비이미지 파일의 `file.type`을 비워두는 경우 대비).
 - **텍스트 확장자 목록**: 지원 확장자 배열이 **3곳**에 병렬로 존재 — `native.ts` (TEXT_EXTENSIONS), `electron/main.ts` (textExtensions), `read-document.ts` (SUPPORTED_TEXT_EXTENSIONS). 확장자 추가 시 3곳 모두 동기화 필요. `document-text-extractor.ts`는 `text/*` MIME prefix 매칭으로 별도 확장자 목록 불필요.
 
+## 비-JSON API 응답 (바이너리 다운로드)
+
+`apiFetch`는 내부에서 `res.json()`을 호출하므로 바이너리 응답(zip, 파일 등)에는 사용 불가. raw `fetch`를 `getApiBase()`와 조합:
+
+```typescript
+// entities/settings/api/diagnostic.api.ts
+import { getApiBase } from '@/shared/api/client'
+
+export const diagnosticApi = {
+  exportDiagnostics: async (): Promise<Blob> => {
+    const res = await fetch(`${getApiBase()}/api/diagnostics/export`)
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    return res.blob()
+  }
+}
+```
+
+Blob을 파일로 다운로드하는 패턴 (백업 내보내기와 동일):
+
+```typescript
+const blob = await diagnosticApi.exportDiagnostics()
+const url = URL.createObjectURL(blob)
+const a = document.createElement('a')
+a.href = url
+a.download = `filename-${new Date().toISOString().slice(0, 10)}.zip`
+a.click()
+URL.revokeObjectURL(url)
+```
+
+- **수정 시 주의**: 새 바이너리 엔드포인트 추가 시 `apiFetch`를 사용하면 JSON 파싱 에러 발생. 반드시 raw `fetch` + `getApiBase()` 사용
+
 ## ErrorBoundary 에러 저장
 
 `packages/frontend/src/shared/ui/ErrorBoundary.tsx` — 앱 전역 에러 캐치 + fallback UI.
