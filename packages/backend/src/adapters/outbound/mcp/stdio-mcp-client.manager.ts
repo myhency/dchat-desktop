@@ -77,8 +77,8 @@ export class StdioMcpClientManager implements McpClientGateway {
 
     try {
       await entry.client.close()
-    } catch {
-      // ignore close errors
+    } catch (err) {
+      logger.warn({ err, serverId: id }, 'MCP client close error')
     }
     this.servers.delete(id)
     logger.info({ serverId: id }, 'MCP server stopped')

@@ -173,7 +173,7 @@ export function createChatRoutes(
                   sendSSE(res, 'title', { sessionId, title })
                 }
               })
-              .catch(() => {})
+              .catch((err) => { logger.warn({ err, sessionId }, 'Title generation failed') })
           }
         },
         abortController.signal

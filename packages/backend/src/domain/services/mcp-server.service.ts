@@ -36,8 +36,8 @@ export class McpServerService implements ManageMcpServersUseCase {
     // Auto-start
     try {
       await this.client.startServer(config.id, config.command, config.args, config.env)
-    } catch {
-      // Server saved but start failed — status will be 'error'
+    } catch (err) {
+      console.warn('[mcp-server] Auto-start failed after create:', err)
     }
 
     return config
@@ -65,13 +65,13 @@ export class McpServerService implements ManageMcpServersUseCase {
     if (needsRestart && updated.enabled) {
       try {
         await this.client.stopServer(id)
-      } catch {
-        // ignore stop errors
+      } catch (err) {
+        console.warn('[mcp-server] Stop failed during restart:', err)
       }
       try {
         await this.client.startServer(id, updated.command, updated.args, updated.env)
-      } catch {
-        // start failed — status will be 'error'
+      } catch (err) {
+        console.warn('[mcp-server] Start failed after update:', err)
       }
     }
 
@@ -81,8 +81,8 @@ export class McpServerService implements ManageMcpServersUseCase {
   async deleteServer(id: string): Promise<void> {
     try {
       await this.client.stopServer(id)
-    } catch {
-      // ignore stop errors on delete
+    } catch (err) {
+      console.warn('[mcp-server] Stop failed during delete:', err)
     }
     await this.repo.delete(id)
   }
@@ -102,8 +102,8 @@ export class McpServerService implements ManageMcpServersUseCase {
     if (!config) throw new Error(`MCP server not found: ${id}`)
     try {
       await this.client.stopServer(id)
-    } catch {
-      // ignore
+    } catch (err) {
+      console.warn('[mcp-server] Stop failed during restart:', err)
     }
     await this.client.startServer(id, config.command, config.args, config.env)
   }
@@ -127,8 +127,8 @@ export class McpServerService implements ManageMcpServersUseCase {
       if (server.enabled) {
         try {
           await this.client.startServer(server.id, server.command, server.args, server.env)
-        } catch {
-          // log error but continue starting other servers
+        } catch (err) {
+          console.warn('[mcp-server] Failed to start enabled server:', server.id, err)
         }
       }
     }

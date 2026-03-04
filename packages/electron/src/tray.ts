@@ -175,11 +175,15 @@ export function initQuickChatDeps(
 
 export function createTray(): void {
   if (tray || !deps) return
-  tray = new Tray(createTrayIcon())
-  tray.setToolTip('D Chat')
-  tray.on('click', () => {
-    toggleQuickChatPopup()
-  })
+  try {
+    tray = new Tray(createTrayIcon())
+    tray.setToolTip('D Chat')
+    tray.on('click', () => {
+      toggleQuickChatPopup()
+    })
+  } catch (err) {
+    console.error('[electron] Failed to create tray:', err)
+  }
 }
 
 export function destroyTray(): void {

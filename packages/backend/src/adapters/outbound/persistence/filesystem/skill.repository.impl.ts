@@ -5,6 +5,7 @@ import AdmZip from 'adm-zip'
 import type { Skill, SkillFile } from '../../../../domain/entities/skill'
 import type { SkillRepository } from '../../../../domain/ports/outbound/skill.repository'
 import type { SettingsRepository } from '../../../../domain/ports/outbound/settings.repository'
+import logger from '../../../../logger'
 
 interface SkillConfig {
   disabled: string[]
@@ -273,7 +274,8 @@ export class FileSystemSkillRepository implements SkillRepository {
         createdAt: dirStat.birthtime,
         updatedAt: fileStat.mtime
       }
-    } catch {
+    } catch (err) {
+      logger.warn({ err, skillId: id }, 'Failed to parse skill directory')
       return null
     }
   }
@@ -334,7 +336,8 @@ export class FileSystemSkillRepository implements SkillRepository {
       const raw = readFileSync(CONFIG_PATH, 'utf-8')
       const parsed = JSON.parse(raw) as Partial<SkillConfig>
       return { disabled: Array.isArray(parsed.disabled) ? parsed.disabled : [] }
-    } catch {
+    } catch (err) {
+      logger.warn({ err }, 'Failed to read skill config')
       return { disabled: [] }
     }
   }
@@ -364,7 +367,8 @@ export class FileSystemSkillRepository implements SkillRepository {
   private safeReaddir(dirPath: string): string[] {
     try {
       return readdirSync(dirPath)
-    } catch {
+    } catch (err) {
+      logger.warn({ err, dirPath }, 'Failed to read directory')
       return []
     }
   }
@@ -372,7 +376,8 @@ export class FileSystemSkillRepository implements SkillRepository {
   private safeStat(filePath: string): ReturnType<typeof statSync> | null {
     try {
       return statSync(filePath)
-    } catch {
+    } catch (err) {
+      logger.warn({ err, filePath }, 'Failed to stat file')
       return null
     }
   }

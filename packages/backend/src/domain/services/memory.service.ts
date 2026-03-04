@@ -279,8 +279,8 @@ export class MemoryService implements ManageMemoryUseCase {
         this.settingsRepo.set('memory_content', parsed),
         this.settingsRepo.set('memory_updated_at', new Date().toISOString())
       ])
-    } catch {
-      // Fire-and-forget: silently ignore extraction failures
+    } catch (err) {
+      console.warn('[memory] Memory extraction failed:', err)
     }
   }
 
@@ -432,8 +432,8 @@ export class MemoryService implements ManageMemoryUseCase {
       project.memoryContent = parsed
       project.memoryUpdatedAt = new Date()
       await this.projectRepo.save(project)
-    } catch {
-      // Fire-and-forget: silently ignore extraction failures
+    } catch (err) {
+      console.warn('[memory] Project memory extraction failed:', err)
     }
   }
 

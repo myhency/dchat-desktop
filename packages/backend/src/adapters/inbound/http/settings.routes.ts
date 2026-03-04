@@ -2,6 +2,7 @@ import { Router, type Request, type Response, type NextFunction } from 'express'
 import type { ManageSettingsUseCase } from '../../../domain/ports/inbound/manage-settings.usecase'
 import type { LLMGatewayResolver } from '../../../domain/ports/outbound/llm-gateway.resolver'
 import type { SetSettingRequest } from '@dchat/shared'
+import logger from '../../../logger'
 
 const asyncHandler = (fn: Function) =>
   (req: Request, res: Response, next: NextFunction) =>
@@ -26,6 +27,7 @@ export function createSettingsRoutes(
   router.put('/:key', asyncHandler(async (req: Request, res: Response) => {
     const { value } = req.body as SetSettingRequest
     await settingsService.set(req.params.key, value)
+    logger.info({ key: req.params.key }, 'Setting updated')
 
     // API 키 또는 Base URL 변경 시 LLM 어댑터 갱신
     if (req.params.key === 'anthropic_api_key') {

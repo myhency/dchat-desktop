@@ -57,7 +57,11 @@ export function createApp(container: AppContainer): express.Express {
   app.use('/api/builtin-tools', createBuiltinToolsRoutes(container.builtInTools))
   app.use('/api/skills', createSkillRoutes(container.skillService, container.skillRepo))
   app.use('/api/error-reports', createErrorReportRoutes())
-  app.use('/api/diagnostics', createDiagnosticRoutes(container.mcpServerService))
+  app.use('/api/diagnostics', createDiagnosticRoutes({
+    mcpService: container.mcpServerService,
+    settingsService: container.settingsService,
+    getDbStats: container.getDbStats,
+  }))
 
   // Global error handler — Express 4 does not catch rejected promises from async handlers
   app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

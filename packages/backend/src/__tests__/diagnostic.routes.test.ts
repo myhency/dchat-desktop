@@ -32,10 +32,22 @@ const mockMcpService = {
   reloadConfig: vi.fn(),
 }
 
+const mockSettingsService = {
+  get: vi.fn(),
+  set: vi.fn(),
+  getAll: vi.fn(),
+}
+
+const mockGetDbStats = vi.fn()
+
 beforeAll(async () => {
   const app = express()
   app.use(express.json())
-  app.use('/api/diagnostics', createDiagnosticRoutes(mockMcpService as any))
+  app.use('/api/diagnostics', createDiagnosticRoutes({
+    mcpService: mockMcpService as any,
+    settingsService: mockSettingsService as any,
+    getDbStats: mockGetDbStats,
+  }))
 
   await new Promise<void>((resolve) => {
     server = app.listen(0, () => {
@@ -58,6 +70,13 @@ beforeEach(() => {
   mockHome = mkdtempSync(join(tmpdir(), 'dchat-diag-test-'))
   mockMcpService.getServerStatuses.mockReset()
   mockMcpService.getServerLogs.mockReset()
+  mockSettingsService.getAll.mockReset()
+  mockGetDbStats.mockReset()
+
+  // Default mocks for new sections
+  mockSettingsService.getAll.mockResolvedValue({})
+  mockGetDbStats.mockReturnValue({ sessions: 0, messages: 0, dbSizeBytes: 0 })
+  mockMcpService.getServerStatuses.mockResolvedValue([])
 })
 
 afterEach(() => {
@@ -115,7 +134,6 @@ describe('POST /api/diagnostics/export', () => {
 
   it('returns valid zip without backend.log when DCHAT_LOG_PATH is not set', async () => {
     // No DCHAT_LOG_PATH set
-    mockMcpService.getServerStatuses.mockResolvedValue([])
 
     const res = await postExport()
     expect(res.status).toBe(200)
@@ -129,7 +147,6 @@ describe('POST /api/diagnostics/export', () => {
 
   it('returns valid zip when crash-reports directory does not exist', async () => {
     // mockHome has no .dchat/crash-reports
-    mockMcpService.getServerStatuses.mockResolvedValue([])
 
     const res = await postExport()
     expect(res.status).toBe(200)
@@ -142,8 +159,6 @@ describe('POST /api/diagnostics/export', () => {
   })
 
   it('returns valid zip without mcp-logs when no servers exist', async () => {
-    mockMcpService.getServerStatuses.mockResolvedValue([])
-
     const res = await postExport()
     expect(res.status).toBe(200)
 
@@ -163,8 +178,6 @@ describe('POST /api/diagnostics/export', () => {
   })
 
   it('includes frontend.log when frontendLogs provided', async () => {
-    mockMcpService.getServerStatuses.mockResolvedValue([])
-
     const frontendLogs = [
       { timestamp: '2026-03-04T10:00:00.000Z', level: 'log', message: 'app started' },
       { timestamp: '2026-03-04T10:00:01.000Z', level: 'warn', message: 'slow render' },
@@ -192,8 +205,6 @@ describe('POST /api/diagnostics/export', () => {
   })
 
   it('does not include frontend.log when frontendLogs not provided', async () => {
-    mockMcpService.getServerStatuses.mockResolvedValue([])
-
     const res = await postExport()
     expect(res.status).toBe(200)
 
@@ -205,8 +216,6 @@ describe('POST /api/diagnostics/export', () => {
   })
 
   it('does not include frontend.log when frontendLogs is empty array', async () => {
-    mockMcpService.getServerStatuses.mockResolvedValue([])
-
     const res = await postExport({ frontendLogs: [] })
     expect(res.status).toBe(200)
 
@@ -215,5 +224,145 @@ describe('POST /api/diagnostics/export', () => {
     const entries = zip.getEntries().map((e) => e.entryName)
 
     expect(entries.some((e) => e.includes('frontend.log'))).toBe(false)
+  })
+
+  // --- New sections ---
+
+  it('includes system-info.json with expected fields', async () => {
+    const res = await postExport()
+    expect(res.status).toBe(200)
+
+    const buffer = Buffer.from(await res.arrayBuffer())
+    const zip = new AdmZip(buffer)
+    const dateStr = new Date().toISOString().slice(0, 10)
+    const prefix = `dchat-diagnostics-${dateStr}`
+
+    const entries = zip.getEntries().map((e) => e.entryName)
+    expect(entries).toContain(`${prefix}/system-info.json`)
+
+    const systemInfo = JSON.parse(zip.readAsText(`${prefix}/system-info.json`))
+    expect(systemInfo.node).toHaveProperty('version')
+    expect(systemInfo.node).toHaveProperty('platform')
+    expect(systemInfo.node).toHaveProperty('arch')
+    expect(systemInfo.os).toHaveProperty('release')
+    expect(systemInfo.os).toHaveProperty('totalMemory')
+    expect(systemInfo.os).toHaveProperty('freeMemory')
+    expect(systemInfo.process).toHaveProperty('uptime')
+    expect(systemInfo.process).toHaveProperty('memoryUsage')
+    expect(systemInfo.process).toHaveProperty('pid')
+    expect(systemInfo).toHaveProperty('exportedAt')
+  })
+
+  it('includes settings.json with API keys masked', async () => {
+    mockSettingsService.getAll.mockResolvedValue({
+      anthropic_api_key: 'sk-ant-secret-value',
+      openai_api_key: 'sk-openai-secret',
+      default_model: 'claude-sonnet-4-5-20250514',
+      theme: 'dark',
+      some_token: 'bearer-xyz',
+      my_password: 'hunter2',
+    })
+
+    const res = await postExport()
+    expect(res.status).toBe(200)
+
+    const buffer = Buffer.from(await res.arrayBuffer())
+    const zip = new AdmZip(buffer)
+    const dateStr = new Date().toISOString().slice(0, 10)
+    const prefix = `dchat-diagnostics-${dateStr}`
+
+    const entries = zip.getEntries().map((e) => e.entryName)
+    expect(entries).toContain(`${prefix}/settings.json`)
+
+    const settings = JSON.parse(zip.readAsText(`${prefix}/settings.json`))
+    expect(settings.anthropic_api_key).toBe('***REDACTED***')
+    expect(settings.openai_api_key).toBe('***REDACTED***')
+    expect(settings.some_token).toBe('***REDACTED***')
+    expect(settings.my_password).toBe('***REDACTED***')
+    expect(settings.default_model).toBe('claude-sonnet-4-5-20250514')
+    expect(settings.theme).toBe('dark')
+  })
+
+  it('includes db-stats.json with expected fields', async () => {
+    mockGetDbStats.mockReturnValue({ sessions: 42, messages: 1337, dbSizeBytes: 5242880 })
+
+    const res = await postExport()
+    expect(res.status).toBe(200)
+
+    const buffer = Buffer.from(await res.arrayBuffer())
+    const zip = new AdmZip(buffer)
+    const dateStr = new Date().toISOString().slice(0, 10)
+    const prefix = `dchat-diagnostics-${dateStr}`
+
+    const entries = zip.getEntries().map((e) => e.entryName)
+    expect(entries).toContain(`${prefix}/db-stats.json`)
+
+    const dbStats = JSON.parse(zip.readAsText(`${prefix}/db-stats.json`))
+    expect(dbStats).toEqual({ sessions: 42, messages: 1337, dbSizeBytes: 5242880 })
+  })
+
+  it('includes mcp-config.json without env fields', async () => {
+    mockMcpService.getServerStatuses.mockResolvedValue([
+      {
+        config: { id: 'srv1', name: 'my-mcp', command: 'npx', args: ['-y', 'mcp-server'], env: { SECRET: 'xyz' }, enabled: true },
+        status: 'running',
+        tools: [{ name: 'tool1' }, { name: 'tool2' }],
+      },
+    ])
+    mockMcpService.getServerLogs.mockReturnValue([])
+
+    const res = await postExport()
+    expect(res.status).toBe(200)
+
+    const buffer = Buffer.from(await res.arrayBuffer())
+    const zip = new AdmZip(buffer)
+    const dateStr = new Date().toISOString().slice(0, 10)
+    const prefix = `dchat-diagnostics-${dateStr}`
+
+    const entries = zip.getEntries().map((e) => e.entryName)
+    expect(entries).toContain(`${prefix}/mcp-config.json`)
+
+    const mcpConfig = JSON.parse(zip.readAsText(`${prefix}/mcp-config.json`))
+    expect(mcpConfig).toHaveLength(1)
+    expect(mcpConfig[0]).toEqual({
+      id: 'srv1',
+      name: 'my-mcp',
+      command: 'npx',
+      args: ['-y', 'mcp-server'],
+      enabled: true,
+      status: 'running',
+      toolCount: 2,
+    })
+    // env must NOT be present
+    expect(mcpConfig[0]).not.toHaveProperty('env')
+  })
+
+  it('returns 200 when settings service throws', async () => {
+    mockSettingsService.getAll.mockRejectedValue(new Error('settings error'))
+
+    const res = await postExport()
+    expect(res.status).toBe(200)
+
+    const buffer = Buffer.from(await res.arrayBuffer())
+    const zip = new AdmZip(buffer)
+    const entries = zip.getEntries().map((e) => e.entryName)
+
+    // settings.json should be missing but other sections still present
+    expect(entries.some((e) => e.includes('settings.json'))).toBe(false)
+    expect(entries.some((e) => e.includes('system-info.json'))).toBe(true)
+  })
+
+  it('returns 200 when getDbStats throws', async () => {
+    mockGetDbStats.mockImplementation(() => { throw new Error('db error') })
+
+    const res = await postExport()
+    expect(res.status).toBe(200)
+
+    const buffer = Buffer.from(await res.arrayBuffer())
+    const zip = new AdmZip(buffer)
+    const entries = zip.getEntries().map((e) => e.entryName)
+
+    expect(entries.some((e) => e.includes('db-stats.json'))).toBe(false)
+    expect(entries.some((e) => e.includes('system-info.json'))).toBe(true)
   })
 })
