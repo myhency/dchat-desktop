@@ -11,8 +11,12 @@ describe('diagnostic export E2E', () => {
     await vibe?.quit()
   })
 
-  it('GET /api/diagnostics/export returns valid zip', async () => {
-    const res = await fetch(`${BACKEND_URL}/api/diagnostics/export`)
+  it('POST /api/diagnostics/export returns valid zip', async () => {
+    const res = await fetch(`${BACKEND_URL}/api/diagnostics/export`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ frontendLogs: [] }),
+    })
     expect(res.ok).toBe(true)
     expect(res.headers.get('content-type')).toBe('application/zip')
 

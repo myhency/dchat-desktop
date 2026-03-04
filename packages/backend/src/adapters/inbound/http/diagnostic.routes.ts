@@ -12,7 +12,7 @@ const asyncHandler = (fn: Function) =>
 export function createDiagnosticRoutes(mcpService: ManageMcpServersUseCase): Router {
   const router = Router()
 
-  router.get('/export', asyncHandler(async (_req: Request, res: Response) => {
+  router.post('/export', asyncHandler(async (req: Request, res: Response) => {
     const zip = new AdmZip()
     const dateStr = new Date().toISOString().slice(0, 10)
     const prefix = `dchat-diagnostics-${dateStr}`
@@ -59,6 +59,22 @@ export function createDiagnosticRoutes(mcpService: ManageMcpServersUseCase): Rou
       }
     } catch {
       // skip if mcp service errors
+    }
+
+    // 4. Frontend logs (from request body)
+    try {
+      const frontendLogs = req.body?.frontendLogs
+      if (Array.isArray(frontendLogs) && frontendLogs.length > 0) {
+        const lines = frontendLogs.map((entry: { timestamp?: string; level?: string; message?: string }) => {
+          const ts = entry.timestamp ?? ''
+          const level = (entry.level ?? 'log').toUpperCase()
+          const msg = entry.message ?? ''
+          return `[${ts}] [${level}] ${msg}`
+        })
+        zip.addFile(`${prefix}/frontend.log`, Buffer.from(lines.join('\n'), 'utf-8'))
+      }
+    } catch {
+      // skip if malformed data
     }
 
     const buffer = zip.toBuffer()

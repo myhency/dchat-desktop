@@ -34,6 +34,7 @@ const mockMcpService = {
 
 beforeAll(async () => {
   const app = express()
+  app.use(express.json())
   app.use('/api/diagnostics', createDiagnosticRoutes(mockMcpService as any))
 
   await new Promise<void>((resolve) => {
@@ -66,7 +67,14 @@ afterEach(() => {
   }
 })
 
-describe('GET /api/diagnostics/export', () => {
+const postExport = (body?: object) =>
+  fetch(`${baseUrl}/api/diagnostics/export`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined,
+  })
+
+describe('POST /api/diagnostics/export', () => {
   it('includes all data sources when available', async () => {
     // Setup backend log
     const logPath = join(mockHome, 'backend.log')
@@ -84,7 +92,7 @@ describe('GET /api/diagnostics/export', () => {
     ])
     mockMcpService.getServerLogs.mockReturnValue(['mcp log line 1', 'mcp log line 2'])
 
-    const res = await fetch(`${baseUrl}/api/diagnostics/export`)
+    const res = await postExport()
     expect(res.status).toBe(200)
     expect(res.headers.get('content-type')).toBe('application/zip')
 
@@ -109,7 +117,7 @@ describe('GET /api/diagnostics/export', () => {
     // No DCHAT_LOG_PATH set
     mockMcpService.getServerStatuses.mockResolvedValue([])
 
-    const res = await fetch(`${baseUrl}/api/diagnostics/export`)
+    const res = await postExport()
     expect(res.status).toBe(200)
 
     const buffer = Buffer.from(await res.arrayBuffer())
@@ -123,7 +131,7 @@ describe('GET /api/diagnostics/export', () => {
     // mockHome has no .dchat/crash-reports
     mockMcpService.getServerStatuses.mockResolvedValue([])
 
-    const res = await fetch(`${baseUrl}/api/diagnostics/export`)
+    const res = await postExport()
     expect(res.status).toBe(200)
 
     const buffer = Buffer.from(await res.arrayBuffer())
@@ -136,7 +144,7 @@ describe('GET /api/diagnostics/export', () => {
   it('returns valid zip without mcp-logs when no servers exist', async () => {
     mockMcpService.getServerStatuses.mockResolvedValue([])
 
-    const res = await fetch(`${baseUrl}/api/diagnostics/export`)
+    const res = await postExport()
     expect(res.status).toBe(200)
 
     const buffer = Buffer.from(await res.arrayBuffer())
@@ -149,8 +157,63 @@ describe('GET /api/diagnostics/export', () => {
   it('returns 200 even when MCP service throws', async () => {
     mockMcpService.getServerStatuses.mockRejectedValue(new Error('MCP service error'))
 
-    const res = await fetch(`${baseUrl}/api/diagnostics/export`)
+    const res = await postExport()
     expect(res.status).toBe(200)
     expect(res.headers.get('content-type')).toBe('application/zip')
+  })
+
+  it('includes frontend.log when frontendLogs provided', async () => {
+    mockMcpService.getServerStatuses.mockResolvedValue([])
+
+    const frontendLogs = [
+      { timestamp: '2026-03-04T10:00:00.000Z', level: 'log', message: 'app started' },
+      { timestamp: '2026-03-04T10:00:01.000Z', level: 'warn', message: 'slow render' },
+      { timestamp: '2026-03-04T10:00:02.000Z', level: 'error', message: 'fetch failed' },
+    ]
+
+    const res = await postExport({ frontendLogs })
+    expect(res.status).toBe(200)
+
+    const buffer = Buffer.from(await res.arrayBuffer())
+    const zip = new AdmZip(buffer)
+    const entries = zip.getEntries().map((e) => e.entryName)
+
+    const dateStr = new Date().toISOString().slice(0, 10)
+    const prefix = `dchat-diagnostics-${dateStr}`
+
+    expect(entries).toContain(`${prefix}/frontend.log`)
+
+    const content = zip.readAsText(`${prefix}/frontend.log`)
+    expect(content).toBe(
+      '[2026-03-04T10:00:00.000Z] [LOG] app started\n' +
+      '[2026-03-04T10:00:01.000Z] [WARN] slow render\n' +
+      '[2026-03-04T10:00:02.000Z] [ERROR] fetch failed'
+    )
+  })
+
+  it('does not include frontend.log when frontendLogs not provided', async () => {
+    mockMcpService.getServerStatuses.mockResolvedValue([])
+
+    const res = await postExport()
+    expect(res.status).toBe(200)
+
+    const buffer = Buffer.from(await res.arrayBuffer())
+    const zip = new AdmZip(buffer)
+    const entries = zip.getEntries().map((e) => e.entryName)
+
+    expect(entries.some((e) => e.includes('frontend.log'))).toBe(false)
+  })
+
+  it('does not include frontend.log when frontendLogs is empty array', async () => {
+    mockMcpService.getServerStatuses.mockResolvedValue([])
+
+    const res = await postExport({ frontendLogs: [] })
+    expect(res.status).toBe(200)
+
+    const buffer = Buffer.from(await res.arrayBuffer())
+    const zip = new AdmZip(buffer)
+    const entries = zip.getEntries().map((e) => e.entryName)
+
+    expect(entries.some((e) => e.includes('frontend.log'))).toBe(false)
   })
 })

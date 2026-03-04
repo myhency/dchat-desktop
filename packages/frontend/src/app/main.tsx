@@ -2,7 +2,10 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import { ErrorBoundary } from '@/shared/ui'
+import { initConsoleBuffer } from '@/shared/lib/console-buffer'
 import './styles/globals.css'
+
+initConsoleBuffer()
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
