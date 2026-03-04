@@ -9,6 +9,13 @@ import { randomUUID } from 'crypto'
 import { initQuickChatDeps, createTray, destroyTray, hideQuickChatPopup, toggleQuickChatPopup, destroyQuickChatPopup } from './tray'
 import { activateShortcut, deactivateShortcut } from './shortcut'
 
+process.on('uncaughtException', (err) => {
+  console.error('[electron] Uncaught exception:', err)
+})
+process.on('unhandledRejection', (reason) => {
+  console.error('[electron] Unhandled rejection:', reason)
+})
+
 let mainWindow: BrowserWindow | null = null
 let backendProcess: ChildProcess | null = null
 let backendPort: number = 0
@@ -42,8 +49,8 @@ async function waitForBackend(port: number, maxAttempts = 30): Promise<void> {
     try {
       const res = await fetch(`http://localhost:${port}/api/health`)
       if (res.ok) return
-    } catch {
-      // not ready yet
+    } catch (err) {
+      if (i === maxAttempts - 1) console.error('[electron] Backend health check failed:', err)
     }
     await new Promise((r) => setTimeout(r, 200))
   }
@@ -90,6 +97,10 @@ async function startBackend(): Promise<number> {
     console.error(`[backend] ${data.toString().trim()}`)
   })
 
+  backendProcess.on('error', (err) => {
+    console.error('[electron] Backend process spawn error:', err)
+  })
+
   backendProcess.on('exit', (code, _signal) => {
     backendProcess = null
     if (code !== 0 && code !== null) {
@@ -117,6 +128,10 @@ function createWindow(): void {
       sandbox: false,
       contextIsolation: true
     }
+  })
+
+  mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => {
+    console.error(`[electron] Page load failed: ${errorCode} ${errorDescription}`)
   })
 
   mainWindow.on('ready-to-show', () => {
@@ -183,26 +198,30 @@ function registerNativeIpc(): void {
     const attachments: { id: string; fileName: string; mimeType: string; base64Data: string }[] = []
     const textExtSet = new Set(textExtensions)
     for (const filePath of result.filePaths) {
-      const buffer = await readFile(filePath)
-      const ext = filePath.split('.').pop()?.toLowerCase() ?? ''
-      const mimeMap: Record<string, string> = {
-        png: 'image/png',
-        jpg: 'image/jpeg',
-        jpeg: 'image/jpeg',
-        gif: 'image/gif',
-        webp: 'image/webp',
-        pdf: 'application/pdf',
-        docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-        csv: 'text/csv',
+      try {
+        const buffer = await readFile(filePath)
+        const ext = filePath.split('.').pop()?.toLowerCase() ?? ''
+        const mimeMap: Record<string, string> = {
+          png: 'image/png',
+          jpg: 'image/jpeg',
+          jpeg: 'image/jpeg',
+          gif: 'image/gif',
+          webp: 'image/webp',
+          pdf: 'application/pdf',
+          docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+          csv: 'text/csv',
+        }
+        attachments.push({
+          id: randomUUID(),
+          fileName: basename(filePath),
+          mimeType: mimeMap[ext] ?? (textExtSet.has(ext) ? 'text/plain' : 'application/octet-stream'),
+          base64Data: buffer.toString('base64')
+        })
+      } catch (err) {
+        console.error(`[electron] Failed to read file: ${filePath}`, err)
       }
-      attachments.push({
-        id: randomUUID(),
-        fileName: basename(filePath),
-        mimeType: mimeMap[ext] ?? (textExtSet.has(ext) ? 'text/plain' : 'application/octet-stream'),
-        base64Data: buffer.toString('base64')
-      })
     }
 
     return attachments
@@ -210,11 +229,15 @@ function registerNativeIpc(): void {
 
   // Open HTML in system browser
   ipcMain.handle('native:open-in-browser', async (_event, htmlContent: string) => {
-    const { writeFile } = await import('node:fs/promises')
-    const { tmpdir } = await import('node:os')
-    const filePath = join(tmpdir(), `dchat-artifact-${randomUUID()}.html`)
-    await writeFile(filePath, htmlContent, 'utf-8')
-    await shell.openExternal(pathToFileURL(filePath).href)
+    try {
+      const { writeFile } = await import('node:fs/promises')
+      const { tmpdir } = await import('node:os')
+      const filePath = join(tmpdir(), `dchat-artifact-${randomUUID()}.html`)
+      await writeFile(filePath, htmlContent, 'utf-8')
+      await shell.openExternal(pathToFileURL(filePath).href)
+    } catch (err) {
+      console.error('[electron] Failed to open in browser:', err)
+    }
   })
 
   // Get backend API URL (async)
@@ -267,35 +290,40 @@ function registerNativeIpc(): void {
 
   // Quick Chat: create session from tray popup → open main window
   ipcMain.handle('native:quick-chat-send', async (_event, text: string, model: string) => {
-    // 1. Create session via backend API
-    const res = await fetch(`http://localhost:${backendPort}/api/sessions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: 'New Chat', model })
-    })
-    if (!res.ok) throw new Error(`Failed to create session: ${res.status}`)
-    const session = (await res.json()) as { id: string }
-
-    // 2. Hide popup
-    hideQuickChatPopup()
-
-    // 3. Ensure main window exists
-    if (!mainWindow) {
-      createWindow()
-      // Wait for the window to finish loading
-      await new Promise<void>((resolve) => {
-        mainWindow!.webContents.on('did-finish-load', () => resolve())
+    try {
+      // 1. Create session via backend API
+      const res = await fetch(`http://localhost:${backendPort}/api/sessions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'New Chat', model })
       })
+      if (!res.ok) throw new Error(`Failed to create session: ${res.status}`)
+      const session = (await res.json()) as { id: string }
+
+      // 2. Hide popup
+      hideQuickChatPopup()
+
+      // 3. Ensure main window exists
+      if (!mainWindow) {
+        createWindow()
+        // Wait for the window to finish loading
+        await new Promise<void>((resolve) => {
+          mainWindow!.webContents.on('did-finish-load', () => resolve())
+        })
+      }
+
+      // 4. Show and focus main window
+      mainWindow!.show()
+      mainWindow!.focus()
+
+      // 5. Tell renderer to navigate to the new session and send the message
+      mainWindow!.webContents.send('native:navigate-to-session', session.id, text)
+
+      return session.id
+    } catch (err) {
+      console.error('[electron] Quick chat send failed:', err)
+      throw err
     }
-
-    // 4. Show and focus main window
-    mainWindow!.show()
-    mainWindow!.focus()
-
-    // 5. Tell renderer to navigate to the new session and send the message
-    mainWindow!.webContents.send('native:navigate-to-session', session.id, text)
-
-    return session.id
   })
 }
 
@@ -336,8 +364,8 @@ app.whenReady().then(async () => {
         activateShortcut(savedShortcut, toggleQuickChatPopup)
       }
     }
-  } catch {
-    // Settings fetch failed — default to showing tray and enabling shortcut
+  } catch (err) {
+    console.warn('[electron] Settings fetch failed, using defaults:', err)
     createTray()
     activateShortcut('double-option', toggleQuickChatPopup)
   }

@@ -2,6 +2,9 @@
  * Composition Root — 모든 의존성 와이어링 (Electron 의존성 없음)
  */
 
+import { statSync } from 'fs'
+import { join } from 'path'
+import { homedir } from 'os'
 import { getDatabase } from './adapters/outbound/persistence/sqlite/connection'
 
 // Outbound Adapters
@@ -42,6 +45,7 @@ export interface AppContainer {
   mcpClient: CompositeMcpClientGateway
   builtInTools: BuiltInToolProvider
   llmFactory: LLMGatewayResolver
+  getDbStats(): { sessions: number; messages: number; dbSizeBytes: number }
   restoreApiKeys(): Promise<void>
   startMcpServers(): Promise<void>
   seedBuiltInSkills(): Promise<void>
@@ -85,6 +89,15 @@ export function createContainer(): AppContainer {
     mcpClient,
     builtInTools,
     llmFactory,
+
+    getDbStats() {
+      const sessionCount = db.prepare('SELECT COUNT(*) as count FROM sessions').get() as { count: number }
+      const messageCount = db.prepare('SELECT COUNT(*) as count FROM messages').get() as { count: number }
+      const dbPath = process.env.DCHAT_DB_PATH || join(homedir(), '.dchat', 'dchat.db')
+      let dbSizeBytes = 0
+      try { dbSizeBytes = statSync(dbPath).size } catch { /* ignore */ }
+      return { sessions: sessionCount.count, messages: messageCount.count, dbSizeBytes }
+    },
 
     async restoreApiKeys(): Promise<void> {
       const anthropicKey = await settingsService.get('anthropic_api_key')

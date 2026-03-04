@@ -118,7 +118,13 @@ export function apiSSE(
           if (line.startsWith('event: ')) {
             currentEvent = line.slice(7)
           } else if (line.startsWith('data: ')) {
-            const data = JSON.parse(line.slice(6))
+            let data
+            try {
+              data = JSON.parse(line.slice(6))
+            } catch (err) {
+              console.error('[sse] Failed to parse SSE data:', err)
+              continue
+            }
             switch (currentEvent) {
               case 'chunk':
                 callbacks.onChunk?.(data)

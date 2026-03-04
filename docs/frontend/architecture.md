@@ -66,7 +66,7 @@ src/
 │   └── mcp/                             # mcpApi, useMcpStore
 └── shared/                              # 인프라, 유틸
     ├── api/                             # client.ts (apiFetch, apiSSE), models.api.ts
-    ├── lib/                             # native.ts, model-meta.ts, time.ts
+    ├── lib/                             # native.ts, model-meta.ts, time.ts, console-buffer.ts
     └── ui/                              # ErrorBoundary 등 공통 UI 컴포넌트
 ```
 
@@ -92,6 +92,7 @@ src/
 | `entities/settings/api/settings.api.ts` | `getAll`, `get`, `set`, `testConnection` |
 | `entities/settings/api/backup.api.ts` | `exportBackup`, `importBackup` |
 | `entities/settings/api/memory.api.ts` | `get`, `delete`, `edit` |
+| `entities/settings/api/diagnostic.api.ts` | `exportDiagnostics` (POST, 프론트엔드 콘솔 로그를 body에 포함하여 ZIP 다운로드) |
 | `entities/skill/api/skill.api.ts` | `list`, `create`, `update`, `toggleEnabled`, `delete` |
 | `entities/mcp/api/mcp.api.ts` | `listServers`, `getStatuses`, `createServer`, `updateServer`, `deleteServer`, `startServer`, `stopServer`, `restartServer`, `getLogs`, `getConfigPath`, `reload` |
 | `shared/api/models.api.ts` | `list` |

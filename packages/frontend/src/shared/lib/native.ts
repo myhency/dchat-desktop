@@ -57,17 +57,21 @@ export async function pickImage(): Promise<ImageAttachment[]> {
       const attachments: ImageAttachment[] = []
       for (let i = 0; i < files.length; i++) {
         const file = files[i]
-        const buffer = await file.arrayBuffer()
-        const base64 = btoa(
-          new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
-        )
-        const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
-        attachments.push({
-          id: crypto.randomUUID(),
-          fileName: file.name,
-          mimeType: file.type || MIME_FALLBACK[ext] || 'application/octet-stream',
-          base64Data: base64
-        })
+        try {
+          const buffer = await file.arrayBuffer()
+          const base64 = btoa(
+            new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+          )
+          const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
+          attachments.push({
+            id: crypto.randomUUID(),
+            fileName: file.name,
+            mimeType: file.type || MIME_FALLBACK[ext] || 'application/octet-stream',
+            base64Data: base64
+          })
+        } catch (err) {
+          console.error('[native] Failed to read file:', file.name, err)
+        }
       }
       resolve(attachments)
     }

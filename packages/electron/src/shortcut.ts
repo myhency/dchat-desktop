@@ -56,16 +56,22 @@ export function activateShortcut(value: string, callback: () => void): void {
 
   if (value === 'double-option') {
     triggerCallback = callback
-    uIOhook.start()
+    try {
+      uIOhook.start()
+    } catch (err) {
+      console.error('[electron] uIOhook.start() failed:', err)
+    }
     activeType = 'double-option'
   } else if (value === 'option-space') {
     const accel = process.platform === 'win32' ? 'Ctrl+Space' : 'Alt+Space'
-    globalShortcut.register(accel, callback)
+    const registered = globalShortcut.register(accel, callback)
+    if (!registered) console.warn(`[electron] Failed to register shortcut: ${accel}`)
     activeAccelerator = accel
     activeType = 'global'
   } else if (value.startsWith('custom:') && value.length > 'custom:'.length) {
     const accelerator = value.slice('custom:'.length)
-    globalShortcut.register(accelerator, callback)
+    const registered = globalShortcut.register(accelerator, callback)
+    if (!registered) console.warn(`[electron] Failed to register shortcut: ${accelerator}`)
     activeAccelerator = accelerator
     activeType = 'global'
   }
