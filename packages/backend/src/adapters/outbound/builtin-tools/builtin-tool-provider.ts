@@ -106,7 +106,7 @@ export class BuiltInToolProvider {
     }))
   }
 
-  async callTool(toolName: string, args: Record<string, unknown>, toolUseId?: string): Promise<{ content: string; isError: boolean }> {
+  async callTool(toolName: string, args: Record<string, unknown>, toolUseId?: string, signal?: AbortSignal): Promise<{ content: string; isError: boolean }> {
     const tools = await this.getActiveTools()
     const tool = tools.find((t) => t.name === toolName)
     if (!tool) {
@@ -147,7 +147,7 @@ export class BuiltInToolProvider {
 
     try {
       logger.debug({ toolName, toolUseId }, 'Executing built-in tool')
-      const result = await tool.execute(args, config)
+      const result = await tool.execute(args, config, signal)
       logger.debug({ toolName, toolUseId, isError: result.isError, contentLength: result.content.length }, 'Built-in tool completed')
       return result
     } catch (err) {
