@@ -295,7 +295,7 @@ if (nearBottom) {
 - `handleSave`: `directories.filter(d => d.trim())`로 빈 행 제거 후 JSON으로 저장
 - `hasDirectories` 판별: `directories.filter(d => d.trim()).length > 0` (빈 행이 있을 수 있으므로 length 비교)
 - Shell 토글: `shellEnabled` boolean → `"true"/"false"` 문자열로 저장
-- **도구 권한 목록 구성**: `FILESYSTEM_TOOL_NAMES` (13개 고정) + `SHELL_TOOL_NAMES` (`execute_command`). `shellEnabled`일 때만 shell 도구가 목록에 포함: `[...FILESYSTEM_TOOL_NAMES, ...(shellEnabled ? SHELL_TOOL_NAMES : [])]`. `DEFAULT_PERMISSIONS`에서 각 도구의 기본 권한 관리 (예: `execute_command: 'confirm'`)
+- **도구 권한 분리**: Filesystem 구성 화면의 도구 권한 목록은 `FILESYSTEM_TOOL_NAMES` (13개)만 표시. `execute_command` 권한은 Shell 카드에 인라인으로 표시 (`shellEnabled`일 때만 노출). 이렇게 분리한 이유: 외부 `@modelcontextprotocol/server-filesystem` MCP 서버와 13개 도구 이름이 겹치는데, `execute_command`까지 Filesystem 화면에 넣으면 사용자가 이를 Filesystem 내장 도구로 오인함. `DEFAULT_PERMISSIONS`에서 각 도구의 기본 권한 관리 (예: `execute_command: 'confirm'`)
 - **상태 + 기본 디렉토리 로딩**: 초기 `Promise.all`에 `settingsApi.getBuiltinToolsStatus()`를 포함하여 settings와 status를 동시 로드. `builtin_tools_allowed_dirs`가 미설정(null)이면 `status.defaultDirectory`(= `os.homedir()`)를 기본값으로 사용. 브라우저 SPA는 홈 디렉토리를 직접 알 수 없으므로 반드시 백엔드 status API 응답에서 가져와야 함.
 - **상태 표시**: `builtinStatus` 상태 → Filesystem 카드에 색상 dot + 라벨 (`실행 중`/`오류`/`비활성화`). `handleSave` 후에도 재fetch (`fetchBuiltinStatus()`).
 - **에러 배너**: `builtinStatus.errors`가 있으면 filesystem 설정 뷰에서 접근 불가 디렉토리 목록을 빨간 배너로 표시

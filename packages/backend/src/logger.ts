@@ -1,4 +1,5 @@
 import pino from 'pino'
+import { rotateLogIfNeeded } from './log-rotation'
 
 export function createLogger(logPath?: string): pino.Logger {
   const level = process.env.LOG_LEVEL || 'info'
@@ -17,6 +18,8 @@ export function createLogger(logPath?: string): pino.Logger {
         : {})
     })
   }
+
+  rotateLogIfNeeded(logPath)
 
   const targets: pino.TransportTargetOptions[] = [
     // File: always JSON

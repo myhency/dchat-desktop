@@ -3,7 +3,7 @@ export interface BuiltInToolDef {
   description: string
   inputSchema: Record<string, unknown>
   isDangerous: boolean
-  execute: (args: Record<string, unknown>, config: ToolConfig) => Promise<{ content: string; isError: boolean }>
+  execute: (args: Record<string, unknown>, config: ToolConfig, signal?: AbortSignal) => Promise<{ content: string; isError: boolean }>
 }
 
 export interface ToolConfig {

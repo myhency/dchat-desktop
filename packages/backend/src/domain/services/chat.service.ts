@@ -249,7 +249,7 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
           continue
         }
 
-        const callResult = await this.mcpClient.callTool(toolDef.serverId, toolUse.name, toolUse.input, toolUse.id)
+        const callResult = await this.mcpClient.callTool(toolDef.serverId, toolUse.name, toolUse.input, toolUse.id, signal)
 
         toolResultBlocks.push({
           type: 'tool_result',
@@ -487,7 +487,13 @@ export class ChatService implements SendMessageUseCase, RegenerateMessageUseCase
         '- 파일시스템 도구(write_file, edit_file, create_directory 등)는 사용자가 파일 생성, 수정, 저장을 **명시적으로 요청**할 때만 사용하세요.\n' +
         '- 코드 작성, 설명, 분석 등 일반적인 요청에는 채팅 메시지로 답변하세요. 파일을 만들지 마세요.\n' +
         '- 파일 읽기 도구(read_text_file, list_directory 등)는 사용자가 특정 파일이나 디렉토리에 대해 질문할 때 사용할 수 있습니다.\n' +
-        '- execute_command 도구는 코드 실행, 패키지 설치, 빌드, 테스트, git 등 셸 명령이 필요한 작업에 적극적으로 활용하세요.\n' +
+        '- execute_command 사용을 최소화하세요. 전용 도구로 가능한 작업에는 반드시 전용 도구를 우선 사용:\n' +
+        '  * 파일 읽기 → read_text_file / read_multiple_files (cat/head/tail 대신)\n' +
+        '  * 파일 쓰기/수정 → write_file / edit_file (sed/awk/echo> 대신)\n' +
+        '  * 파일 검색 → search_files (find/grep 대신)\n' +
+        '  * 디렉토리 탐색 → list_directory / directory_tree (ls 대신)\n' +
+        '- execute_command는 빌드, 테스트, git, 패키지 설치, 스크립트 실행 등 전용 도구로 불가능한 작업에만 사용\n' +
+        '- execute_command 사용 시 description 파라미터로 명령의 목적을 간략히 설명\n' +
         '</tool_usage_guidelines>'
       )
     }

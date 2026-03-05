@@ -36,12 +36,12 @@ export class CompositeMcpClientGateway implements McpClientGateway {
 
   // ── Tool execution ──
 
-  async callTool(serverId: string, toolName: string, args: Record<string, unknown>, toolUseId?: string): Promise<{ content: string; isError: boolean }> {
+  async callTool(serverId: string, toolName: string, args: Record<string, unknown>, toolUseId?: string, signal?: AbortSignal): Promise<{ content: string; isError: boolean }> {
     logger.debug({ serverId, toolName, toolUseId }, 'Routing tool call')
     if (serverId === '__builtin__') {
-      return this.builtIn.callTool(toolName, args, toolUseId)
+      return this.builtIn.callTool(toolName, args, toolUseId, signal)
     }
-    return this.external.callTool(serverId, toolName, args)
+    return this.external.callTool(serverId, toolName, args, toolUseId, signal)
   }
 
   // ── Server lifecycle (external only) ──

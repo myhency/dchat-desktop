@@ -143,6 +143,14 @@ function createWindow(): void {
     return { action: 'deny' }
   })
 
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    const rendererUrl = process.env['ELECTRON_RENDERER_URL']
+    if (rendererUrl && url.startsWith(rendererUrl)) return
+
+    event.preventDefault()
+    shell.openExternal(url)
+  })
+
   const isDev = !app.isPackaged
   if (isDev) {
     mainWindow.webContents.on('before-input-event', (_event, input) => {

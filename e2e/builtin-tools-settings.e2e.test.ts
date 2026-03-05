@@ -289,7 +289,7 @@ describe('builtin tools settings E2E', () => {
     await new Promise((r) => setTimeout(r, 300))
   }, 30_000)
 
-  it('Shell 활성화 시 execute_command 권한 행이 도구 권한에 표시됨', async () => {
+  it('Shell 활성화 시 execute_command 권한이 Shell 카드에 표시됨', async () => {
     // Enable shell via API
     await vibe.evaluate(`
       return fetch('/api/settings/builtin_tools_shell_enabled', {
@@ -300,7 +300,7 @@ describe('builtin tools settings E2E', () => {
     `)
     await new Promise((r) => setTimeout(r, 300))
 
-    // Navigate away from extensions to force unmount, then back to remount with fresh state
+    // Navigate away then back to remount with fresh state
     await vibe.evaluate(
       'const btn = [...document.querySelectorAll("button")].find(b => b.textContent.trim() === "일반"); if (btn) btn.click();'
     )
@@ -310,28 +310,34 @@ describe('builtin tools settings E2E', () => {
     )
     await new Promise((r) => setTimeout(r, 1000))
 
-    // Enter filesystem config
-    await vibe.evaluate(
-      'const btn = [...document.querySelectorAll("button")].find(b => b.textContent.trim() === "구성"); if (btn) btn.click();'
-    )
-    await new Promise((r) => setTimeout(r, 500))
-
-    // Verify execute_command row is now visible
+    // Verify execute_command permission row is visible in Shell card (extensions list view, NOT filesystem config)
     const hasExecuteCommand = await vibe.evaluate<boolean>(
       'return !!document.body.textContent.includes("execute_command")'
     )
     expect(hasExecuteCommand).toBe(true)
 
-    // Verify 14 tool rows total (13 filesystem + 1 shell)
+    // Enter filesystem config and verify execute_command is NOT there
+    await vibe.evaluate(
+      'const btn = [...document.querySelectorAll("button")].find(b => b.textContent.trim() === "구성"); if (btn) btn.click();'
+    )
+    await new Promise((r) => setTimeout(r, 500))
+
+    // Filesystem config should still have only 13 tool rows (no execute_command)
     const toolCount = await vibe.evaluate<number>(`
       const rows = document.querySelectorAll('[class*="font-mono"]');
       return [...rows].filter(el => el.closest('[class*="justify-between"]')).length;
     `)
-    expect(toolCount).toBe(14)
+    expect(toolCount).toBe(13)
+
+    // Go back to extensions list for next test
+    await vibe.evaluate(
+      'const btn = [...document.querySelectorAll("button")].find(b => b.textContent.includes("모든 확장")); if (btn) btn.click();'
+    )
+    await new Promise((r) => setTimeout(r, 500))
   }, 30_000)
 
-  it('execute_command 권한 변경(always/confirm/blocked)이 API에 저장됨', async () => {
-    // Click "always" (CircleCheck) button for execute_command — 1st button in the row
+  it('Shell 카드에서 execute_command 권한 변경이 API에 저장됨', async () => {
+    // Click "always" (CircleCheck) button for execute_command in Shell card — 1st permission button
     await vibe.evaluate(`
       const rows = document.querySelectorAll('[class*="font-mono"]');
       const execRow = [...rows].find(el => el.textContent === 'execute_command');
