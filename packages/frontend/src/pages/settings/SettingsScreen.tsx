@@ -2678,19 +2678,50 @@ function ExtensionsContent({ onNavigate }: { onNavigate: (tab: Tab) => void }): 
               </button>
             </div>
             {/* Shell card */}
-            <div className="flex items-center justify-between px-4 py-3">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">
-                  <Terminal size={16} className="text-neutral-600 dark:text-neutral-400" />
+            <div className="px-4 py-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">
+                    <Terminal size={16} className="text-neutral-600 dark:text-neutral-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Shell</p>
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                      {shellEnabled ? '활성화됨' : '비활성화됨'}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-medium">Shell</p>
-                  <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                    {shellEnabled ? '활성화됨' : '비활성화됨'}
-                  </p>
-                </div>
+                <Toggle checked={shellEnabled} onChange={handleShellToggle} />
               </div>
-              <Toggle checked={shellEnabled} onChange={handleShellToggle} />
+              {shellEnabled && (
+                <div className="flex items-center justify-between mt-3 ml-11 py-1.5">
+                  <span className="text-sm font-mono text-neutral-600 dark:text-neutral-400">execute_command</span>
+                  <div className="flex items-center gap-1">
+                    {([
+                      { value: 'always' as const, icon: CircleCheck, title: '항상 허용' },
+                      { value: 'confirm' as const, icon: Hand, title: '승인 필요' },
+                      { value: 'blocked' as const, icon: Ban, title: '차단됨' }
+                    ] as const).map(({ value, icon: Icon, title }) => {
+                      const current = toolPermissions['execute_command'] ?? DEFAULT_PERMISSIONS['execute_command']
+                      return (
+                        <button
+                          key={value}
+                          type="button"
+                          title={title}
+                          onClick={() => handlePermissionChange('execute_command', value)}
+                          className={`p-1.5 rounded-md transition-colors ${
+                            current === value
+                              ? 'bg-neutral-200 dark:bg-neutral-700 text-neutral-800 dark:text-neutral-200'
+                              : 'text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                          }`}
+                        >
+                          <Icon size={16} />
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -2812,7 +2843,7 @@ function ExtensionsContent({ onNavigate }: { onNavigate: (tab: Tab) => void }): 
         </p>
 
         <div className="space-y-2">
-          {[...FILESYSTEM_TOOL_NAMES, ...(shellEnabled ? SHELL_TOOL_NAMES : [])].map((toolName) => {
+          {[...FILESYSTEM_TOOL_NAMES].map((toolName) => {
             const current = toolPermissions[toolName] ?? DEFAULT_PERMISSIONS[toolName]
             return (
               <div key={toolName} className="flex items-center justify-between py-1.5">
