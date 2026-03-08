@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1920">
+  <title>{{보고서_제목}}</title>
+  <style>
+    /* === style.css 내용을 여기에 인라인 삽입 === */
+    /* Phase 4에서 style.css 파일 전체를 이 위치에 삽입한다 */
+  </style>
+</head>
+<body>
+
+  <div class="report-wrapper">
+
+    <!-- ============================================================
+         HEADER 영역
+         - .report-title: 보고서 메인 제목 (h1, 36px bold)
+         - .report-subtitle: 부제목 (18px, #666)
+         - .report-meta: 작성자/날짜/버전 등 메타 정보
+           각 항목은 .meta-item > .meta-label + .meta-value 구조
+         ============================================================ -->
+    <header class="report-header">
+      <h1 class="report-title">{{보고서_제목}}</h1>
+      <p class="report-subtitle">{{부제목}}</p>
+      <div class="report-meta">
+        <span class="meta-item">
+          <span class="meta-label">작성자</span>
+          <span class="meta-value">{{작성자}}</span>
+        </span>
+        <span class="meta-item">
+          <span class="meta-label">작성일</span>
+          <span class="meta-value">{{작성일}}</span>
+        </span>
+        <span class="meta-item">
+          <span class="meta-label">버전</span>
+          <span class="meta-value">{{버전}}</span>
+        </span>
+      </div>
+    </header>
+
+
+    <div class="report-content">
+
+      <!-- ============================================================
+           목차 (TOC) 영역
+           - generateTOC()가 <main> 안의 h2, h3를 스캔하여 자동 생성
+           - 수동으로 넣지 않아도 됨 (DOMContentLoaded 시 자동 실행)
+           - .toc-sidebar 클래스를 추가하면 좌측 고정 사이드바로 전환 가능
+           ============================================================ -->
+      <nav class="toc" id="toc">
+        <!-- generateTOC()가 자동으로 .toc-title + .toc-list 생성 -->
+      </nav>
+
+
+      <main>
+
+        <!-- ============================================================
+             섹션 기본 구조
+             - .section: 기본 섹션 컨테이너 (margin-bottom: 48px)
+             - .subsection: 하위 섹션 (margin-bottom: 32px)
+             - h2: 섹션 제목 (26px, 하단 border)
+             - h3: 소제목 (22px)
+             - h4: 보조 제목 (18px)
+             ============================================================ -->
+        <section class="section">
+          <h2>{{섹션_제목}}</h2>
+          <p>{{섹션_내용}}</p>
+
+          <div class="subsection">
+            <h3>{{소제목}}</h3>
+            <p>{{소제목_내용}}</p>
+          </div>
+        </section>
+
+
+        <!-- ============================================================
+             하이라이트 카드 (KPI / 핵심 지표)
+             - .card-grid: flex 컨테이너 (gap: 20px)
+             - .highlight-card: 개별 카드
+               - .card-title: 지표명 (18px semibold)
+               - .card-value: 수치 (36px bold, #2563eb)
+               - .card-description: 설명 (14px, #888)
+             - 액센트 변형: .accent-blue, .accent-green, .accent-orange, .accent-red
+             - 애니메이션: .slide-up + data-delay="100" 등으로 순차 등장
+             ============================================================ -->
+        <section class="section">
+          <h2>핵심 지표</h2>
+          <div class="card-grid">
+            <div class="highlight-card accent-blue slide-up" data-delay="0">
+              <div class="card-title">{{지표명_1}}</div>
+              <div class="card-value">{{값_1}}</div>
+              <div class="card-description">{{설명_1}}</div>
+            </div>
+            <div class="highlight-card accent-green slide-up" data-delay="100">
+              <div class="card-title">{{지표명_2}}</div>
+              <div class="card-value">{{값_2}}</div>
+              <div class="card-description">{{설명_2}}</div>
+            </div>
+            <div class="highlight-card accent-orange slide-up" data-delay="200">
+              <div class="card-title">{{지표명_3}}</div>
+              <div class="card-value">{{값_3}}</div>
+              <div class="card-description">{{설명_3}}</div>
+            </div>
+            <div class="highlight-card accent-red slide-up" data-delay="300">
+              <div class="card-title">{{지표명_4}}</div>
+              <div class="card-value">{{값_4}}</div>
+              <div class="card-description">{{설명_4}}</div>
+            </div>
+          </div>
+        </section>
+
+
+        <!-- ============================================================
+             차트 컴포넌트
+             - .chart-container: 차트 래퍼 (padding: 24px, border, rounded)
+               - .chart-title: 차트 제목 (16px semibold)
+               - .chart-subtitle: 보조 설명 (13px, #999)
+               - canvas: Chart.js가 그릴 캔버스 (고유 id 필수)
+
+             사용 가능한 차트 함수 (components.js):
+               createBarChart(canvasId, labels, datasets, options?)
+               createLineChart(canvasId, labels, datasets, options?)
+               createPieChart(canvasId, labels, data, options?)
+               createDonutChart(canvasId, labels, data, options?)
+
+             datasets 형식 (Bar/Line):
+               [{ label: '시리즈명', data: [값1, 값2, ...] }, ...]
+             data 형식 (Pie/Donut):
+               [값1, 값2, ...]  (labels와 1:1 대응)
+             ============================================================ -->
+        <section class="section">
+          <h2>데이터 분석</h2>
+
+          <!-- 막대 차트 예시 -->
+          <div class="chart-container">
+            <h3 class="chart-title">{{막대_차트_제목}}</h3>
+            <p class="chart-subtitle">{{막대_차트_부제}}</p>
+            <canvas id="chart-bar-1" width="800" height="400"></canvas>
+          </div>
+
+          <!-- 라인 차트 예시 -->
+          <div class="chart-container">
+            <h3 class="chart-title">{{라인_차트_제목}}</h3>
+            <p class="chart-subtitle">{{라인_차트_부제}}</p>
+            <canvas id="chart-line-1" width="800" height="400"></canvas>
+          </div>
+
+          <!-- 파이/도넛 차트를 나란히 배치하려면 flex 활용 -->
+          <div class="flex gap-24">
+            <div class="chart-container" style="flex:1;">
+              <h3 class="chart-title">{{파이_차트_제목}}</h3>
+              <canvas id="chart-pie-1" width="400" height="400"></canvas>
+            </div>
+            <div class="chart-container" style="flex:1;">
+              <h3 class="chart-title">{{도넛_차트_제목}}</h3>
+              <canvas id="chart-donut-1" width="400" height="400"></canvas>
+            </div>
+          </div>
+        </section>
+
+
+        <!-- ============================================================
+             테이블
+             - 기본: <table> (width: 100%, zebra striping, hover)
+             - .table-compact: 작은 패딩 (8px 12px, 14px 폰트)
+             - .table-bordered: 전체 테두리
+             - .col-number: 숫자 열 오른쪽 정렬 + tabular-nums
+             - <caption>: 테이블 하단 캡션 (13px, #999)
+             ============================================================ -->
+        <section class="section">
+          <h2>상세 데이터</h2>
+          <table>
+            <caption>{{테이블_캡션}}</caption>
+            <thead>
+              <tr>
+                <th>{{열_제목_1}}</th>
+                <th>{{열_제목_2}}</th>
+                <th class="col-number">{{열_제목_3}}</th>
+                <th class="col-number">{{열_제목_4}}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>{{데이터_1_1}}</td>
+                <td>{{데이터_1_2}}</td>
+                <td class="col-number">{{데이터_1_3}}</td>
+                <td class="col-number">{{데이터_1_4}}</td>
+              </tr>
+              <!-- 행 반복 -->
+            </tbody>
+          </table>
+        </section>
+
+
+        <!-- ============================================================
+             인용문 / 콜아웃
+             - <blockquote>: 기본 (파란색 좌측 보더)
+             - .callout-info: 정보 (파란색 배경)
+             - .callout-warning: 주의 (노란색 배경)
+             - .callout-success: 성공 (초록색 배경)
+             - .callout-danger: 위험 (빨간색 배경)
+             - <cite>: 출처 표시 (em dash 자동 삽입)
+             ============================================================ -->
+        <section class="section">
+          <h2>주요 인사이트</h2>
+
+          <blockquote>
+            <p>{{인용문_내용}}</p>
+            <cite>{{출처}}</cite>
+          </blockquote>
+
+          <blockquote class="callout-info">
+            <p>{{정보_콜아웃_내용}}</p>
+          </blockquote>
+
+          <blockquote class="callout-warning">
+            <p>{{경고_콜아웃_내용}}</p>
+          </blockquote>
+
+          <blockquote class="callout-success">
+            <p>{{성공_콜아웃_내용}}</p>
+          </blockquote>
+
+          <blockquote class="callout-danger">
+            <p>{{위험_콜아웃_내용}}</p>
+          </blockquote>
+        </section>
+
+
+        <!-- ============================================================
+             프로그레스 바
+             - .progress-bar: 바 컨테이너 (height: 8px)
+               - .progress-fill: 채워진 영역 (width를 %로 지정)
+             - 크기: .progress-sm (4px), .progress-lg (14px)
+             - 색상: .fill-green, .fill-orange, .fill-red (기본: blue)
+             - .progress-label: 바 위의 라벨 (flex, space-between)
+               - .progress-value: 오른쪽 수치
+             ============================================================ -->
+        <section class="section">
+          <h2>진행 현황</h2>
+
+          <div class="mb-24">
+            <div class="progress-label">
+              <span>{{항목명_1}}</span>
+              <span class="progress-value">{{퍼센트_1}}%</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" style="width: {{퍼센트_1}}%;"></div>
+            </div>
+          </div>
+
+          <div class="mb-24">
+            <div class="progress-label">
+              <span>{{항목명_2}}</span>
+              <span class="progress-value">{{퍼센트_2}}%</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill fill-green" style="width: {{퍼센트_2}}%;"></div>
+            </div>
+          </div>
+
+          <div class="mb-24">
+            <div class="progress-label">
+              <span>{{항목명_3}}</span>
+              <span class="progress-value">{{퍼센트_3}}%</span>
+            </div>
+            <div class="progress-bar progress-lg">
+              <div class="progress-fill fill-orange" style="width: {{퍼센트_3}}%;"></div>
+            </div>
+          </div>
+        </section>
+
+
+        <!-- ============================================================
+             아코디언 (접기/펼치기)
+             - .accordion: 전체 래퍼 (border, rounded)
+             - .accordion-item: 개별 항목
+               - .active 클래스 추가 시 초기 펼침 상태
+             - .accordion-header: 클릭 가능한 헤더 (button 역할)
+             - .accordion-body > .accordion-body-inner: 본문 내용
+             - initAccordions()가 DOMContentLoaded에서 자동 초기화
+             ============================================================ -->
+        <section class="section">
+          <h2>자주 묻는 질문</h2>
+          <div class="accordion">
+            <div class="accordion-item active">
+              <div class="accordion-header">{{질문_1}}</div>
+              <div class="accordion-body">
+                <div class="accordion-body-inner">
+                  <p>{{답변_1}}</p>
+                </div>
+              </div>
+            </div>
+            <div class="accordion-item">
+              <div class="accordion-header">{{질문_2}}</div>
+              <div class="accordion-body">
+                <div class="accordion-body-inner">
+                  <p>{{답변_2}}</p>
+                </div>
+              </div>
+            </div>
+            <div class="accordion-item">
+              <div class="accordion-header">{{질문_3}}</div>
+              <div class="accordion-body">
+                <div class="accordion-body-inner">
+                  <p>{{답변_3}}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+
+        <!-- ============================================================
+             탭 컴포넌트
+             - .tab-group: 탭 전체를 감싸는 컨테이너 (필수)
+             - .tab-buttons: 탭 버튼 행 (flex, border-bottom)
+               - .tab-button[data-tab="id"]: 개별 탭 버튼
+             - .tab-content[data-tab-content="id"]: 탭별 콘텐츠
+               - data-tab과 data-tab-content 값이 일치해야 함
+             - initTabs()가 DOMContentLoaded에서 자동 초기화
+             - 첫 번째 탭이 자동으로 active 상태가 됨
+             ============================================================ -->
+        <section class="section">
+          <h2>분류별 상세</h2>
+          <div class="tab-group">
+            <div class="tab-buttons">
+              <button class="tab-button active" data-tab="tab-1">{{탭_제목_1}}</button>
+              <button class="tab-button" data-tab="tab-2">{{탭_제목_2}}</button>
+              <button class="tab-button" data-tab="tab-3">{{탭_제목_3}}</button>
+            </div>
+            <div class="tab-content active" data-tab-content="tab-1">
+              <p>{{탭_내용_1}}</p>
+            </div>
+            <div class="tab-content" data-tab-content="tab-2">
+              <p>{{탭_내용_2}}</p>
+            </div>
+            <div class="tab-content" data-tab-content="tab-3">
+              <p>{{탭_내용_3}}</p>
+            </div>
+          </div>
+        </section>
+
+
+        <!-- ============================================================
+             타임라인
+             - .timeline: 좌측 세로선이 있는 타임라인 컨테이너
+             - .timeline-item: 개별 이벤트
+               - .completed 클래스 추가 시 원형 도트가 채워진 스타일
+             - .timeline-date: 날짜 (13px, #2563eb)
+             - .timeline-title: 이벤트 제목 (16px semibold)
+             - .timeline-description: 설명 (14px, #666)
+             ============================================================ -->
+        <section class="section">
+          <h2>프로젝트 일정</h2>
+          <div class="timeline">
+            <div class="timeline-item completed">
+              <div class="timeline-date">{{날짜_1}}</div>
+              <div class="timeline-title">{{이벤트_제목_1}}</div>
+              <div class="timeline-description">{{이벤트_설명_1}}</div>
+            </div>
+            <div class="timeline-item completed">
+              <div class="timeline-date">{{날짜_2}}</div>
+              <div class="timeline-title">{{이벤트_제목_2}}</div>
+              <div class="timeline-description">{{이벤트_설명_2}}</div>
+            </div>
+            <div class="timeline-item">
+              <div class="timeline-date">{{날짜_3}}</div>
+              <div class="timeline-title">{{이벤트_제목_3}}</div>
+              <div class="timeline-description">{{이벤트_설명_3}}</div>
+            </div>
+            <div class="timeline-item">
+              <div class="timeline-date">{{날짜_4}}</div>
+              <div class="timeline-title">{{이벤트_제목_4}}</div>
+              <div class="timeline-description">{{이벤트_설명_4}}</div>
+            </div>
+          </div>
+        </section>
+
+
+        <!-- ============================================================
+             리스트 / 설명 목록
+             - <ul>: 순서 없는 목록 (disc > circle > square)
+             - <ol>: 순서 있는 목록 (decimal > lower-alpha)
+             - <dl>: 설명 목록 (dt: 600 bold, dd: 들여쓰기)
+             ============================================================ -->
+        <!-- 리스트는 별도 섹션 대신 다른 섹션 내에서 자유롭게 사용 -->
+
+
+        <!-- ============================================================
+             코드 블록
+             - <code>: 인라인 코드 (분홍 배경)
+             - <pre><code>: 블록 코드 (다크 테마, rounded)
+             ============================================================ -->
+        <!-- 코드 블록은 기술 보고서에서 필요 시 섹션 내에 삽입 -->
+
+
+        <!-- ============================================================
+             이미지 / 피겨
+             - <figure>: 이미지 래퍼 (center 정렬)
+             - <figcaption>: 이미지 캡션 (13px, #999)
+             ============================================================ -->
+        <!-- 이미지는 필요 시 섹션 내에 삽입 -->
+
+
+        <!-- ============================================================
+             유틸리티 클래스 참고 (style.css 20번 섹션)
+
+             텍스트 정렬: .text-left, .text-center, .text-right
+             폰트 굵기:  .font-normal, .font-medium, .font-semibold, .font-bold
+             텍스트 색상: .text-muted, .text-primary, .text-success, .text-warning, .text-danger
+             상단 여백:   .mt-0, .mt-8, .mt-16, .mt-24, .mt-32, .mt-48
+             하단 여백:   .mb-0, .mb-8, .mb-16, .mb-24, .mb-32, .mb-48
+             디스플레이:  .hidden, .block, .flex, .inline
+             Flex:       .flex-center, .flex-between
+             간격:       .gap-8, .gap-16, .gap-24, .gap-32
+             너비:       .w-full, .w-half
+             애니메이션:  .fade-in, .slide-up (+ data-delay="ms")
+             지연:       .delay-1 ~ .delay-5 (0.1s ~ 0.5s)
+             ============================================================ -->
+
+      </main>
+
+    </div><!-- /.report-content -->
+
+
+    <!-- ============================================================
+         FOOTER 영역
+         - .report-footer: 하단 구분선 + 양쪽 정렬 (flex, space-between)
+         - .footer-info: 좌측 정보 (flex, gap: 24px)
+         - .footer-note: 우측 부가 메모 (12px, #bbb)
+         ============================================================ -->
+    <footer class="report-footer">
+      <div class="footer-info">
+        <span>{{작성_조직}}</span>
+        <span>{{작성일}}</span>
+      </div>
+      <div class="footer-note">{{푸터_메모}}</div>
+    </footer>
+
+  </div><!-- /.report-wrapper -->
+
+
+  <!-- ============================================================
+       스크립트 영역
+
+       로드 순서:
+       1. Chart.js CDN (차트 기능 사용 시)
+       2. components.js (인라인 삽입)
+       3. 보고서별 차트 초기화 코드
+
+       components.js의 DOMContentLoaded에서 자동 실행:
+       - generateTOC(): main 내 h2/h3 스캔 -> nav#toc에 목차 생성
+       - initAccordions(): .accordion-item 토글 초기화
+       - initTabs(): .tab-group 내 탭 전환 초기화
+       - initScrollAnimations(): .fade-in, .slide-up 스크롤 애니메이션
+       ============================================================ -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    /* === components.js 내용을 여기에 인라인 삽입 === */
+    /* Phase 4에서 components.js 파일 전체를 이 위치에 삽입한다 */
+  </script>
+  <script>
+    /* === 보고서별 차트 초기화 코드가 여기에 들어감 === */
+
+    /*
+     * 막대 차트 예시:
+     * createBarChart('chart-bar-1',
+     *   ['Q1', 'Q2', 'Q3', 'Q4'],
+     *   [
+     *     { label: '매출', data: [100, 120, 115, 140] },
+     *     { label: '비용', data: [80, 90, 85, 95] }
+     *   ]
+     * );
+     *
+     * 라인 차트 예시:
+     * createLineChart('chart-line-1',
+     *   ['1월', '2월', '3월', '4월', '5월', '6월'],
+     *   [
+     *     { label: '방문자 수', data: [1200, 1900, 3000, 5000, 4000, 6000] }
+     *   ]
+     * );
+     *
+     * 파이 차트 예시:
+     * createPieChart('chart-pie-1',
+     *   ['제품A', '제품B', '제품C', '기타'],
+     *   [40, 30, 20, 10]
+     * );
+     *
+     * 도넛 차트 예시:
+     * createDonutChart('chart-donut-1',
+     *   ['온라인', '오프라인', '파트너'],
+     *   [55, 30, 15]
+     * );
+     *
+     * 옵션 오버라이드 예시:
+     * createBarChart('chart-bar-1', labels, datasets, {
+     *   indexAxis: 'y',  // 수평 막대 차트
+     *   scales: { y: { beginAtZero: true } }
+     * });
+     */
+  </script>
+</body>
+</html>
